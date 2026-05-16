@@ -119,6 +119,56 @@ def _inject_test_mode_meta(html_bytes: bytes) -> bytes:
 
 
 # ─────────────────────────────────────────────────────────────────────
+# B-064 — static asset hardening (CSP + Cache-Control + nosniff)
+# ─────────────────────────────────────────────────────────────────────
+
+# Conservative CSP for our static UI surface. The C1 brief form and
+# C3a case/done/resume pages all run their own JS + own CSS only; no
+# third-party scripts, no inline event handlers, no remote XHR.
+#
+# We allow 'unsafe-inline' for styles because some pages emit small
+# inline <style> blocks for severity badges / banner colors. Inline
+# scripts are NOT permitted — anything that needs to run must live in
+# a .js file under /static/.
+_STATIC_CSP = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data:; "
+    "connect-src 'self'; "
+    "font-src 'self' data:; "
+    "base-uri 'self'; "
+    "form-action 'self'; "
+    "frame-ancestors 'none'"
+)
+
+# Cache-Control policy per content type. HTML revalidates every
+# request (so deploys are picked up immediately); JS/CSS get a short
+# revalidation window (5 min) so a CDN layer can later slot in cleanly
+# without serving stale code through a deploy. Anything else gets a
+# conservative no-store.
+_STATIC_CACHE_CONTROL = {
+    ".html": "no-cache, must-revalidate",
+    ".js":   "public, max-age=300, must-revalidate",
+    ".css":  "public, max-age=300, must-revalidate",
+}
+
+
+def _static_security_headers(ext: str) -> dict[str, str]:
+    """B-064 — return the security/cache headers for a static asset.
+
+    Kept module-level for testability: tests can assert exact header
+    values without spinning up an HTTPServer.
+    """
+    return {
+        "Content-Security-Policy": _STATIC_CSP,
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Cache-Control": _STATIC_CACHE_CONTROL.get(ext, "no-store"),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────
 # § 9.7 / P32 — Startup config validation
 # ─────────────────────────────────────────────────────────────────────
 _PROD_REQUIRED = (
@@ -156,6 +206,10 @@ def _validate_config() -> None:
          delete a sentinel file).
       4. SQLite version >= 3.35.0 (UPDATE...RETURNING is required by
          the scheduler atomic claim, P28).
+      5. B-062 cross-check: BUILDEMUP_ENV=prod + C3A_TEST_MODE=1 is
+         a forbidden combination. The test-mode flag exposes
+         /c3a/_test_harness.html and bypasses the c3aFetch 503
+         auto-retry — both unacceptable for real traffic.
     """
     env = os.environ.get("BUILDEMUP_ENV", "dev").lower()
     is_prod = (env == "prod")
@@ -195,6 +249,18 @@ def _validate_config() -> None:
         failures.append(
             f"SQLite {ver} < required {_MIN_SQLITE} "
             f"(UPDATE...RETURNING needed)"
+        )
+
+    # 5: B-062 — prod + test-mode is a forbidden combination.
+    # Test mode exposes /c3a/_test_harness.html AND disables the
+    # c3aFetch 503 auto-retry. Either alone is acceptable in dev;
+    # both in prod means real users land on a harness that won't
+    # retry transient SQLite locks.
+    if is_prod and os.environ.get("C3A_TEST_MODE") == "1":
+        failures.append(
+            "C3A_TEST_MODE=1 is forbidden when BUILDEMUP_ENV=prod "
+            "(exposes /c3a/_test_harness.html and disables the "
+            "c3aFetch 503 auto-retry path)"
         )
 
     if not failures:
@@ -516,6 +582,9 @@ class BriefCaptureHandler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(content)))
+        # B-064 — static asset hardening: CSP + Cache-Control + nosniff.
+        for header_name, header_value in _static_security_headers(ext).items():
+            self.send_header(header_name, header_value)
         self.end_headers()
         self.wfile.write(content)
 

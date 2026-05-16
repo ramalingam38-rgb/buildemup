@@ -443,9 +443,62 @@ class GridAlignmentReport:
 # =============================================================================
 
 
+# =============================================================================
+# B-109 — Narrow-plot graceful fallback recommendation
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class NarrowPlotRecommendation:
+    """Returned by `design_corridors_safe` for a candidate whose plot is
+    too narrow for any GRID_FRACTION corridor candidate at the configured
+    regulatory minimum.
+
+    Per B-109 (closed S55): the strict `design_corridors` path raises
+    `CorridorTooNarrowError` (correct for pipelines that need strict
+    feasibility). The new `design_corridors_safe` path substitutes one
+    of these objects for that candidate so the caller can keep
+    processing siblings AND surface a structured recommendation to the
+    user (different topology, override the regulatory minimum, or skip
+    the corridor on this candidate).
+
+    Fields:
+      candidate_index: position in the input tuple — preserves the
+                       position-paired contract from § 14.3.
+      message: human-readable diagnostic, suitable for direct UI display.
+      bay_min_m / regulatory_min_width_m: numeric context (mirrors the
+                       CorridorTooNarrowError attribute names so callers
+                       can build either branch with the same code).
+      candidate_widths_m: the GRID_FRACTION × bay_min product set the
+                       width selector considered, if available.
+      suggested_alternative_topologies: tuple of TopologyKind names the
+                       caller might retry (e.g., "STRIP" for narrow plots).
+      suggested_user_action: short caller-facing guidance — one of
+                       "increase_plot_width", "lower_regulatory_min",
+                       "drop_corridor_topology", "switch_to_strip".
+    """
+    candidate_index: int
+    message: str
+    bay_min_m: float | None = None
+    regulatory_min_width_m: float | None = None
+    candidate_widths_m: tuple[float, ...] | None = None
+    suggested_alternative_topologies: tuple[str, ...] = ()
+    suggested_user_action: str = "increase_plot_width"
+
+
 @dataclass(frozen=True)
 class CorridorDesignConfig:
-    """Tunables for C8. All have safe defaults; callers can omit. Per § 3."""
+    """Tunables for C8. All have safe defaults; callers can omit. Per § 3.
+
+    B-108 (partial closure S55): `regulatory_min_width_m` default of
+    0.9m is sourced from NBC 2016 Part 3 § 14 interior-residential
+    corridor minimum (single-dwelling unit, < 30m corridor length).
+    NBC 2016 Part 4 § 4.3 fire-egress paths can require 1.0m+ for
+    longer corridors or multi-unit dwellings — those callers should
+    pass a higher override. Full PDF verification (with architect
+    sign-off) is queued under B-150 / B-238; see
+    `05_integrity_check/B108_PARTIAL_NBC_VERIFICATION_S55.md`.
+    """
     regulatory_min_width_m: float = 0.9
     comfort_target_width_m: float = 1.2
     entry_stub_width_m: float = 1.0

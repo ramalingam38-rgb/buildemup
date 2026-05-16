@@ -139,15 +139,15 @@ class SoilEstimate:
     decisions or high-variability reasons that the LOW/MEDIUM/HIGH
     confidence enum is too coarse to express. Examples:
       - None for clean user_input or stable city defaults.
-      - "medium_rock_approximated_to_soft_rock_660kpa_underestimate_b074"
-        when MEDIUM_ROCK is requested (kb has no MEDIUM_ROCK class;
-        downcast to SOFT_ROCK is a documented underestimate per IS 6403).
       - "filled_up_high_variability_site_survey_required" for Mumbai
         city default (matches CITY_SOIL_DEFAULTS' "MANDATORY soil
         testing" guidance).
 
-    The `_b074` / `_b076` suffixes act as in-source breadcrumbs to the
-    deferred backlog items.
+    v1.1 (B-074 closed): MEDIUM_ROCK is now a first-class kb.SoilClass
+    with IS 6403-aligned kPa (1000-1500 typ 1250). The previous
+    `_b074` breadcrumb is no longer emitted; the breadcrumb hook in
+    APPROXIMATION_NOTES_BY_SOIL_TYPE survives as an empty-dict export
+    for forward compatibility.
     """
     soil_type: SoilType
     bearing_capacity_kpa: float | None

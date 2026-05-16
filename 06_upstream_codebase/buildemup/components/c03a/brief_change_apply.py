@@ -31,6 +31,12 @@ import dataclasses
 from typing import Callable, Optional
 
 from buildemup.domain.brief import Brief, BudgetRange
+from buildemup.domain.exceptions import (
+    BudgetValidationError,
+    FloorCountTooLowError,
+    RoomCountNegativeError,
+    RoomSizeBelowNbcMinError,
+)
 from buildemup.domain.setbacks import Setbacks
 from buildemup.domain.floor_requirement import (
     FloorRequirement, RoomRequirement, RoomType, FloorUse,
@@ -605,63 +611,110 @@ def _resulting_bedroom_count(brief: Brief, change: BriefChange) -> int:
     return max(0, current + delta)
 
 
+def _build_room_area_context(
+    err: Exception, brief: Brief, change: BriefChange,
+) -> tuple[str, dict]:
+    """Context for CLS_ROOM_AREA classification — room size below NBC min."""
+    room_type_str = _room_type_str_from_path(change.field_path)
+    nbc_min_sqm = 0.0
+    requested = 0.0
+    if room_type_str is not None:
+        try:
+            rt_enum = RoomType(room_type_str)
+            nbc_min_sqm = float(
+                NBC_MINIMUM_ROOM_SIZES_SQM.get(rt_enum, 0.0)
+            )
+        except ValueError:
+            pass
+    try:
+        requested = float(change.new_value)
+    except (TypeError, ValueError):
+        requested = 0.0
+    return CLS_ROOM_AREA, {
+        "room_type": room_type_str or "",
+        "requested_size_sqm": requested,
+        "nbc_min_sqm": nbc_min_sqm,
+        "raw_message": str(err),
+        "field_path": change.field_path,
+    }
+
+
+def _build_bedroom_context(
+    err: Exception, brief: Brief, change: BriefChange,
+) -> tuple[str, dict]:
+    """Context for CLS_BEDROOM classification — bedroom count below min."""
+    return CLS_BEDROOM, {
+        "resulting_count": _resulting_bedroom_count(brief, change),
+        "stated_min": _MIN_BEDROOMS,
+        "room_type": (
+            _room_type_str_from_path(change.field_path) or ""
+        ),
+        "raw_message": str(err),
+        "field_path": change.field_path,
+    }
+
+
+def _build_budget_context(
+    err: Exception, brief: Brief, change: BriefChange,
+) -> tuple[str, dict]:
+    """Context for CLS_BUDGET classification — budget validation failed."""
+    try:
+        new_max = int(change.new_value) if change.field_path == \
+            "budget.max_lakhs" else brief.budget_range.max_lakhs
+    except (TypeError, ValueError):
+        new_max = brief.budget_range.max_lakhs
+    delta_l = brief.budget_range.max_lakhs - new_max
+    return CLS_BUDGET, {
+        "delta_l": int(delta_l),
+        "est_l": 0,  # placeholder; not known at apply time (B-012)
+        "budget_l": int(new_max),
+        "raw_message": str(err),
+        "field_path": change.field_path,
+    }
+
+
 def _classify_error(
     err: Exception, brief: Brief, change: BriefChange,
 ) -> tuple[str, dict]:
     """Map a caught ValueError/TypeError to (classification, context).
 
-    Substring-matches `Brief.__post_init__` / `RoomRequirement` /
-    `BudgetRange` / `Setbacks` / `FloorRequirement` error wording.
-    Backlog item B-013 tracks moving to typed exception classes for
-    robustness.
+    Type-first dispatch (B-013 closed S55): when the domain layer raises
+    one of the typed `BriefDomainError` subclasses, classification is
+    chosen by `isinstance` check. The substring-matching fallback below
+    survives so any future ValueError raised from elsewhere still gets
+    classified (or falls through to UNKNOWN with the raw message).
     """
-    msg = str(err).lower()
-
-    # ─── ROOM_AREA_BELOW_NBC_MIN ──────────────────────────────────
-    if "below nbc minimum" in msg:
-        room_type_str = _room_type_str_from_path(change.field_path)
-        nbc_min_sqm = 0.0
-        requested = 0.0
-        if room_type_str is not None:
-            try:
-                rt_enum = RoomType(room_type_str)
-                nbc_min_sqm = float(
-                    NBC_MINIMUM_ROOM_SIZES_SQM.get(rt_enum, 0.0)
-                )
-            except ValueError:
-                pass
-        # Try to extract the requested value from the new_value field
-        try:
-            requested = float(change.new_value)
-        except (TypeError, ValueError):
-            requested = 0.0
-        return CLS_ROOM_AREA, {
-            "room_type": room_type_str or "",
-            "requested_size_sqm": requested,
-            "nbc_min_sqm": nbc_min_sqm,
+    # ─── Typed-exception dispatch (B-013 closure) ─────────────────
+    if isinstance(err, RoomSizeBelowNbcMinError):
+        return _build_room_area_context(err, brief, change)
+    if isinstance(err, RoomCountNegativeError) and _is_bedroom_path(
+        change.field_path
+    ):
+        return _build_bedroom_context(err, brief, change)
+    if isinstance(err, BudgetValidationError):
+        return _build_budget_context(err, brief, change)
+    if isinstance(err, FloorCountTooLowError):
+        return CLS_FLOOR_COUNT, {
+            "resulting_count": 0,
+            "stated_min": _MIN_FLOORS,
             "raw_message": str(err),
             "field_path": change.field_path,
         }
 
-    # ─── BEDROOM_COUNT_BELOW_MIN ─────────────────────────────────
-    # Trigger 1: room count cannot be negative AND it's a bedroom
-    # Trigger 2: future-proofing — explicit bedroom-min check
+    # ─── Substring fallback (legacy path, kept for any ValueError
+    #     raised from outside the typed-exception layer). ──────────
+    msg = str(err).lower()
+
+    if "below nbc minimum" in msg:
+        return _build_room_area_context(err, brief, change)
+
     if (
         ("count cannot be negative" in msg
          and _is_bedroom_path(change.field_path))
         or "bedroom" in msg and "below" in msg and "minimum" in msg
     ):
-        return CLS_BEDROOM, {
-            "resulting_count": _resulting_bedroom_count(brief, change),
-            "stated_min": _MIN_BEDROOMS,
-            "room_type": (
-                _room_type_str_from_path(change.field_path) or ""
-            ),
-            "raw_message": str(err),
-            "field_path": change.field_path,
-        }
+        return _build_bedroom_context(err, brief, change)
 
-    # ─── BUDGET_BELOW_THRESHOLD ──────────────────────────────────
     # Brief budget validation messages always start with the word
     # "budget" (lowered): "budget min_lakhs={X} is implausibly low",
     # "budget max_lakhs ({X}) < min_lakhs ({Y})".
@@ -669,24 +722,8 @@ def _classify_error(
         "implausibly low" in msg or "max_lakhs" in msg
         or "min_lakhs" in msg
     ):
-        # We don't have a cost estimate at apply time. Use 0 as
-        # placeholder; S6 / formatter caller can fold in c2 estimate
-        # if it has one.
-        try:
-            new_max = int(change.new_value) if change.field_path == \
-                "budget.max_lakhs" else brief.budget_range.max_lakhs
-        except (TypeError, ValueError):
-            new_max = brief.budget_range.max_lakhs
-        delta_l = brief.budget_range.max_lakhs - new_max
-        return CLS_BUDGET, {
-            "delta_l": int(delta_l),
-            "est_l": 0,  # placeholder; not known at apply time (B-012)
-            "budget_l": int(new_max),
-            "raw_message": str(err),
-            "field_path": change.field_path,
-        }
+        return _build_budget_context(err, brief, change)
 
-    # ─── FLOOR_COUNT_BELOW_MIN ───────────────────────────────────
     # Brief: "Brief requires at least one floor (ground floor)."
     # Also catch the "floor_number ... exceeds" case but only if the
     # change semantically reduces floors.

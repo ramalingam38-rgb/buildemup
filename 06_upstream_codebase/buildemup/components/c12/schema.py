@@ -3,6 +3,10 @@ BuildemUp — Component 12 — schema (output dataclasses)
 =======================================================
 
 Per C12 SPEC v1.0 LOCKED § 2.2 — public output types.
+Plus C12 v1.1 amendment (B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT, S55):
+SharedEdge gains an `edge_type: EdgeType = EdgeType.INTERNAL`
+field for envelope-relationship classification. Additive default;
+all v1.0 keyword-arg construction stays valid.
 
 Six public dataclasses:
   - PlacedRoom            : one room with realized (x, y, w, d) geometry
@@ -11,6 +15,9 @@ Six public dataclasses:
   - VerticalAlignmentReport : per-MF-candidate alignment outcome
   - MultiFloorPlacedCandidate : multi-floor placement output
   - PlacementBatchResult  : orchestrator batch output (successes + failures)
+
+One public enum:
+  - EdgeType : v1.1 envelope-relationship classification used by C13
 
 All dataclasses are frozen for hash-stability + replay determinism
 (Inv 7).
@@ -25,7 +32,39 @@ Canonical orderings enforced in __post_init__:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Final, Literal
+
+
+# =============================================================================
+# § 2.2.0 (v1.1) — EdgeType enum (B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT, S55)
+# =============================================================================
+
+class EdgeType(Enum):
+    """Categorization of a SharedEdge's relationship to the building envelope.
+
+    Added by C12 v1.1 amendment (B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT,
+    routed from C13 v0.2 A5 / v0.3 B5). Previously C13 carried this
+    enum locally + used C12V10EdgeAdapter to derive the value from a
+    v1.0 SharedEdge; v1.1 makes it native here, so callers can pass
+    real C12 SharedEdge instances directly to C13 (structural typing
+    via C13ConsumesFromC12Edge Protocol).
+
+    Values:
+      INTERNAL: edge between two interior rooms (the v1.0 default; no
+                envelope adjacency).
+      EXTERNAL_ENVELOPE: edge touches the envelope perimeter — required
+                for main-entry door placement.
+      SERVICE: service-entry or utility-access boundary (e.g. back door
+                to utility yard) — secondary-door candidate.
+      BALCONY: semi-external (balcony / verandah). Door placement
+                permitted; main entry SHOULD NOT route through balcony
+                at v1.
+    """
+    INTERNAL = "internal"
+    EXTERNAL_ENVELOPE = "external_envelope"
+    SERVICE = "service"
+    BALCONY = "balcony"
 
 
 # =============================================================================
@@ -91,6 +130,11 @@ class SharedEdge:
 
     Consumed by C13 Door Placement per v0.3-A4 handoff contract:
     C13 treats doorway_feasible == False edges as not-door-candidates.
+
+    v1.1 (B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT, S55): adds optional
+    `edge_type: EdgeType` defaulting to INTERNAL. C12 v1.1 builders
+    (derive_shared_edges + the future envelope-adapter) supply the
+    classification natively; v1.0 callers that omit it get INTERNAL.
     """
     room_a_id: str
     room_b_id: str
@@ -100,6 +144,7 @@ class SharedEdge:
     overlap_length_m: float
     min_required_clear_width_m: float
     doorway_feasible: bool
+    edge_type: EdgeType = EdgeType.INTERNAL
 
     def __post_init__(self) -> None:
         if not self.room_a_id or not self.room_b_id:
@@ -124,6 +169,11 @@ class SharedEdge:
             raise ValueError(
                 f"SharedEdge.min_required_clear_width_m must be "
                 f"positive; got {self.min_required_clear_width_m}."
+            )
+        if not isinstance(self.edge_type, EdgeType):
+            raise ValueError(
+                f"SharedEdge.edge_type must be EdgeType; "
+                f"got {type(self.edge_type).__name__}."
             )
 
 

@@ -44,9 +44,9 @@ E safe — zero edits to shipped code.
 
   - Per-SoilType kPa values: derived from
     kb/soil_classification.SOIL_PROFILES[SoilClass].sbc_typical_knm2
-    via a SoilType (domain) → SoilClass (KB) mapping. SoilType.MEDIUM_ROCK
-    has no exact SoilClass equivalent; mapped to SOFT_ROCK (closest,
-    conservative).
+    via a SoilType (domain) → SoilClass (KB) mapping. As of v1.1 (B-074
+    closure), MEDIUM_ROCK is a first-class kb.SoilClass — no more
+    approximation downcast.
 
   - typical_soil per city: closest matching SoilType enum value,
     chosen conservatively (e.g., Mumbai's "rock_or_filled_up" → FILLED_UP,
@@ -66,7 +66,7 @@ from dataclasses import dataclass
 from buildemup.domain.plot import SoilType
 
 
-KB_VERSION = "v1.0"
+KB_VERSION = "v1.1"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ SOIL_PROFILES: dict[str, SoilCityProfile] = {
 #
 #   domain.SoilType    → kb.SoilClass        sbc_typical_knm2
 #     HARD_ROCK          HARD_ROCK             1620.0
-#     MEDIUM_ROCK        SOFT_ROCK              660.0   (closest available)
+#     MEDIUM_ROCK        MEDIUM_ROCK           1250.0   (v1.1 — B-074 closed)
 #     DENSE_SAND         DENSE_SAND             350.0
 #     MEDIUM_SAND        MEDIUM_SAND            200.0
 #     LOOSE_SAND         LOOSE_SAND             125.0
@@ -132,7 +132,7 @@ SOIL_PROFILES: dict[str, SoilCityProfile] = {
 # SoilType from the user; SoilClass is internal to soil_classification.
 BEARING_CAPACITY_BY_TYPE: dict[SoilType, float] = {
     SoilType.HARD_ROCK:    1620.0,
-    SoilType.MEDIUM_ROCK:   660.0,   # mapped to kb.SoilClass.SOFT_ROCK
+    SoilType.MEDIUM_ROCK:  1250.0,   # IS 6403 typical (1000-1500); B-074 v1.1
     SoilType.DENSE_SAND:    350.0,
     SoilType.MEDIUM_SAND:   200.0,
     SoilType.LOOSE_SAND:    125.0,
@@ -160,28 +160,17 @@ HIGH_VARIABILITY_SOIL_TYPES: frozenset[SoilType] = frozenset({
 # Approximation notes (v0.8 walk #8 — moved from logic layer to KB layer)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# v0.8 (walk #8): SoilType values that the underlying kb.soil_classification
-# does NOT carry as a first-class class. C4's BEARING_CAPACITY_BY_TYPE has
-# to approximate them downward to the closest available class. The note
-# below explains the approximation explicitly so downstream consumers can
-# see provenance instead of silently inheriting a substantially
-# underestimated kPa value.
+# v0.8 (walk #8) contract: SoilType values that the underlying
+# kb.soil_classification does NOT carry as a first-class class get a
+# breadcrumb note here so downstream consumers see provenance instead
+# of silently inheriting an approximated kPa value.
 #
-# This table moved from components/c04/soil_estimator.py to here in v0.8 —
-# the mapping is data (approximation policy), not logic, and belongs
-# alongside BEARING_CAPACITY_BY_TYPE which it documents.
-#
-#   SoilType.MEDIUM_ROCK is mapped to kb.SoilClass.SOFT_ROCK (660 kPa).
-#   Real medium rock per IS 6403 / IS 1904 typical values is ~1000-1500
-#   kPa (foliated metamorphic 1500-3000; weathered rock 300-800; medium
-#   weathered mudstone 1500-2500). 660 kPa is therefore a 40-55%
-#   underestimate. Direction is conservative (over-designs foundations
-#   = safe but costly). Proper fix is B-074.
-APPROXIMATION_NOTES_BY_SOIL_TYPE: dict[SoilType, str] = {
-    SoilType.MEDIUM_ROCK: (
-        "medium_rock_approximated_to_soft_rock_660kpa_underestimate_b074"
-    ),
-}
+# v1.1 (B-074 closed): the previous MEDIUM_ROCK entry was removed when
+# kb.SoilClass gained a first-class MEDIUM_ROCK entry (1000-1500 kPa
+# typ 1250 per IS 6403). The export hook is preserved as an empty dict
+# so the v0.8 surface contract (consumers may probe for breadcrumbs)
+# stays stable.
+APPROXIMATION_NOTES_BY_SOIL_TYPE: dict[SoilType, str] = {}
 
 
 # Coverage invariants checked by tests:

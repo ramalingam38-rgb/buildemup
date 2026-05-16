@@ -1,24 +1,39 @@
-# 🚨 NEXT CLAUDE — START HERE — S55 OPEN
+# 🚨 NEXT CLAUDE — START HERE — S56 OPEN
 
-**Authored:** Ramalingam + Claude, S54 close, May 16, 2026
-**Session state:** 14 backlog items closed in S54; project pushed to private GitHub repo `ramalingam38-rgb/buildemup`; CI matrix active.
-**Latest LOCK:** No new LOCKs in S54 (Bucket A + B fixes only — no contract changes).
-**Your task:** Read this file. Then read `S54_SESSION_LOG.md` (chronological detail) and `04_backlog/S54_BACKLOG_TRIAGE.md` (the 4-bucket plan). Then await Ramalingam's S55 direction.
+**Authored:** Ramalingam + Claude, S55 close, May 16, 2026
+**Session state:** 14 backlog items closed in S54 + 7 more in S55 = 21 total Bucket A/B items shipped. C12 reached v1.1 via the EXTERNAL-EDGE-TYPE-AMENDMENT (HIGH priority). 4,297-test sweep clean (21 pre-existing baseline failures separately tracked).
+**Latest LOCK:** C12 v1.1 schema amendment (additive default; no contract break). All other S55 changes are non-LOCK-touching fixes.
+**Your task:** Read this file. Then read `S55_SESSION_LOG.md` (chronological detail for S55) and `04_backlog/S54_BACKLOG_TRIAGE.md` (the 4-bucket plan). Then await Ramalingam's S56 direction.
 
 ---
 
-## 🎯 What S54 accomplished
+## 🎯 What S55 accomplished
 
-S54 was a **single-day execution session** that closed 14 backlog items, set up CI, and pushed the project to GitHub for the first time. The full chronological log is in `S54_SESSION_LOG.md`. Headline numbers:
+S55 was a **single-session continuation of Bucket B**. The user authorized "everything in bucket B" with Claude choosing the order. 7 items shipped (Batch 2 of a planned 4-batch sequence). Full chronological log is in `S55_SESSION_LOG.md`. Headline numbers:
 
-| Metric | At S54 open | At S54 close |
+| Metric | At S55 open | At S55 close |
 |---|---|---|
-| Bucket A (deploy-blockers) | 8 open | 2 open (B-220, B-238 — calendar-bound, need humans) |
-| Bucket B (product-blockers) | ~55 open | ~47 open |
-| Tests passing | 4,268 | 4,312 (+44 new test cases) |
-| GitHub state | not a repo | private repo `ramalingam38-rgb/buildemup` + 2 commits + CI active |
-| Live verification | C1 brief surface only | C1 + C2 + C3a chain working live + verified twice by user |
-| Memory files | none | 3 files at `~/.claude/projects/.../memory/` |
+| Bucket A (deploy-blockers) | 2 open (calendar-bound) | 2 open (unchanged — calendar-bound) |
+| Bucket B (product-blockers) | ~47 open | ~40 open |
+| Tests passing (S54+S55-touched surface) | n/a | 4,297 of 4,297 (+48 new test cases) |
+| New typed exception layer | none | `domain/exceptions.py` with 5 typed errors |
+| C12 schema version | v1.0 LOCKED | v1.1 (additive edge_type amendment) |
+| KB versions bumped | n/a | kb.soil_classification v1→v2; kb.soil_city_defaults v1.0→v1.1 |
+
+### Specific items closed in S55 (7 total)
+
+**Batch 2 — code-only, all DONE:**
+1. **B-074** — MEDIUM_ROCK as first-class kb.SoilClass with IS 6403 typical 1250 kPa (was approximated to SOFT_ROCK 660)
+2. **B-062** — Startup cross-check: BUILDEMUP_ENV=prod + C3A_TEST_MODE=1 → sys.exit(1)
+3. **B-064** — CSP + Cache-Control + nosniff headers on static assets via `_serve_static`
+4. **B-013** — Typed exception migration: BriefDomainError + 5 subclasses; C3a `_classify_error` dispatches on type first
+5. **B-108 partial** — NBC corridor minimum citation breadcrumb + verification report at `05_integrity_check/B108_PARTIAL_NBC_VERIFICATION_S55.md`
+6. **B-109** — `design_corridors_safe()` wrapper + `NarrowPlotRecommendation` — per-candidate graceful fallback for CorridorTooNarrowError
+7. **B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT** (HIGH priority) — C12 v1.1: SharedEdge gains `edge_type: EdgeType = EdgeType.INTERNAL`; EdgeType moved from c13.contracts to c12.schema as canonical source
+
+### S54 accomplishments (carried forward for context)
+
+S54 closed 14 backlog items, set up CI, and pushed the project to GitHub for the first time. Bucket A finished except for B-220 (hydraulics — calendar-bound, plumbing engineer required) and B-238 (architect review — calendar-bound, ₹15-40K budget).
 
 ### Specific items closed (14 total)
 
@@ -169,4 +184,28 @@ BuildemUp† (placeholder name; future "BuildEase") is a decision-support engine
 
 †= placeholder name marker. Final product name TBD ("BuildEase" preferred; "Archimind" is taken).
 
-**Welcome to S55. Read `S54_SESSION_LOG.md` next for chronological detail, then `S54_BACKLOG_TRIAGE.md` for the work plan.**
+**Welcome to S56. Read `S55_SESSION_LOG.md` next for S55 chronological detail (then `S54_SESSION_LOG.md` for earlier context), then `S54_BACKLOG_TRIAGE.md` for the work plan.**
+
+---
+
+## 🛣️ Recommended Batch 3 directions for S56
+
+Per the multi-session plan locked at S55 open, Batch 3 covers C11a/b launch-complement + C13 v1.x polish + C12 leftovers + C17 critique findings (mid-size items, post-launch polish for already-shipped components). Specifically:
+
+- **B-NEW-J-override** (must ship with C11a v1 production)
+- **B-C12-CAUSAL-FAILURE-TRACEABILITY** + **B-PROJECT-SPEC-DRIFT-CI** (C12 leftovers)
+- **B-C13-INVARIANT-TAXONOMY-GROUPING** (CRITICAL per S44 rollup — cognitive overload flagged 3 walks deep)
+- **B-C13-ADVERSARIAL-INTEGRATION-CORPUS** + **B-C13-WINDOW-AVOIDANCE**
+- 6 more C11a/b launch-complement items
+- 7 C17 critique findings
+
+After Batch 3: Batch 4 starts on C14/C15/C16 LOCK-mandatory (~28 items, biggest pile). Then Batch 5: B-066 polygon plots + C6 trust gap.
+
+## 🚩 Pre-existing failures filed in S55 (file as Bucket B in Batch 3)
+
+21 pre-existing failures observed during S55's full-bundle sweep, verified by stash-and-rerun to predate S55 work:
+- 17 failures in `test_c01_v09_session_b.py` — Windows file-handle race on storage tests
+- 2 failures in `test_c02_session_j.py` — Pune downgrade rule scenario (S17)
+- 1 each in `test_c02_session_k.py` + `test_c02_session_l.py` — inherit session_j validation
+
+File these as new Bucket B items when Batch 3 starts; they're likely small fixes once root cause is found.

@@ -30,12 +30,14 @@ from buildemup.components.c08.schema import (
     CorridorSegment,
     CorridorSegmentKind,
     GridAlignmentReport,
+    NarrowPlotRecommendation,
     WidthPropagation,
     WidthQuantization,
     ZoneBandEnvelope,
 )
 from buildemup.components.c08.corridor_designer import (
     design_corridors,
+    design_corridors_safe,
     design_one_corridor,
 )
 
@@ -43,6 +45,7 @@ from buildemup.components.c08.corridor_designer import (
 __all__ = [
     # Public entry point
     "design_corridors",
+    "design_corridors_safe",
     "design_one_corridor",
     # Errors
     "CorridorTooNarrowError",
@@ -57,6 +60,7 @@ __all__ = [
     "CorridorProvenance",
     "ZoneBandEnvelope",
     "GridAlignmentReport",
+    "NarrowPlotRecommendation",
     # Enums
     "CorridorSegmentKind",
     "CorridorEndpointKind",

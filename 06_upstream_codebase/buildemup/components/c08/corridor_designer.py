@@ -50,6 +50,7 @@ from buildemup.components.c08.schema import (
     CorridorProvenance,
     CorridorSegment,
     GridAlignmentReport,
+    NarrowPlotRecommendation,
     WidthQuantization,
     ZoneBandEnvelope,
 )
@@ -421,6 +422,125 @@ def design_one_corridor(
     )
 
 
+# Suggested alternative topologies + user action when CorridorTooNarrow
+# fires per candidate. Keyed by TopologyKind names that produce the most
+# corridor pressure on narrow plots; values are the recommended fallback.
+# Conservative defaults — orchestrator can refine post-launch (B-126).
+_NARROW_PLOT_TOPOLOGY_SUGGESTIONS: dict[str, tuple[str, ...]] = {
+    "T": ("STRIP",),
+    "L": ("STRIP",),
+    "U": ("STRIP", "L"),
+    "Y": ("STRIP", "T"),
+    "PLUS": ("STRIP", "T"),
+    "DOUBLE_LOADED": ("STRIP", "SINGLE_LOADED"),
+}
+
+
+def _build_narrow_plot_recommendation(
+    err: "CorridorTooNarrowError",
+    oriented_candidate: OrientedCandidate,
+    candidate_index: int,
+) -> "NarrowPlotRecommendation":
+    """Translate a per-candidate CorridorTooNarrowError into a
+    NarrowPlotRecommendation for B-109 graceful-fallback consumers."""
+    topology_name = ""
+    spatial_model = getattr(oriented_candidate, "spatial_model", None)
+    if spatial_model is not None:
+        topology_kind = getattr(spatial_model, "topology_kind", None)
+        if topology_kind is not None:
+            topology_name = getattr(topology_kind, "name", str(topology_kind))
+
+    suggestions = _NARROW_PLOT_TOPOLOGY_SUGGESTIONS.get(topology_name, ("STRIP",))
+    suggested_action = (
+        "switch_to_strip" if "STRIP" in suggestions else "increase_plot_width"
+    )
+
+    return NarrowPlotRecommendation(
+        candidate_index=candidate_index,
+        message=str(err),
+        bay_min_m=err.bay_min_m,
+        regulatory_min_width_m=err.regulatory_min_width_m,
+        candidate_widths_m=err.candidate_widths_m,
+        suggested_alternative_topologies=suggestions,
+        suggested_user_action=suggested_action,
+    )
+
+
+def design_corridors_safe(
+    oriented_candidates: Sequence[OrientedCandidate],
+    grid: Grid,
+    plot_analysis: PlotAnalysis,
+    *,
+    config: CorridorDesignConfig | None = None,
+) -> tuple[CorridorDesignedCandidate | NarrowPlotRecommendation, ...]:
+    """B-109 graceful-fallback wrapper around `design_corridors`.
+
+    For each oriented candidate that succeeds, returns its
+    `CorridorDesignedCandidate` exactly as `design_corridors` would.
+    For each candidate that raises `CorridorTooNarrowError`, returns a
+    `NarrowPlotRecommendation` carrying the diagnostic + suggested
+    alternative topologies. Position-paired contract from § 14.3 is
+    preserved (length and index correspondence with input).
+
+    Other failure modes (`CorridorSelfIntersectionError`,
+    `CorridorDispatchError`, `TypeError`, `NotImplementedError`) still
+    propagate — they're not "too-narrow" cases and need different
+    treatment (programmer error / different-topology retry / shape
+    support, respectively).
+
+    Use this from caller pipelines that want to surface narrow-plot
+    guidance to the user without aborting the whole batch.
+    """
+    if not isinstance(oriented_candidates, tuple):
+        if not hasattr(oriented_candidates, "__iter__"):
+            raise TypeError(
+                f"design_corridors_safe: oriented_candidates must be a "
+                f"tuple/sequence; got {type(oriented_candidates).__name__}"
+            )
+    if not isinstance(grid, Grid):
+        raise TypeError(
+            f"design_corridors_safe: grid must be Grid; "
+            f"got {type(grid).__name__}"
+        )
+    if not isinstance(plot_analysis, PlotAnalysis):
+        raise TypeError(
+            f"design_corridors_safe: plot_analysis must be PlotAnalysis; "
+            f"got {type(plot_analysis).__name__}"
+        )
+    if plot_analysis.shape != PlotShape.RECTANGULAR:
+        raise NotImplementedError(
+            f"design_corridors_safe: only PlotShape.RECTANGULAR is supported "
+            f"in v1; got {plot_analysis.shape.value} (see B-066)"
+        )
+
+    if config is None:
+        config = CorridorDesignConfig()
+
+    candidates_tuple = tuple(oriented_candidates)
+    if not candidates_tuple:
+        return ()
+
+    results: list[CorridorDesignedCandidate | NarrowPlotRecommendation] = []
+    for i, oc in enumerate(candidates_tuple):
+        if not isinstance(oc, OrientedCandidate):
+            raise TypeError(
+                f"design_corridors_safe: oriented_candidates[{i}] must be "
+                f"OrientedCandidate; got {type(oc).__name__}"
+            )
+        try:
+            designed = design_one_corridor(
+                oc, grid, plot_analysis,
+                config=config, candidate_index=i,
+            )
+            results.append(designed)
+        except CorridorTooNarrowError as err:
+            results.append(
+                _build_narrow_plot_recommendation(err, oc, candidate_index=i)
+            )
+
+    return tuple(results)
+
+
 def design_corridors(
     oriented_candidates: Sequence[OrientedCandidate],
     grid: Grid,
@@ -494,5 +614,6 @@ def design_corridors(
 
 __all__ = [
     "design_corridors",
+    "design_corridors_safe",
     "design_one_corridor",
 ]

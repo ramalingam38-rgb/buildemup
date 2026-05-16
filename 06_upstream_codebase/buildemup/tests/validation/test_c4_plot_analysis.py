@@ -403,8 +403,9 @@ def test_soil_estimate_mumbai_carries_high_variability_note():
     assert "site_survey_required" in note
 
 
-def test_soil_estimate_user_input_medium_rock_carries_b074_breadcrumb():
-    """User-input MEDIUM_ROCK is approximated to SOFT_ROCK 660 kPa; note must say so."""
+def test_soil_estimate_user_input_medium_rock_uses_is6403_value():
+    """B-074 closed S55: MEDIUM_ROCK is a first-class kb.SoilClass with 1250 kPa
+    (IS 6403 typical of 1000-1500). No approximation breadcrumb anymore."""
     plot = Plot(
         width_m=9.0, depth_m=12.0, facing=PlotOrientation.NORTH,
         city="chennai", road_width_m=9.0,
@@ -412,13 +413,8 @@ def test_soil_estimate_user_input_medium_rock_carries_b074_breadcrumb():
     )
     pa = derive(make_brief(plot), now=1.0)
     assert pa.soil_estimate.confidence == ConfidenceLevel.HIGH
-    assert pa.soil_estimate.bearing_capacity_kpa == 660.0
-    note = pa.soil_estimate.provenance_note
-    assert note is not None
-    assert "medium_rock" in note
-    assert "soft_rock" in note
-    assert "underestimate" in note
-    assert "b074" in note
+    assert pa.soil_estimate.bearing_capacity_kpa == 1250.0
+    assert pa.soil_estimate.provenance_note is None
 
 
 def test_soil_estimate_user_input_hard_rock_has_no_provenance_note():
@@ -572,15 +568,18 @@ def test_prevailing_wind_keys_match_supported_cities_post_v08():
     assert set(PREVAILING_WIND.keys()) == set(SUPPORTED_CITIES)
 
 
-# § 14.3: Approximation notes moved from logic to KB layer (walk #8)
+# § 14.3: Approximation notes moved from logic to KB layer (walk #8).
+# v1.1 (B-074 closed S55): MEDIUM_ROCK is no longer approximated. The
+# table export survives as an empty dict so the v0.8 contract still holds.
 def test_approximation_notes_table_lives_in_kb_layer():
     """v0.8: APPROXIMATION_NOTES_BY_SOIL_TYPE is exported from kb/soil_city_defaults."""
     from buildemup.kb import soil_city_defaults
     assert hasattr(soil_city_defaults, "APPROXIMATION_NOTES_BY_SOIL_TYPE")
     table = soil_city_defaults.APPROXIMATION_NOTES_BY_SOIL_TYPE
-    assert SoilType.MEDIUM_ROCK in table
-    assert "b074" in table[SoilType.MEDIUM_ROCK]
-    assert "underestimate" in table[SoilType.MEDIUM_ROCK]
+    assert isinstance(table, dict)
+    # B-074 removed MEDIUM_ROCK from the table; no soil types are
+    # approximated as of v1.1.
+    assert SoilType.MEDIUM_ROCK not in table
 
 
 def test_soil_estimator_no_longer_carries_local_approximation_table():

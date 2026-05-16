@@ -8,10 +8,8 @@ Per spec § 4.7. Returns SoilEstimate with confidence tag.
 # Critique reviewers: these are filed; please do NOT re-flag.
 # (This block is a review aid; can be stripped after critique-review cycles.)
 #
-#   B-074  MEDIUM_ROCK proper kPa value: real ~1000-1500 kPa per IS 6403,
-#          currently approximated to SOFT_ROCK 660 kPa. Fix requires either
-#          extending kb.SoilClass with MEDIUM_ROCK class OR aligning C4's
-#          BEARING_CAPACITY_BY_TYPE with C7's foundation-design defaults.
+#   B-074  CLOSED S55 — MEDIUM_ROCK added as first-class kb.SoilClass with
+#          IS 6403 typical 1250 kPa (1000-1500 range). No longer approximated.
 #   B-077  Richer multi-state soil confidence model (currently LOW/MEDIUM/HIGH +
 #          free-text provenance_note). Multi-state would distinguish e.g.
 #          LOW-variability / LOW-liquefaction / LOW-fill.

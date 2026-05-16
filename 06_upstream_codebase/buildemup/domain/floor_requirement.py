@@ -23,6 +23,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+from buildemup.domain.exceptions import (
+    FloorNumberOutOfRangeError,
+    RoomCountNegativeError,
+    RoomSizeBelowNbcMinError,
+)
+
 
 class FloorUse(str, Enum):
     """What a floor is used for.
@@ -94,7 +100,9 @@ class RoomRequirement:
 
     def __post_init__(self) -> None:
         if self.count < 0:
-            raise ValueError(f"Room count cannot be negative: {self.count}")
+            raise RoomCountNegativeError(
+                f"Room count cannot be negative: {self.count}"
+            )
         if self.count > 10:
             raise ValueError(
                 f"Room count of {self.count} for {self.room_type.value} "
@@ -106,7 +114,7 @@ class RoomRequirement:
 
         if self.min_size_sqm is not None:
             if self.min_size_sqm < nbc_min:
-                raise ValueError(
+                raise RoomSizeBelowNbcMinError(
                     f"min_size_sqm {self.min_size_sqm} for "
                     f"{self.room_type.value} is below NBC minimum "
                     f"{nbc_min} sqm."
@@ -114,7 +122,7 @@ class RoomRequirement:
 
         if self.preferred_size_sqm is not None:
             if self.preferred_size_sqm < nbc_min:
-                raise ValueError(
+                raise RoomSizeBelowNbcMinError(
                     f"preferred_size_sqm {self.preferred_size_sqm} for "
                     f"{self.room_type.value} is below NBC minimum "
                     f"{nbc_min} sqm."
@@ -177,12 +185,12 @@ class FloorRequirement:
 
     def __post_init__(self) -> None:
         if self.floor_number < 0:
-            raise ValueError(
+            raise FloorNumberOutOfRangeError(
                 f"floor_number {self.floor_number} cannot be negative."
             )
         if self.floor_number > 3:
             # G+3 is the max we support in v0.1 per Component 7 scope
-            raise ValueError(
+            raise FloorNumberOutOfRangeError(
                 f"floor_number {self.floor_number} exceeds v0.1 maximum "
                 f"(G+3). Taller buildings require high-rise review "
                 f"(NBC Part 4 fire safety) — out of scope."

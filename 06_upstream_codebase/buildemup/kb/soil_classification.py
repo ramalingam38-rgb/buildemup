@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 
-KB_VERSION = "SoilSBC_IS1904_v1_2026"
+KB_VERSION = "SoilSBC_IS1904_v2_2026"
 
 
 class SoilClass(str, Enum):
@@ -45,6 +45,7 @@ class SoilClass(str, Enum):
     DENSE_SAND = "dense_sand"
     DENSE_GRAVEL = "dense_gravel"
     SOFT_ROCK = "soft_rock"
+    MEDIUM_ROCK = "medium_rock"        # IS 6403 ~1000-1500 kPa; added v2 (B-074)
     HARD_ROCK = "hard_rock"
     BLACK_COTTON = "black_cotton"      # Expansive — special case
     RECLAIMED_FILL = "reclaimed_fill"   # Special case (e.g., Mumbai)
@@ -176,6 +177,24 @@ SOIL_PROFILES: dict[SoilClass, SoilProfile] = {
         requires_pile=False,
         requires_soil_test=True,
         notes="Excellent bearing. Footings can be small. Verify rock continuity below foundation.",
+    ),
+
+    SoilClass.MEDIUM_ROCK: SoilProfile(
+        soil_class=SoilClass.MEDIUM_ROCK,
+        display_name="Medium rock (weathered metamorphic, competent mudstone)",
+        sbc_min_knm2=1000,
+        sbc_max_knm2=1500,
+        sbc_typical_knm2=1250,
+        is_expansive=False,
+        requires_pile=False,
+        requires_soil_test=True,
+        notes=(
+            "Per IS 6403 / IS 1904 typical values: ~1000-1500 kN/m² for "
+            "competent medium rock (foliated metamorphic 1500-3000; medium "
+            "weathered mudstone 1500-2500). Weathered/fractured rock can "
+            "drop to 300-800 kN/m² — engineer must verify rock quality and "
+            "continuity below foundation level."
+        ),
     ),
 
     SoilClass.HARD_ROCK: SoilProfile(

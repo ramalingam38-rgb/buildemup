@@ -26,41 +26,15 @@ the adapter becomes optional.
 """
 from __future__ import annotations
 
-from enum import Enum
 from typing import Literal, Protocol, runtime_checkable
 
-
 # =============================================================================
-# EdgeType enum (per C13 v0.2 A5 / v0.3 B5)
+# EdgeType — re-export from C12 v1.1 (B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT, S55)
 # =============================================================================
-
-class EdgeType(Enum):
-    """Per C13 v0.2 A5 + v0.3 B5. Categorization of shared-edge
-    relationship to the building envelope.
-
-    INTERNAL: edge between two interior rooms (the v1.0 SharedEdge
-        default; no envelope adjacency).
-
-    EXTERNAL_ENVELOPE: edge touches the envelope perimeter. Required
-        for main-entry door placement (Phase A entry-room selection
-        prefers EXTERNAL_ENVELOPE edges).
-
-    SERVICE: service-entry or utility-access boundary (e.g., back door
-        to utility yard). v1 treats these as candidates for secondary
-        doors on utility / kitchen rooms.
-
-    BALCONY: semi-external (balcony / verandah). Door placement permitted
-        but main entry SHOULD NOT route through balcony at v1 (cultural
-        + weather-egress conventions).
-
-    Routed to C12 as B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT (HIGH priority,
-    additive MINOR bump to C12 v1.1). Until C12 v1.1 lands, C13 uses
-    C12V10EdgeAdapter to assign edge_type to v1.0 SharedEdge instances.
-    """
-    INTERNAL = "internal"
-    EXTERNAL_ENVELOPE = "external_envelope"
-    SERVICE = "service"
-    BALCONY = "balcony"
+# v0.2 A5 landed: EdgeType now lives natively on C12.SharedEdge.edge_type.
+# This module re-exports for backwards compat — existing C13 callers that
+# import EdgeType from c13.contracts continue to work unchanged.
+from buildemup.components.c12.schema import EdgeType
 
 
 # =============================================================================

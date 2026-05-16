@@ -35,6 +35,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+from buildemup.domain.exceptions import (
+    BudgetValidationError,
+    FloorCountTooLowError,
+)
 from buildemup.domain.plot import Plot
 from buildemup.domain.setbacks import Setbacks
 from buildemup.domain.floor_requirement import FloorRequirement, FloorUse
@@ -84,12 +88,12 @@ class BudgetRange:
 
     def __post_init__(self) -> None:
         if self.min_lakhs < 1:
-            raise ValueError(
+            raise BudgetValidationError(
                 f"budget min_lakhs={self.min_lakhs} is implausibly low. "
                 f"Minimum ₹1L for even basic G-only construction."
             )
         if self.max_lakhs < self.min_lakhs:
-            raise ValueError(
+            raise BudgetValidationError(
                 f"budget max_lakhs ({self.max_lakhs}) < "
                 f"min_lakhs ({self.min_lakhs})."
             )
@@ -255,7 +259,7 @@ class Brief:
 
     def __post_init__(self) -> None:
         if len(self.floors) < 1:
-            raise ValueError(
+            raise FloorCountTooLowError(
                 "Brief requires at least one floor (ground floor)."
             )
         if len(self.floors) > 4:
