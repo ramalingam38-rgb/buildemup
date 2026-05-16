@@ -58,6 +58,13 @@ _TEMPLATES: dict[str, str] = {
         "Dropping a floor would leave {resulting_count} floor(s); brief "
         "must have at least {stated_min}."
     ),
+    # B-014 (S54 fix): SETBACK_INVALID — when a brief-change would set a
+    # setback outside the allowed 0-15m range (e.g. negative from a
+    # too-large reduction, or > 15m from an extreme increment).
+    "SETBACK_INVALID": (
+        "Adjusting the {side} setback by {delta_m}m would make it "
+        "{result_m}m, which is outside the allowed 0–15m range."
+    ),
     "UNKNOWN": (
         "This option doesn't work for your brief — try another."
     ),
@@ -82,6 +89,11 @@ _CONTEXT_DEFAULTS: dict[str, object] = {
     "city": "your city",
     "room_type": "this room",
     "nbc_min_sqm": 0.0,
+    # B-014 (S54) SETBACK_INVALID context fields
+    "side": "specified",
+    "delta_m": 0,
+    "result_m": 0,
+    "current_m": 0,
 }
 
 

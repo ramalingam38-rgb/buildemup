@@ -36,12 +36,16 @@ from buildemup.domain.floor_requirement import (
 # Constants and mappings
 # ──────────────────────────────────────────────────────────────────────
 
-CIRCULATION_FACTOR = 1.30  # Per SPEC Section 2.2 EC-001 description
+CIRCULATION_FACTOR = 1.35  # B-004 (S54 fix)
 
-# v0.2-backlog: SPEC EC-001 says circulation factor 1.30; C2's
-# envelope check uses 1.35. Difference is documentation-only:
-# detector uses 1.30 per spec; C2 check is more conservative.
-# Surface as backlog item — not blocking.
+# B-004 (S54 May 2026): aligned with C2's hard_physics_checks.py and
+# C1's room_minimums.json "typical" value (also 1.35). Prior 1.30 came
+# from an outdated SPEC EC-001 reference and produced inconsistent
+# detection thresholds vs C2's envelope check. Single source of truth
+# is now IS 3861-2002-derived "typical residential" 1.35 across
+# C1 / C2 / C3a. (Note: kb_rules/room_minimums.json also exposes
+# 1.40 for small homes and 1.30 for large — full per-size sourcing
+# is a future v1.x backlog item.)
 
 # EC-002 plot width tiers
 EC_002_PHYSICAL_TIER_FT = {  # < this width → HARD_FAIL handled upstream
@@ -120,7 +124,7 @@ def _make_placeholder_options() -> tuple[ResolutionOption, ...]:
 # ──────────────────────────────────────────────────────────────────────
 
 def _compute_min_buildable_per_floor_sqm(brief: Brief) -> float:
-    """Sum of NBC-minimum room areas × circulation factor 1.30,
+    """Sum of NBC-minimum room areas × circulation factor 1.35,
     divided across the floors the brief allocates.
 
     Used by EC-001 (against NBC envelope) and EC-006 (against

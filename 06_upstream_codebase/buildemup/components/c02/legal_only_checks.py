@@ -66,9 +66,30 @@ STILT_MANDATE_BY_CITY: dict[str, dict] = {
         "max_plot_sqm": 1000,
         "source": "Delhi notification (separate from UBBL itself)",
     },
-    # Other 5 cities don't mandate stilt for residential by plot size
-    # alone — depends on floor count + parking norms which vary.
-    # Conservative v0.1: only Delhi modelled.
+    # B-003 (S54 fix): Mumbai + Pune stilt thresholds added so the HARD_FAIL
+    # check fires on these two cities instead of silently returning
+    # NOT_APPLICABLE. Source values are best-effort interpretations of public
+    # DCR summaries — flagged for primary-PDF verification under B-150 full.
+    "mumbai": {
+        "min_plot_sqm": 300,
+        "max_plot_sqm": 2000,
+        "source": (
+            "Mumbai DCPR 2034 (MCGM) — Reg 33 / 35 parking provisions for "
+            "residential ≥ 300 sqm + G+2 typically require stilt. "
+            "PENDING PRIMARY-SOURCE VERIFICATION (B-150 full)."
+        ),
+    },
+    "pune": {
+        "min_plot_sqm": 300,
+        "max_plot_sqm": 2000,
+        "source": (
+            "Pune UDCPR 2020 (PMC) — Chapter 6 parking provisions for "
+            "residential ≥ 300 sqm + 3+ floors typically require stilt. "
+            "PENDING PRIMARY-SOURCE VERIFICATION (B-150 full)."
+        ),
+    },
+    # Bangalore + Hyderabad + Chennai stilt requirements depend on parking
+    # norms tied to dwelling units, not plot tier alone — out of v0.1 scope.
 }
 
 
@@ -216,6 +237,19 @@ def check_far_compliance(brief: Brief) -> CheckResult:
 
     if actual_far > max_far:
         excess_pct = ((actual_far - max_far) / max_far) * 100
+        # B-010 (S54 fix): populate excess_sqft so C3a EC-004's
+        # option_generator can recommend a concrete sqft reduction
+        # ("reduce by X sqft to meet FAR"). Pre-fix this was missing
+        # and S3 fell back to threshold defaults, silently disabling
+        # option B (the "reduce built area" recommendation).
+        excess_sqm = (actual_far - max_far) * plot_area
+        excess_sqft = excess_sqm * 10.7639
+        details_with_excess = {
+            **details,
+            "excess_sqm": round(excess_sqm, 1),
+            "excess_sqft": round(excess_sqft, 0),
+            "excess_pct": round(excess_pct, 1),
+        }
         return _build_result(
             check_id="far_compliance",
             check_name="FAR (Floor Area Ratio) compliance",
@@ -223,11 +257,12 @@ def check_far_compliance(brief: Brief) -> CheckResult:
             message=(
                 f"Total built area {total_built:.0f} sqm ÷ plot {plot_area:.0f} sqm "
                 f"= FAR {actual_far:.2f}, exceeding {brief.plot.city.title()}'s "
-                f"max FAR {max_far:.2f} by {excess_pct:.0f}%. "
+                f"max FAR {max_far:.2f} by {excess_pct:.0f}% "
+                f"(~{excess_sqft:.0f} sqft over). "
                 f"Reduce floors or built area, or apply for premium FSI "
                 f"(extra payment, not guaranteed)."
             ),
-            details=details,
+            details=details_with_excess,
             verification_priority=VerificationPriority.CRITICAL,
             common_doubts=common_doubts,
         )
@@ -452,6 +487,20 @@ def check_electric_line_clearance(
     SOFT_WARN: user said "unknown" AND lines might be present (we can't tell).
     PASS: user-provided distance ≥ required, OR user said "no nearby lines".
     """
+    # B-002 (S54 fix): canonicalize line_type to "HT" / "LT" / "UNKNOWN" so
+    # C3a detector (_classify_electric_line) can reliably distinguish HT
+    # (LOW resolution probability) from LT (MEDIUM). Pre-fix, the lowercase
+    # "ht" / "lt" / default "unknown" passed through inconsistently —
+    # detector's substring check still worked but value drift in tests +
+    # logs was hard to chase.
+    _normalized = str(line_type or "").strip().upper()
+    if _normalized in ("HT", "HIGH", "HIGH_TENSION", "HIGH-TENSION"):
+        canonical_line_type = "HT"
+    elif _normalized in ("LT", "LOW", "LOW_TENSION", "LOW-TENSION"):
+        canonical_line_type = "LT"
+    else:
+        canonical_line_type = "UNKNOWN"
+
     if distance_from_electric_line_m is None:
         # User did not specify — Session E will have proper "unknown" handling.
         # For Session B, assume no overhead lines present (PASS with caveat).
@@ -477,17 +526,17 @@ def check_electric_line_clearance(
                 "No electric line distance provided — assumed no overhead "
                 "lines within 5m. Verify by visual inspection of plot."
             ),
-            details={"line_type": line_type, "user_provided": False},
+            details={"line_type": canonical_line_type, "user_provided": False},
         )
 
     required_clearance = (
-        NBC_MIN_DISTANCE_ELECTRIC_LINE_HT_M if line_type == "ht"
+        NBC_MIN_DISTANCE_ELECTRIC_LINE_HT_M if canonical_line_type == "HT"
         else NBC_MIN_DISTANCE_ELECTRIC_LINE_LT_M
     )
 
     details = {
         "distance_from_electric_line_m": distance_from_electric_line_m,
-        "line_type": line_type,
+        "line_type": canonical_line_type,
         "required_clearance_m": required_clearance,
         "user_provided": True,
     }
@@ -502,7 +551,7 @@ def check_electric_line_clearance(
             verification_priority=VerificationPriority.CRITICAL,
             message=(
                 f"Building is {distance_from_electric_line_m}m from "
-                f"{line_type.upper()} electric line, below NBC minimum "
+                f"{canonical_line_type} electric line, below NBC minimum "
                 f"{required_clearance}m clearance. "
                 f"This is a safety + legal violation. Either relocate the "
                 f"building footprint, request DISCOM to relocate the line, "
@@ -525,7 +574,7 @@ def check_electric_line_clearance(
         confidence=ConfidenceLevel.HIGH,
         message=(
             f"Distance {distance_from_electric_line_m}m from "
-            f"{line_type.upper()} line meets NBC minimum {required_clearance}m."
+            f"{canonical_line_type} line meets NBC minimum {required_clearance}m."
         ),
         details=details,
     )

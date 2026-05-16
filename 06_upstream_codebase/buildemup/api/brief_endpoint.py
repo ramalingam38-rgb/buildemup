@@ -280,9 +280,66 @@ def handle_brief_capture(request_body: bytes | str) -> tuple[int, dict]:
             chain_status["c3a_detect"] = f"error:{type(e).__name__}"
             extreme_cases_dicts = []
 
+    # ─────────────────────────────────────────────────────────────────────
+    # S54-006 (May 2026) — Suppress misleading "budget generous" message
+    # when C2 reports envelope insufficiency.
+    #
+    # C1 emits an INFO "your budget is generous for this design" message
+    # when the user's budget > 1.5× C7's structural cost estimate. But C7
+    # sizes cost based on envelope, not requested rooms. So if the user
+    # asks for more rooms than fit, "generous" is misleading — the cheap
+    # cost reflects a scoped-down version of the brief.
+    #
+    # Fix: detect envelope_sufficiency HARD_FAIL from C2. If present,
+    # replace the budget_generous block in the combined view with an
+    # honest "evaluation pending" message. (rendered_explain stays
+    # unchanged for backwards compat.)
+    # ─────────────────────────────────────────────────────────────────────
+    envelope_insufficient = False
+    if feasibility_analysis is not None:
+        try:
+            from buildemup.domain.feasibility import CheckSeverity
+            envelope_insufficient = any(
+                cr.check_id == "envelope_sufficiency"
+                and cr.severity == CheckSeverity.HARD_FAIL
+                for cr in feasibility_analysis.practical_report.all_check_results
+            )
+        except Exception:
+            envelope_insufficient = False
+    chain_status["budget_generous_suppressed"] = bool(envelope_insufficient)
+
+    def _rewrite_misleading_budget(text: str) -> str:
+        """Replace the budget_generous INFO line with an honest version
+        when envelope_insufficient. Idempotent — safe to call on text
+        that doesn't contain the pattern. Preserves leading indentation.
+        """
+        if not envelope_insufficient or not text:
+            return text
+        import re
+        # Match: optional indent + the full budget-generous INFO line
+        pattern = re.compile(
+            r"(?P<indent> *)\[INFO\] Your budget \([^)]+\) is generous for this design[^\n]*"
+        )
+
+        def _replace(m: re.Match) -> str:
+            indent = m.group("indent")
+            return (
+                f"{indent}[INFO] ⚠ Budget vs cost cannot be evaluated "
+                f"against this brief as-stated — your requested rooms "
+                f"don't fit in the envelope (see FEASIBILITY CHECK "
+                f"section below). The cost estimate reflects only what "
+                f"would fit in your envelope, not your full requested "
+                f"brief. Once you reduce scope to a feasible version, "
+                f"budget alignment can be reassessed."
+            )
+
+        return pattern.sub(_replace, text, count=2)
+        # count=2: budget_generous appears in both TOP 3 RECOMMENDATIONS
+        # and COMPLETE GUIDANCE sections of explain() output
+
     # Combined human-readable text: C1 explain + C2 summary + C3a section.
     # Frontend renders this in a <pre> block instead of C1's rendered_explain.
-    combined_parts: list[str] = [rendered]
+    combined_parts: list[str] = [_rewrite_misleading_budget(rendered)]
     if feasibility_summary_text:
         combined_parts.append("")
         combined_parts.append("=" * 70)

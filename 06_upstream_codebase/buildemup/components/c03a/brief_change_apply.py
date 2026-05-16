@@ -52,6 +52,7 @@ CLS_BUDGET = "BUDGET_BELOW_THRESHOLD"
 CLS_FAR = "FAR_EXCEEDED_BY_CHANGE"            # reserved; not produced in v0.1
 CLS_ROOM_AREA = "ROOM_AREA_BELOW_NBC_MIN"
 CLS_FLOOR_COUNT = "FLOOR_COUNT_BELOW_MIN"
+CLS_SETBACK_INVALID = "SETBACK_INVALID"       # B-014 (S54 fix)
 CLS_UNKNOWN = "UNKNOWN"
 
 # Per parent spec, brief enforces ≥1 floor in __post_init__
@@ -363,24 +364,46 @@ def _setback_increment_handler(sb_field: str):
                 },
             )
         current = brief.user_stated_setbacks
-        new_setbacks = Setbacks(
-            front_m=(
-                current.front_m
-                + (delta if sb_field == "front_m" else 0)
-            ),
-            rear_m=(
-                current.rear_m
-                + (delta if sb_field == "rear_m" else 0)
-            ),
-            side_left_m=(
-                current.side_left_m
-                + (delta if sb_field == "side_left_m" else 0)
-            ),
-            side_right_m=(
-                current.side_right_m
-                + (delta if sb_field == "side_right_m" else 0)
-            ),
+        # B-014 (S54 fix): Compute the would-be value per side, catch
+        # Setbacks.__post_init__ validation errors, and translate to a
+        # SETBACK_INVALID-classified BriefChangeIntegrityError with the
+        # side + resulting value in context. Pre-fix, the raw ValueError
+        # bubbled out and the formatter fell back to UNKNOWN ("try a
+        # different option"), giving the user no actionable signal.
+        result_m = (
+            (current.front_m if sb_field == "front_m" else current.front_m),
+            (current.rear_m if sb_field == "rear_m" else current.rear_m),
+            (current.side_left_m if sb_field == "side_left_m" else current.side_left_m),
+            (current.side_right_m if sb_field == "side_right_m" else current.side_right_m),
         )
+        # Apply the delta to the targeted side
+        new_front = current.front_m + (delta if sb_field == "front_m" else 0)
+        new_rear = current.rear_m + (delta if sb_field == "rear_m" else 0)
+        new_left = current.side_left_m + (delta if sb_field == "side_left_m" else 0)
+        new_right = current.side_right_m + (delta if sb_field == "side_right_m" else 0)
+        target_result = {
+            "front_m": new_front, "rear_m": new_rear,
+            "side_left_m": new_left, "side_right_m": new_right,
+        }[sb_field]
+        try:
+            new_setbacks = Setbacks(
+                front_m=new_front, rear_m=new_rear,
+                side_left_m=new_left, side_right_m=new_right,
+            )
+        except (ValueError, TypeError) as ve:
+            raise BriefChangeIntegrityError(
+                f"setbacks.{sb_field} would become {target_result:.2f}m, "
+                f"which is outside the allowed 0–15m range "
+                f"(detail: {ve})",
+                classification=CLS_SETBACK_INVALID,
+                context={
+                    "field_path": change.field_path,
+                    "side": sb_field,
+                    "delta_m": delta,
+                    "result_m": round(target_result, 2),
+                    "current_m": round(getattr(current, sb_field), 2),
+                },
+            )
         return dataclasses.replace(brief, user_stated_setbacks=new_setbacks)
     handler.__name__ = f"_handle_setbacks_{sb_field}"
     return handler

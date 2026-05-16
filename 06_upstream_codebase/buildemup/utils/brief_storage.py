@@ -98,6 +98,10 @@ class BriefStorage:
         parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(self.db_path, timeout=5.0)
         conn.execute("PRAGMA journal_mode = WAL")    # better concurrency
+        # B-050 (S54 fix): FK enforcement is OFF by default in SQLite.
+        # Without it, dependent rows accumulate beyond TTL and orphaned
+        # entries can survive parent deletion. Enable per-connection.
+        conn.execute("PRAGMA foreign_keys = ON")
         return conn
 
     def _ensure_schema(self) -> None:

@@ -231,6 +231,68 @@
     - Similar audit pass on `seismic_rules.json` (IS 1893), `load_rules.json` (IS 875), `setback_rules.json` _fallback_nbc block, `coverage_rules.json`, `rwh_approval_rules.json`
     - Architect sign-off when B-238 happens
 
+### Phase 17 — Bucket B batch (8 items, ✅ DONE)
+
+After Bucket A close + GitHub push, user authorized an 8-item Bucket B batch. All 8 shipped + tested + verified-no-regression across 205 tests.
+
+| # | Item | What changed | Test file |
+|---|---|---|---|
+| 1 | **S54-006** | Suppress C1 "budget generous" INFO when C2 reports envelope-insufficient — replaced with honest "evaluation pending" message in combined_rendered_explain | `test_s54_006_budget_suppression.py` (4 tests) |
+| 2 | **B-003** | Added Mumbai + Pune stilt mandate thresholds (300-2000 sqm range) to STILT_MANDATE_BY_CITY. Citations flagged for PDF verification under B-150 full | `test_s54_b003_stilt_mandate.py` (8 tests) |
+| 3 | **B-002** | Canonicalized line_type to "HT"/"LT"/"UNKNOWN" in electric_line_clearance details + messages | `test_s54_b002_line_type.py` (15 tests) |
+| 4 | **B-010** | Populated excess_sqft / excess_sqm / excess_pct on far_compliance HARD_FAIL details; surfaced in user-facing message | `test_s54_b010_far_excess.py` (3 tests) |
+| 5 | **B-014** | Added CLS_SETBACK_INVALID classification + template; setback handlers now catch ValueError and raise typed BriefChangeIntegrityError with side+result_m context | `test_s54_b014_setback_invalid.py` (6 tests) |
+| 6 | **B-004** | Aligned C3a CIRCULATION_FACTOR from 1.30 → 1.35 to match C1 + C2 + KB "typical" | `test_s54_b004_circulation_factor.py` (2 tests) |
+| 7 | **B-050** | Enabled `PRAGMA foreign_keys = ON` in BriefStorage._connect() | `test_s54_b050_b051_storage.py` (5 tests) |
+| 8 | **B-051** | gate_state_storage._db_path() now reads BUILDEMUP_GATE_DB_PATH then BUILDEMUP_DATABASE_PATH then DEFAULT_DB_PATH (matches DEPLOY.md docs) | (same file) |
+
+### Files changed in Phase 17
+
+- `api/brief_endpoint.py` — +35 LOC for S54-006 budget suppression rewrite
+- `components/c02/legal_only_checks.py` — Mumbai+Pune stilt entries (B-003), line_type canonicalization (B-002), far_compliance excess_sqft (B-010)
+- `components/c03a/brief_change_apply.py` — CLS_SETBACK_INVALID + setback handler ValueError→typed-error translation (B-014)
+- `components/c03a/error_formatter.py` — SETBACK_INVALID template + context defaults (B-014)
+- `components/c03a/detector.py` — CIRCULATION_FACTOR 1.30 → 1.35 (B-004)
+- `utils/brief_storage.py` — `PRAGMA foreign_keys = ON` (B-050)
+- `utils/gate_state_storage.py` — BUILDEMUP_DATABASE_PATH fallback (B-051)
+- 8 new test files added under `tests/test_s54_*.py` (44 new test cases total)
+
+### Phase 17 sweep results
+**205 of 205 tests pass** across all S54-touched test files. Zero regressions.
+
+### Phase 16 — GitHub push (✅ DONE)
+
+39. **Pre-flight checks passed:**
+    - Git 2.53.0 installed, configured as Ramalingam / ramalingam38@gmail.com
+    - Only file >10MB in bundle was venv's numpy DLL (19.5MB) — excluded by .gitignore
+    - 4 zip files in `03_code_chronological/` all under 1MB — no git-lfs needed
+
+40. **`.gitignore` created** at bundle root excluding: venv, __pycache__, *.pyc, .pytest_cache, .hypothesis, *.db, .env, .claude, .vscode, .idea, OS junk (Thumbs.db / .DS_Store), logs.
+
+41. **Initial commit made:** `b7ded09` — 1,399 files staged, 125.5 MB on disk. Commit message includes S54 work summary + documentation entry points.
+
+42. **GitHub repo created:** `ramalingam38-rgb/buildemup` (PRIVATE per user decision). User created via github.com/new.
+
+43. **Remote added + push successful:**
+    - `git remote add origin https://github.com/ramalingam38-rgb/buildemup.git`
+    - `git push -u origin main` → "* [new branch] main -> main"
+    - Verified: `origin/main` matches `b7ded09`. Working tree clean.
+
+44. **CI workflow auto-triggered on push** — runs on Ubuntu + Windows + macOS × Python 3.12. Expected first-run duration: ~2-4 min per OS. Outcomes to be triaged when user reports them.
+
+### Final Bucket A status at S54 close
+
+| # | Item | State | Notes |
+|---|---|---|---|
+| S54-001+002 | C1→C2→C3a chain | ✅ LIVE | User verified twice in browser |
+| S54-003 | BIGGEST ISSUE truncation | ✅ LIVE | Verified post-restart |
+| S54-004 | Right-side setback fix | ✅ LIVE | Verified post-restart |
+| S54-005 | Windows cp1252 test | ✅ TESTED | 16/16 session6 API tests pass |
+| B-237 | CI workflow | ✅ ACTIVE | First run triggered by push at S54 close |
+| B-150 partial | NBC citations | ✅ DONE | Report at 05_integrity_check/B150_PARTIAL_NBC_VERIFICATION_S54.md |
+| B-220 | Hydraulics | ⏸ CALENDAR | Needs plumbing engineer |
+| B-238 | Architect review | ⏸ CALENDAR | Needs licensed Indian architect (₹15-40K) |
+
 ### Phase 14 — B-237 implementation (✅ DONE — infra ready, awaits git push)
 
 31. **Created `.github/workflows/test.yml`** at the bundle root. Workflow definition:

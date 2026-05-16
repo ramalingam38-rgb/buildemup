@@ -50,7 +50,16 @@ _session_locks_master: threading.Lock = threading.Lock()
 
 
 def _db_path() -> str:
-    return os.environ.get("BUILDEMUP_GATE_DB_PATH", DEFAULT_DB_PATH)
+    # B-051 (S54 fix): DEPLOY.md documents BUILDEMUP_DATABASE_PATH as the
+    # primary env var for the c3a gate DB, but this code only read
+    # BUILDEMUP_GATE_DB_PATH. Operators following the docs got a silent
+    # default. Read both: specific (BUILDEMUP_GATE_DB_PATH) wins, general
+    # (BUILDEMUP_DATABASE_PATH) is the documented fallback, default last.
+    return (
+        os.environ.get("BUILDEMUP_GATE_DB_PATH")
+        or os.environ.get("BUILDEMUP_DATABASE_PATH")
+        or DEFAULT_DB_PATH
+    )
 
 
 def _ttl_seconds() -> float:
