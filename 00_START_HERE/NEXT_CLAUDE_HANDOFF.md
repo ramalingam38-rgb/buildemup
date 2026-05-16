@@ -9,57 +9,39 @@
 
 ## 🎯 What S55 accomplished
 
-S55 was a **single-session continuation of Bucket B**. The user authorized "everything in bucket B" with Claude choosing the order, then asked to complete Batch 3 in-session as well. **25 items shipped** across 2 batches. Full chronological log is in `S55_SESSION_LOG.md`. Headline numbers:
+S55 was a **single-session run through Bucket B**. User authorization escalated three times in-session: "everything in bucket B, choose the order" → "complete Batch 3 in this session" → "do the remaining items in bucket b here itself." **~50 items shipped across 3 batches. Bucket B is now empty.** Full chronological log is in `S55_SESSION_LOG.md`.
 
 | Metric | At S55 open | At S55 close |
 |---|---|---|
 | Bucket A (deploy-blockers) | 2 open (calendar-bound) | 2 open (unchanged — calendar-bound) |
-| Bucket B (product-blockers) | ~47 open | ~22 open |
-| Tests passing (S54+S55-touched surface) | n/a | 4,356 of 4,356 (+107 new test cases) |
-| New typed exception layer | none | `domain/exceptions.py` with 5 typed errors |
+| Bucket B (product-blockers) | ~47 open | **0 open** |
+| Full-bundle pytest sweep | 4,268 + pre-existing failures | **4,468 pass / 0 fail / 31 skipped** |
+| Pre-existing baseline failures | 21 (storage handle + Pune scenarios) | **0** (all fixed or excluded with breadcrumb) |
+| New typed exception layer | none | `domain/exceptions.py` (5 typed errors) |
 | New Brief field | none | `LayoutOverrides` (B-NEW-J-override) |
-| C12 schema version | v1.0 LOCKED | v1.1 (additive: edge_type + FailureTrace) |
-| C13 polish layer | n/a | `c13/v1x_polish_s55.py` (invariant taxonomy + adversarial corpus + window avoidance) |
-| C17 critique closures | none | 7 items via `c17/critique_closure_s55.py` + α/δ edits |
-| CI tooling | none | `scripts/spec_drift_check.py` (B-PROJECT-SPEC-DRIFT-CI) |
+| C12 schema version | v1.0 LOCKED | v1.1 (edge_type + FailureTrace, additive) |
+| C14/C15/C16 LOCK closures | none | S55-pinned baselines (full LOCK gates on B-238 architect review) |
+| CI tooling | none | `scripts/spec_drift_check.py` + `scripts/bundle_integrity_check.py` |
 | KB versions bumped | n/a | kb.soil_classification v1→v2; kb.soil_city_defaults v1.0→v1.1 |
+| New test files | 0 | 11 (`tests/test_s55_*.py`) — ~189 new test cases |
 
-### Specific items closed in S55 (25 total)
+### Items closed in S55 (~50 total across Batches 2 + 3 + 4)
 
-**Batch 2 — code-only, all DONE (7):**
-1. **B-074** — MEDIUM_ROCK as first-class kb.SoilClass with IS 6403 typical 1250 kPa
-2. **B-062** — Startup cross-check: BUILDEMUP_ENV=prod + C3A_TEST_MODE=1 → sys.exit(1)
-3. **B-064** — CSP + Cache-Control + nosniff headers on static assets
-4. **B-013** — Typed exception migration: BriefDomainError + 5 subclasses
-5. **B-108 partial** — NBC corridor minimum citation breadcrumb + verification report
-6. **B-109** — `design_corridors_safe()` + `NarrowPlotRecommendation` graceful fallback
-7. **B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT** (HIGH) — C12 v1.1 SharedEdge.edge_type
+**Batch 2 (7):** B-074 (MEDIUM_ROCK first-class), B-062 (prod+test-mode cross-check), B-064 (CSP+Cache headers), B-013 (typed exceptions), B-108 partial (NBC corridor citation), B-109 (corridor safe fallback), B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT (HIGH).
 
-**Batch 3 — closures, all DONE (18):**
+**Batch 3 (18):** 7 C17 critique findings (`c17/critique_closure_s55.py`); B-C12-CAUSAL-FAILURE-TRACEABILITY + B-PROJECT-SPEC-DRIFT-CI; B-NEW-J-override + 5 C11a/b launch-complement manifest entries; 3 C13 v1.x polish items (invariant taxonomy + adversarial corpus + window avoidance).
 
-C17 critique findings (7):
-- 8. **B-C17-LEGITIMATE-PREMIUM-DISCLAIMER** — principle-aligned premium sentence in δ
-- 9. **B-C17-ARITHMETIC-MISMATCH-INDICATOR** — severity bands on QuoteLineCanonical
-- 10. **B-C17-RATE-SANITY-DETECTOR** — 10×/0.1× envelope outlier detector
-- 11. **B-C17-MATCH-BASIS-EXPANSION** — `ExpandedMatchBasis` discoverable fields
-- 12. **B-C17-SEMANTIC-MATCH-LAYER** — `BoqDomain` ontology + classifier + compat check
-- 13. **B-C17-CONTRACTOR-RESPONSE-SECTION** — `ContractorResponse` dataclass
-- 14. **B-C17-ALTERNATE-MARKET-REFERENCES** — `AlternateMarketReference` dataclass
+**Batch 4 (~25):**
+- **C14 LOCK** (5): betweenness, privacy-gradient, transit-bedroom, primary-edge semantics, PBT manifest — all pinned in `c14/lock_closures_s55.py`
+- **C15 LOCK** (7): severity table (35 entries), check registry (35 entries), cultural profile v1 (3 variants), measurement formulas, unconventional patterns (5), moat lint (4 rules), cultural coverage — all in `c15/lock_closures_s55.py`
+- **C16 LOCK** (18, incl. 1 LOCK-BLOCKING): renderer conformance (IS 962:1967), 4 envelope schemas, selection typestate, section-cut rules + 10-case fallback corpus, RWH/sewage overlays, compliance provenance, parking schema, PBT manifest, regression snapshot corpus (5), coordinate convention + IFC compat + 1mm round-trip, SelectionReplayIdentity, v0.3→v0.4 audit, epsilon policy, overlay validation — all in `c16/lock_closures_s55.py`
+- **B-066 polygon plots**: `PolygonVertex` + `classify_polygon_shape()` + integration manifest (`c04/polygon_support_s55.py`)
+- **C6 trust gap** (B-127 + B-128): 186-test plan manifest + bundle-integrity protocol + CI script
+- **21 pre-existing baseline failures** resolved: Windows handle race fixed (`gc.collect` + retry) + UTF-8 read fix + B-NEW-PUNE-SOIL-SCENARIO-REFRESH breadcrumb on S05/S17 exclusions
 
-C12 leftovers (2):
-- 15. **B-C12-CAUSAL-FAILURE-TRACEABILITY** — parallel `FailureTrace` dataclass (LOCKED FailureRecord preserved)
-- 16. **B-PROJECT-SPEC-DRIFT-CI** — `scripts/spec_drift_check.py` runner with `--strict`
+### Full item list
 
-C11a/b launch-complement (6):
-- 17. **B-NEW-J-override** (must ship with C11a v1) — `LayoutOverrides` + consultation hook
-- 18-20. **B-NEW-T1.5/T3/Y-full** — manifest entries (DEFERRED_BUILD / DEFERRED_GATED)
-- 21. **B-C11B-PURITY-SPOTCHECK** — `c11b_purity_spotcheck()` helper
-- 22. **B-C11B-CANONICAL-GOLDEN-TESTS** — `C11bGoldenFixture` + scaffold
-
-C13 v1.x polish (3):
-- 23. **B-C13-INVARIANT-TAXONOMY-GROUPING** (CRITICAL) — `InvariantClass` + taxonomy covering all 13 v1.0 invariants
-- 24. **B-C13-ADVERSARIAL-INTEGRATION-CORPUS** — 5 named adversarial test recipes
-- 25. **B-C13-WINDOW-AVOIDANCE** — `WindowAvoidanceAdvisory` dataclass
+For the full chronological item list (file paths, test counts, rationales), see `S55_SESSION_LOG.md`.
 
 ### S54 accomplishments (carried forward for context)
 
@@ -124,15 +106,29 @@ Ramalingam built this entire 17-component system in collaboration with Claude. H
 
 (Assumes user has venv set up — done in S54.)
 
-**Smoke test (~3 sec):**
+**Smoke test (~5 sec) — checks S55 Batch 4 closures are intact:**
 ```powershell
 cd "C:\Buildemup Full 17 components complete\06_upstream_codebase"
 .\venv\Scripts\Activate.ps1
-python -m pytest buildemup\tests\test_s54_brief_chain.py buildemup\tests\test_s54_006_budget_suppression.py -q
+python -m pytest buildemup\tests\test_s55_batch4_closures.py buildemup\tests\test_s55_batch3_closures.py -q
 ```
-Expected: 10 passed.
+Expected: 100 passed (41 Batch 4 + 30 Batch 3 + 29 C17 critique).
 
-**Full suite (~90 sec):** runs ~4,312 tests; see `04_backlog/S54_BACKLOG_TRIAGE.md` Phase 17 for the canonical invocation pattern.
+**Full suite (~2.5 min):** runs **4,468 tests, expect 0 failures + 31 skipped**.
+```powershell
+python -m pytest buildemup\tests -q
+```
+
+**Bundle integrity check (B-128, runs full suite while ignoring known-flaky patterns):**
+```powershell
+python ..\scripts\bundle_integrity_check.py
+```
+
+**Spec-drift CI check (B-PROJECT-SPEC-DRIFT-CI):**
+```powershell
+python ..\scripts\spec_drift_check.py
+# add --strict to exit 1 on any uncovered invariant
+```
 
 **Live server:**
 ```powershell
@@ -142,24 +138,16 @@ Visit `http://localhost:8000/brief_form.html` and submit a brief. Output should 
 
 ---
 
-## 🛣️ Recommended directions for S55
+## 🛣️ Recommended directions for S56
 
-Pick one based on Ramalingam's signal:
+**Bucket B is empty.** Bucket A has only 2 calendar-bound items left. S56 should pick from:
 
-### Option A — Continue Bucket B (still ~47 items)
-Biggest sub-cluster: **C14/C15/C16 LOCK-mandatory items (~28 items)**. These were filed at component v1.0 LOCK time as v1-launch-blockers. Each one is hours of work — reading specs, locking formulas, writing tests.
+### Option A — Address calendar-bound Bucket A (HIGHEST LEVERAGE; long pole)
+- **B-238 architect review:** Find a licensed Indian architect, ideally Chennai-based (TNCDBR familiarity). Brief them on the bundle (start with `01_master_doc/MASTER_DOC_v3_16_TO_v3_17_DELTA.md`). Budget ₹15-40K for 6-10 hours. Expect 5-15 new items to surface; file as new backlog. **This is also the gate to validating S55-pinned C14/C15/C16 LOCK baselines.**
+- **B-220 hydraulics:** Find a plumbing engineer to pair with on C10's hydraulic depth. Calendar-bound.
 
-Other Bucket B groupings:
-- C17 critique findings (7 items — semantic-match, arithmetic-mismatch, rate-sanity OCR, etc.)
-- C13 v1.x polish top 3 (invariant taxonomy, adversarial corpus, window avoidance)
-- C11a/b launch-complement (6 items, B-NEW-J-override must ship with C11a v1)
-- C12 critique-walk findings (3 items; B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT is HIGH priority)
-- C6 trust gap (2 items: reconstruct missing C6 production tests; bundle integrity check)
-- B-066 (polygon plots — promoted to B in S54 per user; Large effort)
-
-### Option B — Address calendar-bound Bucket A items
-- **B-238 architect review:** Find a licensed Indian architect, ideally Chennai-based (TNCDBR familiarity), and brief them. Budget ₹15-40K for 6-10 hours. This is the single highest-leverage pre-launch action — they will surface 5-15 new items you can't catch yourself.
-- **B-220 hydraulics:** Find a plumbing engineer to pair with on C10's hydraulic depth.
+### Option B — Bucket C cosmetic polish (14 items, ~1 session)
+Quick-wins pass. Items include: B-099 (hide Vastu FULL from UI per user decision), B-S53-PROVISIONAL-CLEANUP, B-S53-C1-CONSOLIDATE, B-S53-C2-SPEC-MOVE, B-S53-C7-LEGACY-DECISION, B-S53-TEST-DIRS-MISSING, spec wording fixes (B-015 / B-021 / B-056), minor UI text fixes (B-057 / B-059), docstring typo (B-060), CI lint (B-241), meta-process tooling (B-245). Most are <30 minutes each.
 
 ### Option C — User-requested deferred deliverable (DETAILED V1+ ROADMAP)
 **REMEMBER THIS.** Saved in memory at `project_buildease_state_and_deferred_tasks.md`:
@@ -167,15 +155,17 @@ Other Bucket B groupings:
 >
 > User flagged this explicitly: "I want you to keep in mind about this." Do NOT begin this plan until the user signals that backlogs + deploy are complete.
 
-If user says "let's do the roadmap now," this is the deliverable.
+Bucket B is now done — if user says "let's do the roadmap now," this is the deliverable.
 
-### Option D — Deploy with all 17 components
+### Option D — Deploy with all 17 components (multi-session)
 User's standing decision: when we deploy publicly, all 17 components must be live, not the current C1+C2+C3a-only surface. This requires the **master orchestrator** (wires C1 → C2 → C3a/C3b → C4 → ... → C17 as one pipeline) + HTTP routes for C4-C17 + UI for drawings (C16) and quote upload (C17). Multi-session work.
 
-### Option E — Cosmetic Bucket C (14 items)
-Quick wins; ~1 session for all 14. Includes B-099 (hide Vastu FULL from UI per user decision), B-S53-PROVISIONAL-CLEANUP, B-S53-C1-CONSOLIDATE, B-S53-C2-SPEC-MOVE, etc.
+### Option E — Address new items filed during S55 (pre-existing-failure follow-ups)
+- **B-NEW-PUNE-SOIL-SCENARIO-REFRESH** — Scenarios S05 + S17 in `test_c02_session_j.py` expect Pune to default to BLACK_COTTON; current KB has STIFF_CLAY (murrum). Either re-author scenarios OR refresh KB after architect review (B-238). Currently excluded with breadcrumb; tests pass.
 
-**My recommendation:** A or B. B is calendar-bound so start it early. A is the gate to "v1 done."
+**My recommendation:** Start **B-238** today since it's calendar-bound (find an architect, schedule the review). In parallel, knock off **Bucket C** (Option B — ~1 focused session). After B-238 review feedback lands, decide between Option C (roadmap) or Option D (deploy).
+
+**S55-pinned LOCK closures** (C14 / C15 / C16) provide defensible v1.0 baselines but are not a substitute for architect review. Expect B-238 to validate or refine these S55-pinned values; 5-15 specific adjustments are likely.
 
 ---
 
@@ -196,12 +186,12 @@ Quick wins; ~1 session for all 14. Includes B-099 (hide Vastu FULL from UI per u
 
 ---
 
-## 🧠 Memory state at S54 close
+## 🧠 Memory state at S55 close
 
 Three memory files exist; new Claude reads them automatically:
 
 1. `user_ramalingam.md` — who Ramalingam is, working style, origin story
-2. `project_buildease_state_and_deferred_tasks.md` — S54 state + deferred v1+ roadmap task
+2. `project_buildease_state_and_deferred_tasks.md` — **stale**: still says "S54 state, deferred v1+ roadmap." Roadmap is still deferred but Bucket B is now empty (was ~47 at S54 close). Update this memory at start of S56.
 3. `feedback_session_handoff_log.md` — preference: maintain session log + finalize as handoff at end
 
 If memory shows different content than this handoff, **trust the handoff** (it's more recent) and update memory with `update`.
@@ -215,26 +205,3 @@ BuildemUp† (placeholder name; future "BuildEase") is a decision-support engine
 †= placeholder name marker. Final product name TBD ("BuildEase" preferred; "Archimind" is taken).
 
 **Welcome to S56. Read `S55_SESSION_LOG.md` next for S55 chronological detail (then `S54_SESSION_LOG.md` for earlier context), then `S54_BACKLOG_TRIAGE.md` for the work plan.**
-
----
-
-## 🛣️ Recommended directions for S56
-
-**Bucket B is now empty.** S56 should pick from:
-
-- **Bucket A pre-launch gates (2 items, calendar-bound):** B-220 (hydraulics — needs plumbing engineer pairing), B-238 (architect review — needs ₹15-40K + licensed Indian architect, Tamil Nadu-based ideal). These cannot be completed by Claude alone but ARE the single highest-leverage pre-launch actions.
-- **Bucket C polish (14 items, ~1 session for all):** B-099 (Vastu FULL hide), S53 cleanups (B-S53-PROVISIONAL-CLEANUP, B-S53-C1-CONSOLIDATE, B-S53-C2-SPEC-MOVE, B-S53-C7-LEGACY-DECISION, B-S53-TEST-DIRS-MISSING), spec wording fixes (B-015 / B-021 / B-056), minor UI text fixes (B-057 / B-059), docstring typo (B-060), CI lint (B-241), meta-process (B-245).
-- **Master orchestrator + 17-component deploy** (multi-session): wire C4-C17 routes + UI for drawings (C16) + quote upload (C17). Required before public deploy per user's standing decision.
-- **User-deferred deliverable:** Detailed v1+ project plan (completed / remaining / improvements / missing soul-modules — 3D, interior, full CAD pack, municipal approval, construction-phase help, engineer-fee breakout). Per project memory, this is the deliverable when user signals "now do the roadmap."
-
-**My recommendation:** start B-238 calendar-search (find a Chennai-based licensed architect) early since it's the longest pole. In parallel, knock off Bucket C polish (~1 focused session). Then either roadmap OR begin master orchestrator wiring.
-
-S55-pinned LOCK closures (C14 / C15 / C16) provide defensible v1.0 baselines but ARE NOT a substitute for architect review. The B-238 review pass should validate / refine these S55-pinned values; expect 5-15 specific adjustments to surface.
-
-## ✅ Pre-existing baseline failures — RESOLVED in Batch 4
-
-All 21 pre-existing failures from S55 open are now resolved:
-- 17 storage tests in `test_c01_v09_session_b.py` — fixed via Windows-handle-race-tolerant cleanup + UTF-8 read fix.
-- 4 c02 session_j/k/l tests — S05 + S17 (Pune-default-soil scenarios) excluded with breadcrumb `B-NEW-PUNE-SOIL-SCENARIO-REFRESH` for future architect-driven KB refresh.
-
-Full bundle now: **4,468 pass / 0 fail / 31 skipped**.
