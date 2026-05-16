@@ -1,0 +1,64 @@
+name: Tests
+
+# B-237 (Bucket A pre-launch hard gate) — cross-platform CI matrix
+# Verifies the project runs on the three major OSes against the
+# documented minimum Python version. Triggered on every push and PR.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # allow manual runs from the Actions tab
+
+jobs:
+  test:
+    name: Tests / ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false  # see results from all OS/Python combos even if one fails
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.12"]
+        # Python 3.13/3.14 can be added later when ecosystem catches up;
+        # numpy 2.x + hypothesis support them but minimum supported is 3.12
+        # per runtime.txt.
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: 06_upstream_codebase/requirements-dev.txt
+
+      - name: Show Python version (sanity)
+        run: python --version
+
+      - name: Install dependencies
+        working-directory: 06_upstream_codebase
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run full test suite
+        # The c03b suite imports `tests.test_c03b.fixtures` so PYTHONPATH
+        # must include both 06_upstream_codebase/ and 06_upstream_codebase/buildemup/
+        # (this matches the canonical command in S53_NEXT_CLAUDE_HANDOFF.md).
+        # `shell: bash` lets the same colon-separated PYTHONPATH work on all OSes
+        # via Git Bash on Windows.
+        working-directory: 06_upstream_codebase/buildemup/tests
+        shell: bash
+        env:
+          PYTHONPATH: "${{ github.workspace }}/06_upstream_codebase/buildemup:${{ github.workspace }}/06_upstream_codebase"
+        run: python -m pytest -q --no-header --tb=short
+
+      # Expected: ~4,268 passed, 6 skipped, 0 failed.
+      # A smoke run is also available via:
+      #   cd 06_upstream_codebase
+      #   python -m pytest buildemup/tests/test_s54_brief_chain.py -q
+      # ...but full-suite on CI is preferred since it's the gate.

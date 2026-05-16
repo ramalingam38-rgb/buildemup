@@ -1,0 +1,51 @@
+{
+  "source": {
+    "title": "IS 456:2000 — Plain and Reinforced Concrete — Code of Practice",
+    "section": "25.1.2",
+    "page": 71,
+    "publisher": "Bureau of Indian Standards",
+    "extracted_date": "2026-04-01",
+    "extracted_by": "manual"
+  },
+  "rules": [
+    {
+      "rule_id": "IS456_25_1_2_short_column",
+      "applies_to": "rcc_column",
+      "condition": {
+        "metric": "slenderness_ratio",
+        "operator": "<",
+        "value": 12,
+        "unit": "dimensionless"
+      },
+      "consequence": "Treated as SHORT column. No buckling/buckling-amplification check needed.",
+      "confidence": "high",
+      "notes": "Slenderness ratio = effective_length / least_lateral_dimension. For most residential columns (3m floor, braced) ratio < 10."
+    },
+    {
+      "rule_id": "IS456_25_1_2_slender_column",
+      "applies_to": "rcc_column",
+      "condition": {
+        "metric": "slenderness_ratio",
+        "operator": ">=",
+        "value": 12,
+        "unit": "dimensionless"
+      },
+      "consequence": "Treated as SLENDER column. Buckling analysis required (P-delta effects).",
+      "confidence": "high",
+      "notes": "Common case: stilt parking column unbraced over full ground floor height with thin section. Engineer must do buckling analysis."
+    },
+    {
+      "rule_id": "IS456_25_3_unsupported_length",
+      "applies_to": "rcc_column",
+      "condition": {
+        "metric": "unsupported_length_to_least_dim_ratio",
+        "operator": ">",
+        "value": 60,
+        "unit": "dimensionless"
+      },
+      "consequence": "VIOLATION — unsupported length exceeds 60× least lateral dimension. Reduce length or increase column section.",
+      "confidence": "high",
+      "notes": "Hard limit per IS 456 cl. 25.3. Refusal/redesign trigger."
+    }
+  ]
+}

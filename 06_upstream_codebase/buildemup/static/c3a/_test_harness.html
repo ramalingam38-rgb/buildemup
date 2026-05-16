@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="referrer" content="no-referrer">
+    <meta name="c3a-test-mode" content="1">
+    <title>C3a Test Harness (NOT FOR PRODUCTION)</title>
+    <link rel="stylesheet" href="/c3a/_shared.css">
+</head>
+<body>
+<main>
+    <h1>C3a Test Harness</h1>
+    <p class="c3a-warning">
+        This page exists ONLY to enable Phase 6 e2e tests of
+        handlePageFlow / displayError / handleTerminalRedirect
+        (§ 4.11 / v1.2 P-4). It is NOT served in production builds
+        and exposes shared.js helpers to window scope.
+    </p>
+    <div id="err"></div>
+</main>
+<script src="/c3a/_shared.js"></script>
+</body>
+</html>

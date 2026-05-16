@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>BuildemUp — CBA Checklist</title>
+    <link rel="stylesheet" href="/c3a/_shared.css">
+</head>
+<body>
+<main>
+    <h1>Confirm CBA classification</h1>
+    <p data-c3a-loading class="c3a-loading">Verifying session…</p>
+    <div id="checklist-container" class="c3a-hidden">
+        <div class="c3a-card">
+            <p>Please confirm that you have completed the
+                Continuous Building Area (CBA) verification for your
+                plot. This affects your setbacks and what's buildable.</p>
+            <h2>Checklist</h2>
+            <ul>
+                <li>Reviewed neighbourhood planning permission records.</li>
+                <li>Confirmed plot sits within / outside the CBA boundary
+                    per local body classification.</li>
+                <li>Documentation matches the response below.</li>
+            </ul>
+            <form id="cba-form">
+                <button type="submit" id="confirm-btn">
+                    I confirm CBA verification is complete
+                </button>
+            </form>
+        </div>
+    </div>
+    <div id="error-container"></div>
+</main>
+<script src="/c3a/_shared.js"></script>
+<script src="/c3a/checklist.js"></script>
+</body>
+</html>

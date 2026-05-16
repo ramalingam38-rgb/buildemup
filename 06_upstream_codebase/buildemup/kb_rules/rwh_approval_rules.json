@@ -1,0 +1,112 @@
+{
+  "_meta": {
+    "_version": "RWH_Approval_India_2026_v1",
+    "_last_updated": "2026-04-27",
+    "purpose": "City-specific rainwater harvesting mandates and approval complexity tiers.",
+    "source_standards": [
+      "Tamil Nadu Municipal Laws Ordinance 2003 (RWH mandatory all buildings)",
+      "Bangalore Water Supply and Sewerage (Amendment) Act 2009 / 2021 amendment",
+      "Mumbai DCPR 2034 + Maharashtra state RWH rule (plot >= 300 sqm)",
+      "Hyderabad GHMC RWH notification (plot >= 300 sqm)",
+      "Delhi UBBL 2016 + DJB RWH mandate (plot >= 1000 sqm or roof >= 100 sqm)",
+      "CSE India RWH legislation summary (cseindia.org/laws-and-policy)"
+    ],
+    "honesty_notes": [
+      "RWH thresholds are well-published and stable — these values are accurate.",
+      "Approval complexity tiers are heuristic. Real timelines depend on city",
+      "officer responsiveness, document completeness, and plot zone.",
+      "Citizens should verify with their architect or directly with the authority.",
+      "Approval check is INFO-only (never HARD-fails); it sets expectations."
+    ]
+  },
+  "rwh_mandate_by_city": {
+    "chennai": {
+      "always_mandatory": true,
+      "plot_area_threshold_sqm": null,
+      "roof_area_threshold_sqm": null,
+      "authority": "Chennai Metropolitan Development Authority (CMDA)",
+      "regulation": "Tamil Nadu Municipal Laws Ordinance 2003 + TNCDBR 2019",
+      "notes": "RWH mandatory for ALL buildings (public + private), no exemption. No water/sewer connection issued without RWH compliance."
+    },
+    "bangalore": {
+      "always_mandatory": false,
+      "plot_area_threshold_sqm": 111,
+      "roof_area_threshold_sqm": null,
+      "authority": "Bangalore Water Supply and Sewerage Board (BWSSB)",
+      "regulation": "BWSSB (Amendment) Act 2009, Section 72-A; 2021 amendment",
+      "notes": "Mandatory for new buildings on plots >= 1200 sqft (~111 sqm). 2021 amendment further tightened to 60x40ft (223 sqm) sites for retrofit on existing buildings."
+    },
+    "hyderabad": {
+      "always_mandatory": false,
+      "plot_area_threshold_sqm": 300,
+      "roof_area_threshold_sqm": null,
+      "authority": "Hyderabad Metropolitan Water Supply and Sewerage Board (HMWSSB)",
+      "regulation": "GHMC RWH notification + GO.168",
+      "notes": "Mandatory for plots >= 300 sqm regardless of roof area. Mandatory for all group housing and commercial complexes."
+    },
+    "mumbai": {
+      "always_mandatory": false,
+      "plot_area_threshold_sqm": 300,
+      "roof_area_threshold_sqm": null,
+      "authority": "Municipal Corporation of Greater Mumbai (MCGM)",
+      "regulation": "Maharashtra state RWH rule + DCPR 2034",
+      "notes": "Mandatory for buildings on plots >= 300 sqm per state rule. MCGM imposes stricter requirements on plots >= 1000 sqm."
+    },
+    "pune": {
+      "always_mandatory": false,
+      "plot_area_threshold_sqm": 300,
+      "roof_area_threshold_sqm": null,
+      "authority": "Pune Municipal Corporation (PMC) / PMRDA",
+      "regulation": "Maharashtra state RWH rule + UDCPR 2020",
+      "notes": "Same state rule as Mumbai — mandatory for plots >= 300 sqm."
+    },
+    "delhi": {
+      "always_mandatory": false,
+      "plot_area_threshold_sqm": 1000,
+      "roof_area_threshold_sqm": 100,
+      "authority": "Delhi Jal Board (DJB) / Central Ground Water Authority (CGWA)",
+      "regulation": "Ministry of Urban Development notification 2001 + DJB RWH mandate 2012",
+      "notes": "Mandatory for plots >= 1000 sqm OR roof area >= 100 sqm. Notified zones (South + Southwest Delhi) have CGWA-specific stricter rules including all institutions and tube-well sites. Non-compliance = water bill penalty 1.5x."
+    }
+  },
+  "approval_complexity_tiers": {
+    "simple": {
+      "_description": "Single-window self-certification or fast-track online approval for small low-rise.",
+      "criteria_examples": [
+        "plot_area_sqm <= 300 AND floor_count <= 4 AND height_m <= 12.5"
+      ],
+      "typical_timeline_weeks": "2-8",
+      "typical_authority_path": "Local body / municipal corporation online portal",
+      "typical_nocs_required": ["fire safety basic", "structural certificate"],
+      "user_burden_summary": "Architect-prepared drawings + standard documents; mostly online; minimal personal visits."
+    },
+    "medium": {
+      "_description": "Full development control review with multiple NOCs.",
+      "criteria_examples": [
+        "plot_area_sqm 300-1000 OR floor_count 5-7 OR height_m 12.5-18"
+      ],
+      "typical_timeline_weeks": "8-16",
+      "typical_authority_path": "City development authority (CMDA / BBMP / MCGM / DDA / GHMC / PMC)",
+      "typical_nocs_required": [
+        "fire safety", "structural certificate", "environment NOC",
+        "water + sewerage NOC", "electricity NOC"
+      ],
+      "user_burden_summary": "Architect + structural engineer; multiple NOCs; physical inspections; expect revisions."
+    },
+    "complex": {
+      "_description": "Multi-authority clearance with possible environmental impact assessment.",
+      "criteria_examples": [
+        "plot_area_sqm > 1000 OR floor_count > 7 OR height_m > 18 OR special_zone (CRZ, heritage, airport)"
+      ],
+      "typical_timeline_weeks": "16-40",
+      "typical_authority_path": "City development authority + state agencies + sometimes central agencies",
+      "typical_nocs_required": [
+        "fire safety high-rise", "structural certificate",
+        "environment EIA", "water + sewerage NOC", "electricity NOC",
+        "airport authority NOC (if zone)", "pollution control NOC",
+        "metro/transit NOC (if proximity)", "heritage NOC (if zone)"
+      ],
+      "user_burden_summary": "Architect + structural engineer + environmental consultant; many physical inspections; multi-month process; budget for consultant fees."
+    }
+  }
+}

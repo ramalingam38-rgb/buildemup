@@ -1,0 +1,97 @@
+{
+  "_meta": {
+    "_version": "Coverage_India_2026_v1",
+    "_last_updated": "2026-04-27",
+    "source_standards": [
+      "Tamil Nadu Combined Development and Building Rules (TNCDBR) 2019",
+      "Bangalore Revised Master Plan 2015 (BDA), amended 2026",
+      "Hyderabad GHMC Building Regulations / G.O.168",
+      "Mumbai DCPR 2034 (Municipal Corporation of Greater Mumbai)",
+      "Pune UDCPR 2020 (Maharashtra Uniform Development Control)",
+      "Unified Building Bye-Laws Delhi (UBBL 2016) / Master Plan Delhi 2021"
+    ],
+    "notes": [
+      "v1 (2026-04-27): Initial 6-city coverage. Simplified to base FAR + max ground-coverage per city.",
+      "Real DCRs are tiered by plot-area + road-width — these are flat estimates for v0.1 advisory feasibility.",
+      "Mumbai/Bangalore add road-width-tiered FSI premium not modelled in v0.1 — output disclosed as 'base estimate'.",
+      "Delhi small-plot uniform 350% FAR allowed for plots ≤ 100 sqm — modelled separately.",
+      "Stilt parking and basement are excluded from FAR for all 6 cities (national convention)."
+    ]
+  },
+  "chennai": {
+    "base_far": 2.0,
+    "max_ground_coverage_pct": 65,
+    "authority": "Chennai Metropolitan Development Authority (CMDA)",
+    "regulation": "TNCDBR 2019 (Tamil Nadu Combined Development and Building Rules)",
+    "notes": [
+      "FAR raised from 1.5 to 2.0 in 2019 amendment (G.O. effective Oct 2018).",
+      "Premium FSI possible up to 3.25 with payment to CMDA — not modelled in v0.1.",
+      "Excludes ecologically-sensitive zones (Aquifer Recharge, Red Hills, CRZ).",
+      "Stilt parking, basement, balcony (≤5%) excluded from FAR."
+    ]
+  },
+  "bangalore": {
+    "base_far": 2.0,
+    "max_ground_coverage_pct": 55,
+    "authority": "Bruhat Bengaluru Mahanagar Palike (BBMP) / Bangalore Development Authority (BDA)",
+    "regulation": "BDA Revised Master Plan 2015, amended 2026",
+    "notes": [
+      "Plotted developments allowed 55% ground coverage per BMR rules.",
+      "Real FAR is 1.75-3.25 driven by road width — v0.1 uses 2.0 mid-band estimate.",
+      "Premium FSI on roads >12m wide. Not modelled.",
+      "Stilt + basement excluded from FAR (BBMP convention)."
+    ]
+  },
+  "hyderabad": {
+    "base_far": 1.75,
+    "max_ground_coverage_pct": 60,
+    "authority": "Greater Hyderabad Municipal Corporation (GHMC)",
+    "regulation": "GHMC Building Regulations / G.O.168",
+    "notes": [
+      "FAR varies 1.5-2.5 based on plot tier — v0.1 uses 1.75 mid-band.",
+      "60% ground coverage typical for residential plots up to 500 sqm.",
+      "Stilt + basement excluded from FAR."
+    ]
+  },
+  "mumbai": {
+    "base_far": 1.33,
+    "max_ground_coverage_pct": 60,
+    "authority": "Municipal Corporation of Greater Mumbai (MCGM)",
+    "regulation": "DCPR 2034 (Development Control and Promotion Regulation)",
+    "notes": [
+      "Island City base FSI 1.33; suburbs 1.00. v0.1 uses 1.33 (the more permissive of the two).",
+      "Real FSI tiers up sharply with road width: 9-12m road = 2.0; 12-18m road = 2.4; 18-27m = 2.7+.",
+      "Plus 35% fungible compensatory area on top of basic FSI (premium).",
+      "v0.1 conservative — actual permissible FAR usually higher with road-width premiums.",
+      "Output discloses: 'base FAR — actual may be higher with premium charges'."
+    ]
+  },
+  "pune": {
+    "base_far": 1.10,
+    "max_ground_coverage_pct": 60,
+    "authority": "Pune Municipal Corporation (PMC) / PMRDA",
+    "regulation": "UDCPR 2020 (Unified Development Control & Promotion Regulations)",
+    "notes": [
+      "Base FSI 1.10, can be augmented with TDR + premium up to 3.0 in some zones.",
+      "60% ground coverage typical for residential.",
+      "v0.1 uses base only — no premium TDR modelling."
+    ]
+  },
+  "delhi": {
+    "base_far": 1.5,
+    "max_ground_coverage_pct": 60,
+    "small_plot_far": {
+      "threshold_sqm": 100,
+      "uniform_far": 3.5,
+      "max_ground_coverage_pct": 75
+    },
+    "authority": "Delhi Development Authority (DDA) / Local Bodies (MCD/NDMC/etc)",
+    "regulation": "UBBL 2016 / Master Plan Delhi 2021",
+    "notes": [
+      "Plots ≤ 100 sqm: uniform FAR 350% (3.5) and 75% ground coverage (small-plot relaxation per MPD-2021 amendment).",
+      "Plots > 100 sqm: FAR scales 1.5-3.0 by plot tier; v0.1 uses 1.5 base.",
+      "Stilt mandatory for plots 100-1000 sqm (notification, NOT in UBBL itself — known gotcha).",
+      "Basement, mumty, lift shaft excluded from FAR."
+    ]
+  }
+}

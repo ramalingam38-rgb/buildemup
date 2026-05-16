@@ -1,0 +1,153 @@
+{
+  "_meta": {
+    "kb_version": "Seismic_IS13920_2026_v1",
+    "source_standards": [
+      "IS 1893 Part 1:2016 (Seismic design criteria)",
+      "IS 13920:2016 (Ductile detailing of RC structures)",
+      "IS 875 Part 2:1987 (Imposed loads)"
+    ],
+    "last_updated": "2026-04-23",
+    "cadence": "yearly",
+    "notes": [
+      "All numeric values in this file are EXTRACTED from Python",
+      "constants in kb/seismic_detailing.py. Logic remains in Python.",
+      "This JSON contains only values (the 'what'), not algorithms.",
+      "",
+      "Schema compatibility is enforced by kb_rules_loader.py.",
+      "Any change here should keep the same structure or update the loader.",
+      "",
+      "To verify parity: run tests/test_v06_phase2.py — parity test",
+      "ensures old Python constants == new JSON-loaded values."
+    ]
+  },
+
+  "seismic_zone_factors": {
+    "description": "Z factor per IS 1893:2016 cl. 6.4.2 Table 3. Represents peak ground acceleration as fraction of g.",
+    "values": {
+      "II":  0.10,
+      "III": 0.16,
+      "IV":  0.24,
+      "V":   0.36
+    },
+    "unit": "dimensionless (fraction of g)",
+    "source_clause": "IS 1893:2016 cl. 6.4.2 Table 3"
+  },
+
+  "importance_factors": {
+    "description": "Importance factor I per IS 1893:2016 cl. 6.4.2 Table 8.",
+    "values": {
+      "residential_standard": 1.0,
+      "residential_important": 1.2,
+      "important_building": 1.5
+    },
+    "notes": "Important buildings = schools, hospitals, fire stations, telecom. Residential single/multi-family = standard (1.0).",
+    "source_clause": "IS 1893:2016 cl. 6.4.2 Table 8"
+  },
+
+  "response_reduction_factors": {
+    "description": "R factor per IS 1893:2016 cl. 7.2.6 Table 9 for RC moment-resisting frames.",
+    "values": {
+      "special_mrf_with_is13920": 5.0,
+      "ordinary_mrf": 3.0,
+      "special_rc_shear_wall": 5.0,
+      "ordinary_rc_shear_wall": 3.0
+    },
+    "source_clause": "IS 1893:2016 cl. 7.2.6 Table 9"
+  },
+
+  "is13920_applicability": {
+    "description": "Which seismic zones require IS 13920 ductile detailing.",
+    "required_zones": ["III", "IV", "V"],
+    "exempt_zones": ["II"],
+    "notes": "Zone II is exempt for residential, but IS 13920 is still good practice. Important buildings (schools, hospitals) require IS 13920 in ALL zones regardless.",
+    "source_clause": "IS 13920:2016 cl. 1.2"
+  },
+
+  "column_minimum_dimensions": {
+    "description": "Minimum column cross-section per IS 13920.",
+    "values": {
+      "seismic_min_dim_mm": 300,
+      "absolute_min_dim_mm": 230,
+      "seismic_min_aspect_ratio": 0.4,
+      "seismic_min_dim_if_unsupported_gt_4m_mm": 300
+    },
+    "unit": "mm",
+    "notes": "230mm min for non-seismic (normal practice). 300mm min for seismic (IS 13920 cl. 7.1.2). Aspect ratio (b/D) ≥ 0.4 to avoid wall-like behaviour.",
+    "source_clause": "IS 13920:2016 cl. 7.1.2, 7.1.3"
+  },
+
+  "column_steel_percentages": {
+    "description": "Longitudinal steel percentage limits per IS 456 cl. 26.5.3.1 + IS 13920.",
+    "values": {
+      "minimum_pct": 0.8,
+      "maximum_pct": 4.0,
+      "recommended_pct_by_zone": {
+        "II":  1.0,
+        "III": 1.5,
+        "IV":  2.0,
+        "V":   2.5
+      }
+    },
+    "unit": "percentage of gross cross-section",
+    "notes": "Below 0.8% = under-reinforced; above 4% = congestion. Zone-wise recommendations increase with seismic demand.",
+    "source_clause": "IS 456:2000 cl. 26.5.3.1; IS 13920:2016 cl. 7.3.1"
+  },
+
+  "stirrup_spacing": {
+    "description": "Transverse reinforcement spacing per IS 13920 cl. 7.4.",
+    "column_special_confining_zone": {
+      "max_spacing_as_fraction_of_dim": 0.25,
+      "max_spacing_mm": 100,
+      "min_spacing_mm": 75,
+      "notes": "Over length Lo from joint face (larger of h/6, 450mm, or where Mu > 0.4 Muz). Tighter confinement here."
+    },
+    "column_general_zone": {
+      "max_spacing_as_fraction_of_dim": 0.5,
+      "max_spacing_mm": 300,
+      "notes": "In the middle portion, spacing can relax but ≤ half least dim."
+    },
+    "beam_near_support": {
+      "max_spacing_as_fraction_of_effective_depth": 0.25,
+      "max_spacing_mm": 150,
+      "distance_from_face_factor": 2.0,
+      "notes": "Over 2d from beam face, stirrups at d/4 or 150mm max."
+    },
+    "beam_middle": {
+      "max_spacing_as_fraction_of_effective_depth": 0.5
+    },
+    "source_clause": "IS 13920:2016 cl. 7.4 (columns); cl. 6.3 (beams)"
+  },
+
+  "plan_regularity": {
+    "description": "Irregularity classification thresholds per IS 1893:2016 cl. 7.1.",
+    "re_entrant_corner": {
+      "moderate_limit_pct": 15.0,
+      "severe_limit_pct": 30.0,
+      "notes": "Projection of re-entrant corner as % of overall plan dimension. >15% = irregular (IS 1893). >30% = severely irregular in our practice (2× code limit)."
+    },
+    "plan_aspect_ratio": {
+      "moderate_limit_ratio": 4.0,
+      "severe_limit_ratio": 6.0,
+      "notes": "L/B ratio. >4 is irregular, >6 structurally risky."
+    },
+    "vertical_setback": {
+      "limit_pct": 25.0,
+      "notes": "Vertical geometric irregularity: setback > 25% of dimension below."
+    },
+    "source_clause": "IS 1893:2016 cl. 7.1 Table 4"
+  },
+
+  "slenderness": {
+    "description": "Column slenderness limit per IS 456 cl. 25.1.2.",
+    "short_column_limit": 12,
+    "notes": "Slenderness ratio (effective length / least lateral dim) must be ≤ 12 for short column. >12 means slender column — additional P-delta moments need engineer analysis.",
+    "source_clause": "IS 456:2000 cl. 25.1.2"
+  },
+
+  "regularity_classification_names": {
+    "description": "Output labels for regularity classification.",
+    "regular":  "REGULAR",
+    "moderate": "MODERATELY_IRREGULAR",
+    "severe":   "SEVERELY_IRREGULAR"
+  }
+}

@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────────
+# Python
+# ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Test caches
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
+# ─────────────────────────────────────────────────────────────────
+# Local databases (SQLite at runtime, briefs/sessions)
+# ─────────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+buildemup_briefs.db
+c3a_sessions.db
+
+# ─────────────────────────────────────────────────────────────────
+# Secrets / environment files
+# ─────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+secrets.json
+credentials.json
+
+# ─────────────────────────────────────────────────────────────────
+# OS / editor / IDE artifacts
+# ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ─────────────────────────────────────────────────────────────────
+# Claude Code local config (not part of project source)
+# ─────────────────────────────────────────────────────────────────
+.claude/
+
+# ─────────────────────────────────────────────────────────────────
+# Logs
+# ─────────────────────────────────────────────────────────────────
+*.log
+logs/

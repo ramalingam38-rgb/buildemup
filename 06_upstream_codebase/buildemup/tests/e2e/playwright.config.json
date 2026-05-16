@@ -1,0 +1,9 @@
+{
+  "_comment": "S8 § 4 e2e config metadata. Browser settings live in conftest.py — this file documents them per spec.",
+  "browsers": ["chromium"],
+  "headless": true,
+  "default_timeout_ms": 30000,
+  "tier": 2,
+  "tier_budget_seconds": 75,
+  "retry_on_failure": 0
+}

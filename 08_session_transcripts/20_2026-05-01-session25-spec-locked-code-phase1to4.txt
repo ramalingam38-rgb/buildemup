@@ -1,0 +1,314 @@
+# Session 25 — C3a S7b SPEC v1.0 LOCKED + Phase 1-4 code build
+
+**Date:** 1 May 2026
+**Spec entry:** S7b queue from NEXT_CLAUDE_HANDOFF.md (Session 24)
+**Spec exit:** S7b SPEC v1.0 LOCKED (2236 lines, fully self-contained)
+**Code entry:** 253/253 c3a baseline (Session 24 end)
+**Code exit:** 254/254 c3a (B-043 re-add); Phase 1-4 of 9 shipped
+**Mid-build state:** Clean — Phase 1-4 ready; Phase 5-9 queued
+                      with explicit file paths + ordering
+
+---
+
+## Entry handoff state recap
+
+Session 24 ended with S7a code build COMPLETE (1455 LOC c3a_endpoint
++ 65 new tests) plus a third-party code review addendum that surfaced
+15 findings. Session 24's D-067 push-back response disposed of the
+review (1 fix applied, 3 backlog items B-044/B-045/B-046, 3 deferred
+to C3a v0.2 architecture refactor, 3 rejected, 4 already in S7b
+scope).
+
+The handoff for Session 25 was specific: draft S7b SPEC v0.1 from a
+7-item input queue (production email hook, production scheduler hook,
+B-043 fix, metrics + tracing, error-path retry policy, Railway
+deployment config, smoke tests). Mirror the S7a SPEC v1.0 structure
+with sections § 0 — § 14.
+
+---
+
+## Session 25 narrative
+
+### Phase 0 — Orientation (10 min equivalent)
+
+Read the entire handoff zip:
+- 00_START_HERE/ (3 obligations + 6 rules + D-066/D-067 cycle)
+- 01_master_doc/MASTER_DESIGN_NARRATIVE_v2_9.md (~3000 lines)
+- 01_master_doc/MASTER_DOC_v2_9_TO_v3_0_DELTA.md (Session 24 deltas)
+- Most relevant prior session transcripts (Session 24 #19 in detail)
+- 02_specs_chronological/16_S7a_SPEC_v1_0_LOCKED.txt as the structural
+  template
+- 04_backlog/v0_2_backlog.md + Session 24 additions
+- 09_conversation_artifacts/D067_PUSHBACK_CODE_REVIEW_RESPONSE.md
+- 05_integrity_check/INTEGRITY_CHECK_SESSION_24_BUILD.md
+- Live code state verified: 253/253 c3a tests green, 1149/1149
+  project-wide.
+
+### Phase 1 — S7b SPEC v0.1 DRAFT
+
+Drafted from the 7-item queue, structured § 0 — § 16 mirroring S7a.
+Key features:
+- 8 candidate P-invariants P19-P26
+- Pre-committed pushback list § 0.3 with 6 entries (a-f) anticipating
+  YAGNI / Pattern E attacks
+- Self-flagged Q1: storage lock vs ALTER TABLE — author noticed the
+  internal contradiction during drafting but punted it to round 1
+  rather than self-resolving
+- Resend selected for email; Railway cron + admin tick selected for
+  scheduler
+- Net length: 1096 lines
+
+Ramalingam took to external critique source.
+
+### Phase 2 — S7b SPEC v0.2 DRAFT (round 1 critique)
+
+Round 1 returned 15 items. Disposition per D-067:
+- **12 patches**: P27-P32 (separate scheduler_state per round 1 #1;
+  index per #2; atomic UPDATE...RETURNING per #3; trace_id
+  propagation per #5; bounded metric cardinality per #6;
+  hmac.compare_digest per #7; server-time scheduler firing per #9;
+  /health upgrade per #10; SCHEDULER_TICK_LIMIT per #12; P32 startup
+  config validation per #13; PII masking per #14; drift WARNING per
+  #15)
+- **2 pushbacks**: round 1 #4 (email retry → B-048; sync retry adds
+  worst-case 1.5s user-visible latency on every failure to rescue
+  unknown fraction); round 1 #8 (lock contention preempt → § 0.3 (h);
+  the "move compute outside transaction" framing causes lost-update
+  bugs; "add jitter" requires another locked-module carve-out)
+- **2 partials**: #7 (admin security: hmac.compare_digest accepted,
+  IP allowlist + rotation rejected — Railway cron IPs not documented
+  as stable, rotation adds state for low gain); #11 (smoke verifies
+  contract not hooks: manual checklist accepted, automation → B-049)
+- **2 new backlog items**: B-048, B-049
+
+The biggest delta was round 1 #1 — separating scheduler state into a
+new `scheduler_state` table and a new `SchedulerStateStorage` class
+in a new file. This resolved the v0.1 self-flagged contradiction
+(storage locked except B-043 vs ALTER TABLE on gate_states) by
+making the new table S7b-owned end-to-end, with `_ensure_schema`
+extension as the named carve-out.
+
+Net length: 1695 lines.
+
+### Phase 3 — S7b SPEC v0.3 DRAFT (round 2 critique)
+
+Round 2 returned 8 items. Disposition:
+- **7 patches**: P33 (at-least-once delivery with bounded retries —
+  the most important round 2 finding; v0.2's atomic dequeue marked
+  rows fired BEFORE POST, so a POST failure permanently lost the
+  row. v0.3 redesigned: claim-then-commit with attempt_count cap
+  at 3 + scheduler_stuck_count via /health for ops alerting. Round
+  2 #1.); P34 (trace_id format validation regex `^[0-9a-f]{16}$` at
+  the cba-fallback-continue trust boundary; round 2 #3); SQLite
+  version check moved to `_validate_config()` per P32 (round 2 #2);
+  /health adds scheduler write path test (round 2 #5); error_class
+  "internal" no longer drops detail — separate WARNING line on
+  unmapped codes preserves it without violating P30 cardinality
+  (round 2 #6); config validation extended to value sanity (round 2
+  #7); 8s soft tick budget (round 2 #8)
+- **1 partial**: round 2 #4 (pre-fire status check — REJECTED on
+  TOCTOU race + Pattern A + storage coupling grounds; ACCEPTED the
+  visibility goal via response parsing — tick now differentiates
+  fired/skipped_terminal/failed by parsing the cba-fallback-continue
+  response. § 0.3 (i))
+- **0 substantive pushbacks**, **0 new backlog items**
+
+Author's read at end of round 2: ready for LOCK. Round 3 on this
+surface would compound (Pattern D risk).
+
+Net length: 1502 lines.
+
+### Phase 4 — S7b SPEC v0.4 DRAFT (round 3 critique)
+
+Round 3 surfaced 1 item — but it was a real one: stuck rows
+(fallback_fired = 0 AND attempt_count >= 3) had operational
+visibility via /health but NO recovery path other than direct DB
+surgery. This contradicts S7b's API-surface-as-self-service model.
+
+P35 added: admin reset endpoint POST /admin/scheduler/reset with
+single-row, idempotent, atomic, audited semantics. Same auth as
+the tick endpoint. Three outcomes: RESET / ALREADY_FIRED / NOT_FOUND.
+
+This was the right call to flip my round 2 "ready to lock"
+recommendation. The reviewer's framing as a "completeness gap, not
+architectural flaw" was accurate; adding the recovery endpoint made
+P33 more coherent (detection + action) rather than adding rules on
+top of rules. NOT Pattern D.
+
+Net length: 776 lines (delta document; "UNCHANGED FROM v0.3"
+references for unchanged sections).
+
+### Phase 5 — S7b SPEC v1.0 LOCKED
+
+Ramalingam confirmed lock. Full self-containment per Rule 2b: every
+section inlined, no "UNCHANGED FROM v0.3" references. § 11.1
+BACKLOG ITEMS — FULL DETAIL added with B-048 + B-049 inlined.
+Lock-readiness language replaced with locked-status declarations.
+
+17 P-invariants P19-P35 defined. 3 critique rounds clean.
+0 spec-level open questions remaining (Q2/Q3/Q4/Q6/Q8/Q9/Q11 are
+all deploy-time or housekeeping per § 10).
+
+Net length: 2236 lines.
+
+### Phase 6 — Code build Phase 1-4
+
+Per D-066 step 6, started code build immediately after lock.
+
+**Phase 1 — B-043 surgical fix (P19)**:
+- 1-line removal in `gate_state_storage.save_existing` (manual
+  ROLLBACK before raise)
+- 2-line comment addition referencing P19
+- Re-added `test_save_existing_unknown_token_raises` to
+  `test_c03a_session7_storage.py` (15 → 16 tests)
+- Verified 16/16 storage tests green; TokenNotFoundError
+  propagates cleanly
+
+**Phase 2 — SchedulerStateStorage class (P27 + P28 + P33 + P35)**:
+- New module `utils/scheduler_state_storage.py` (~430 LOC)
+- 7 public methods: enqueue, claim_due, commit_fired,
+  record_error, count_due, count_stuck, reset
+- ResetOutcome enum + ResetResult dataclass
+- _ensure_schema extension on `gate_state_storage.py`: idempotent
+  CREATE TABLE for scheduler_state + CREATE INDEX for
+  idx_fallback_due. gate_states schema byte-identical to S7a.
+- End-to-end sanity test: enqueue → claim_due (returns row,
+  attempt_count=1, trace_id propagated) → second claim
+  (cooldown filter blocks) → commit_fired (stuck_count=0) → reset
+  on already-fired (returns ALREADY_FIRED) → reset on unknown
+  (returns NOT_FOUND). All four behaviors P28/P29/P33/P35
+  verified.
+
+**Phase 3 — Resend email hook (P20 + P29)**:
+- Replaced `api/c3a_email_hook.py` stub with production wiring
+- POST to https://api.resend.com/emails via stdlib urllib.request
+- Backward-compatible signature: keyword-only `trace_id` added
+- Graceful degrade on missing RESEND_API_KEY (log + return None)
+- Email masking helper per round 1 #14
+- HTML email body inlined; minimal styling
+
+**Phase 4 — Scheduler hook with new signature (P29 + P31)**:
+- Replaced `api/c3a_scheduler_hook.py` stub
+- SIGNATURE CHANGE per spec § 7.4: `(session_token, fire_at_unix,
+  request_id, *, trace_id=None)` — fire_at_unix is INT UNIX
+  timestamp per P31; request_id positional for P21 idempotency
+  - This is the source of the 2-line fake-signature update
+    requirement in S7a's hook_ordering tests per § 8.7
+- Body writes to scheduler_state via `enqueue`
+- Lazy module-singleton + `reset_storage_for_tests` test seam
+
+### Phase 7 — Honest threshold call (Obligation 2)
+
+End of Phase 4, made the honest call per Obligation 2 about
+context budget for the remaining phases:
+- Phase 5-7-8 source: ~430 LOC remaining
+- Phase 6 (c3a_endpoint instrumentation in 1500-line file): fragile
+- Phase 9: 30 new tests + S7a hook test update — biggest piece +
+  Pattern B risk
+
+The Session 23 → 24 mid-build pattern is the right precedent.
+Delivered the call to Ramalingam: continue or stop with clean
+mid-build state.
+
+Ramalingam chose: stop here, deliver perfect handoff.
+
+### Phase 8 — Session-end deliverables
+
+Per Rules 1, 5, 6:
+1. Master doc delta v3.0 → v3.1 (this transition)
+2. Backlog file (B-048 + B-049 + B-043 closure note)
+3. NEXT_CLAUDE_HANDOFF.md refreshed for Session 26 (Phase 5-9
+   queue with file paths)
+4. This transcript
+5. Integrity check report
+6. Session 26 zip with everything
+
+---
+
+## Acceptance state at end of Session 25
+
+- 254/254 c3a tests pass (253 Session 24 baseline + 1 new B-043
+  re-add)
+- 1150/1150 project-wide tests pass (no upstream regression)
+- S7b SPEC v1.0 LOCKED (3 critique rounds clean; 17 P-invariants;
+  fully self-contained per Rule 2b)
+- Code Phase 1-4 of 9 shipped:
+  - B-043 surgical fix (P19) ✅
+  - SchedulerStateStorage class (P27, P28, P33, P35) ✅
+  - _ensure_schema extension for scheduler_state table (P27) ✅
+  - Resend email hook (P20, P29) ✅
+  - Scheduler hook with new signature (P29, P31) ✅
+- Code Phase 5-9 PENDING for Session 26:
+  - admin endpoint, c3a_endpoint instrumentation, /health upgrade,
+    config validation, 29 new tests + S7a hook test 2-line update
+
+---
+
+## Key file locations (verbatim, for next Claude)
+
+```
+/home/claude/handoff/
+  00_START_HERE/
+    NEXT_CLAUDE_HANDOFF.md                ← refreshed for Session 26
+  01_master_doc/
+    MASTER_DESIGN_NARRATIVE_v2_9.md       ← carried (last full)
+    MASTER_DOC_v2_9_TO_v3_0_DELTA.md      ← carried (Session 24)
+    MASTER_DOC_v3_0_TO_v3_1_DELTA.md      ← NEW (Session 25)
+  02_specs_chronological/
+    16_S7a_SPEC_v1_0_LOCKED.txt           ← S7a, carried
+    17_S7b_SPEC_v0_1_DRAFT.txt            ← NEW
+    18_S7b_SPEC_v0_2_DRAFT.txt            ← NEW
+    19_S7b_SPEC_v0_3_DRAFT.txt            ← NEW
+    20_S7b_SPEC_v0_4_DRAFT.txt            ← NEW
+    21_S7b_SPEC_v1_0_LOCKED.txt           ← NEW (the spec to code from)
+  03_code_chronological/
+    S7b_phase1_4/                         ← NEW (this session)
+      gate_state_storage.py               ← MODIFIED (B-043 + schema ext)
+      scheduler_state_storage.py          ← NEW
+      c3a_email_hook.py                   ← REPLACED (Resend wiring)
+      c3a_scheduler_hook.py               ← REPLACED (new signature)
+      test_c03a_session7_storage.py       ← MODIFIED (re-added test)
+      SESSION_25_S7b_PHASE_1_4_FOR_REVIEW.py  ← consolidated review file
+                                              per Rule 2c
+  04_backlog/
+    backlog_session_25.md                 ← NEW (B-048, B-049, B-043 close)
+  05_integrity_check/
+    INTEGRITY_CHECK_SESSION_25_BUILD.md   ← NEW
+  06_upstream_codebase/
+    buildemup/                            ← LIVE CODEBASE end of S25
+                                              (Phase 1-4 changes applied)
+  08_session_transcripts/
+    20_2026-05-01-session25-spec-locked-code-phase1to4.txt ← THIS FILE
+```
+
+---
+
+## Status block (Rule 6)
+
+**Project-wide:** 3 of 17 components shipped (C1, C2, C7). C3a in
+build: 7 of 8 sub-sessions complete (S1-S6, B-027, S7a). S7b spec
+LOCKED v1.0 + code Phase 1-4 of 9 shipped this session. S7b
+Phase 5-9 + S8 remaining → path to 4 of 17.
+
+**This session (25):** Drafted S7b SPEC across 4 versions (v0.1 →
+v0.2 → v0.3 → v0.4 → v1.0 LOCKED) with 3 critique rounds. 21
+patches applied / 2 substantive pushbacks documented per D-067 /
+2 partials / 2 new backlog items (B-048, B-049). 17 P-invariants
+P19-P35. Code build Phase 1-4 shipped: B-043 surgical fix +
+SchedulerStateStorage class + _ensure_schema extension + Resend
+email hook + scheduler hook. 254/254 c3a, 1150/1150 project tests
+green. Mid-build stop per Obligation 2 with clean handoff for
+Session 26.
+
+**Pending immediate:** Session 26 — finish S7b code build Phases
+5-9 (admin endpoint, c3a_endpoint instrumentation, /health
+upgrade, config validation, 29 new tests + S7a hook test
+2-line update).
+
+**Pending long-range:** S7b code-critique cycle → S7b ship → S8
+validation suite → C3a complete = 4 of 17 components shipped.
+Then C3b + 12 more components.
+
+---
+
+**Session 25 — END**

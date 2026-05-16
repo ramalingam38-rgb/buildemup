@@ -1,0 +1,237 @@
+{
+  "kb_version": "NBC_Room_Minimums_2016_v1",
+  "last_updated": "2026-05-05",
+  "source": "NBC 2016 Part 3 (secondary consensus from Slideshare bye-laws table; multiple sources agree). v1 is dwelling-tiered (SMALL <=50 m^2 / LARGE >50 m^2). B-150 deferred: independent verification against the authoritative NBC PDF.",
+  "schema_notes": [
+    "Each row carries source_confidence: VERIFIED | SECONDARY_CONSENSUS | SECONDARY_UNVERIFIED.",
+    "POOJA has no NBC floor area: area_m2=0.0 means 'no NBC requirement', height retained for code-completeness.",
+    "UTILITY (storeroom) has no NBC width minimum cited: width_m=0.0 means 'no NBC requirement'; liveability resolution pulls up the furniture value.",
+    "Bedroom is_master=true uses NBC 2016 Part 3 Clause 12.2.1 (single-room dwelling unit / principal habitable room) at 9.5 m^2; is_master=false in SMALL tier uses 12.2.2 (smaller of two) at 7.5 m^2.",
+    "LIVING is treated as principal habitable room (Clause 12.1.1) at 9.5 m^2 in both tiers; is_master is irrelevant for LIVING (always false in C9 brief)."
+  ],
+  "rows": [
+    {
+      "tier": "small",
+      "category": "bedroom",
+      "is_master": true,
+      "bathroom_subtype": null,
+      "area_m2": 9.5,
+      "width_m": 2.4,
+      "height_m": 2.75,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.2.1",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "small",
+      "category": "bedroom",
+      "is_master": false,
+      "bathroom_subtype": null,
+      "area_m2": 7.5,
+      "width_m": 2.1,
+      "height_m": 2.75,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.2.2",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "small",
+      "category": "living",
+      "is_master": false,
+      "bathroom_subtype": null,
+      "area_m2": 9.5,
+      "width_m": 2.4,
+      "height_m": 2.75,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.1.1",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "small",
+      "category": "kitchen",
+      "is_master": false,
+      "bathroom_subtype": null,
+      "area_m2": 3.3,
+      "width_m": 1.8,
+      "height_m": 2.75,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.3.1",
+      "source_confidence": "secondary_unverified",
+      "_unverified_origin": "S34 critique walk: web sources cite NBC 2016 Part 3 Clause 12.3.2 kitchen min 5.0 m^2 (separate dining) or 7.5 m^2 (kitchen-cum-dining); KB value 3.3 m^2 below both. Pending B-150 primary-source verification."
+    },
+    {
+      "tier": "small",
+      "category": "bathroom",
+      "is_master": false,
+      "bathroom_subtype": "combined",
+      "area_m2": 1.8,
+      "width_m": 1.0,
+      "height_m": 2.1,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.4",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "small",
+      "category": "bathroom",
+      "is_master": true,
+      "bathroom_subtype": "combined",
+      "area_m2": 1.8,
+      "width_m": 1.0,
+      "height_m": 2.1,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.4",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "small",
+      "category": "bathroom",
+      "is_master": false,
+      "bathroom_subtype": "bath_only",
+      "area_m2": 1.2,
+      "width_m": 1.0,
+      "height_m": 2.1,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.4",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "small",
+      "category": "bathroom",
+      "is_master": false,
+      "bathroom_subtype": "wc_only",
+      "area_m2": 1.0,
+      "width_m": 0.9,
+      "height_m": 2.1,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.4",
+      "source_confidence": "secondary_unverified",
+      "_unverified_origin": "S34 critique walk: web sources cite NBC 2016 Part 3 Clause 12.4 WC min 1.1 m^2; KB value 1.0 m^2 below floor. Pending B-150 primary-source verification."
+    },
+    {
+      "tier": "small",
+      "category": "pooja",
+      "is_master": false,
+      "bathroom_subtype": null,
+      "area_m2": 0.0,
+      "width_m": 0.0,
+      "height_m": 2.1,
+      "nbc_clause": "(no NBC floor)",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "small",
+      "category": "utility",
+      "is_master": false,
+      "bathroom_subtype": null,
+      "area_m2": 3.2,
+      "width_m": 0.0,
+      "height_m": 2.2,
+      "nbc_clause": "NBC 2016 Part 3 (clause v0.4 unverified)",
+      "source_confidence": "secondary_unverified"
+    },
+    {
+      "tier": "large",
+      "category": "bedroom",
+      "is_master": true,
+      "bathroom_subtype": null,
+      "area_m2": 9.5,
+      "width_m": 2.4,
+      "height_m": 2.75,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.1.1",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "large",
+      "category": "bedroom",
+      "is_master": false,
+      "bathroom_subtype": null,
+      "area_m2": 9.5,
+      "width_m": 2.4,
+      "height_m": 2.75,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.1.1",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "large",
+      "category": "living",
+      "is_master": false,
+      "bathroom_subtype": null,
+      "area_m2": 9.5,
+      "width_m": 2.4,
+      "height_m": 2.75,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.1.1",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "large",
+      "category": "kitchen",
+      "is_master": false,
+      "bathroom_subtype": null,
+      "area_m2": 4.5,
+      "width_m": 1.8,
+      "height_m": 2.75,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.3.1",
+      "source_confidence": "secondary_unverified",
+      "_unverified_origin": "S34 critique walk: web sources cite NBC 2016 Part 3 Clause 12.3.2 kitchen min 5.0 m^2 (separate dining) or 7.5 m^2 (kitchen-cum-dining); KB value 4.5 m^2 below both. Pending B-150 primary-source verification."
+    },
+    {
+      "tier": "large",
+      "category": "bathroom",
+      "is_master": false,
+      "bathroom_subtype": "combined",
+      "area_m2": 2.8,
+      "width_m": 1.2,
+      "height_m": 2.1,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.4",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "large",
+      "category": "bathroom",
+      "is_master": true,
+      "bathroom_subtype": "combined",
+      "area_m2": 2.8,
+      "width_m": 1.2,
+      "height_m": 2.1,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.4",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "large",
+      "category": "bathroom",
+      "is_master": false,
+      "bathroom_subtype": "bath_only",
+      "area_m2": 1.8,
+      "width_m": 1.2,
+      "height_m": 2.1,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.4",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "large",
+      "category": "bathroom",
+      "is_master": false,
+      "bathroom_subtype": "wc_only",
+      "area_m2": 1.2,
+      "width_m": 0.9,
+      "height_m": 2.1,
+      "nbc_clause": "NBC 2016 Part 3 Clause 12.4",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "large",
+      "category": "pooja",
+      "is_master": false,
+      "bathroom_subtype": null,
+      "area_m2": 0.0,
+      "width_m": 0.0,
+      "height_m": 2.1,
+      "nbc_clause": "(no NBC floor)",
+      "source_confidence": "secondary_consensus"
+    },
+    {
+      "tier": "large",
+      "category": "utility",
+      "is_master": false,
+      "bathroom_subtype": null,
+      "area_m2": 3.2,
+      "width_m": 0.0,
+      "height_m": 2.2,
+      "nbc_clause": "NBC 2016 Part 3 (clause v0.4 unverified)",
+      "source_confidence": "secondary_unverified"
+    }
+  ]
+}

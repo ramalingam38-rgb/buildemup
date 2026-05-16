@@ -1,0 +1,1496 @@
+
+--- CLAUDE ---
+ Hold on. Pushing back before I start.
+
+## What you just expanded the scope to
+
+You added 4 things that aren't simple checks — they're **whole engineering domains**:
+
+1. **Parking layout** — needs actual 2D geometry: car footprints, turning radius arcs, column grid, gate placement, ramp slope, fire access. This is what Component 4 (layout engine) was designed to do.
+
+2. **Daylighting** — needs window placement, room positions, neighboring building heights, latitude-aware sun-path calculations, IES/IS code daylight factors. Requires a layout to exist first.
+
+3. **Ventilation** — needs room-by-room cross-ventilation paths, opening positions on opposing walls, NBC Part 8 air change rates, kitchen/bath exhaust modelling. Requires a layout to exist first.
+
+4. **Structural feasibility** — that's literally what Component 7 does (and has been doing for 274 tests). Brief capture already calls it. There's nothing new to add at the feasibility step.
+
+## Why this fails
+
+**You can't do parking/daylight/ventilation feasibility before the layout exists.** Component 1 captures "I want 3 BHK + stilt parking on this plot." Component 4 produces "here's where the rooms go, here's where the columns are, here are the windows." Daylight-feasibility means "given THIS room position relative to THIS window facing south, will it get adequate light." Component 2 doesn't have rooms placed yet — it has a brief. There's nothing to daylight-check.
+
+The same applies to ventilation (need windows on opposite walls) and parking (need column grid and gate). All three require Component 4 to run first.
+
+**Building these now would mean either:**
+- (a) Inventing fake layouts inside Component 2 just to check them, then throwing them away — wasted work that Component 4 will redo properly
+- (b) Inventing a "rough geometry" layer in Component 2 — which is just Component 4 lite, built worse, by a different name
+
+Option (a) is wasted compute. Option (b) is the worst kind of duplication — two layout engines that disagree.
+
+## The actually-useful version of what you asked for
+
+What Component 2 CAN check honestly, without a real layout:
+
+| What you said | What's actually checkable at brief stage | What needs Component 4 |
+|---|---|---|
+| **Parking layout** | Whether parking *fits at all* (already in Component 1's parking_feasibility); width tier check | Actual layout — turning radius, columns, gate |
+| **Daylighting** | Plot orientation + neighboring shadow risk based on plot facing + setbacks (heuristic-level) | Per-room daylight factor with windows placed |
+| **Ventilation** | Cross-ventilation *possible at all* — needs at least 2 external walls per room cluster (plot type + envelope geometry) | Per-room cross-ventilation paths |
+| **Structural feasibility** | Already done by Component 1 calling C7 — confirms cost and structural sanity | Same — nothing missing |
+
+## My honest counter-proposal
+
+**5-check core (what I had) + 3 brief-stage heuristics (subset of what you asked for):**
+
+| Check | What v0.1 actually does | Source of truth |
+|---|---|---|
+| Envelope sufficiency ✓ | Rooms fit in envelope at all | NBC + circulation |
+| Floor stack feasibility ✓ | Stairs accounted for, total area sane | NBC + IS 3861 |
+| Room minimum violations ✓ | User specs below NBC minimums | NBC Part 3 |
+| Setback feasibility ✓ | >5×5m buildable area remains | DCRs |
+| Budget feasibility ✓ | User budget vs C7 cost range | C7 + AECORD |
+| **Parking width feasibility** (new) | Internal width after setbacks ≥ minimum for stated parking count — heuristic | NBC parking norms |
+| **Solar exposure heuristic** (new) | Plot facing × stated floor count → "this plot will/won't get good light" — coarse | Sun path for India lat range |
+| **Cross-vent possibility** (new) | Plot type allows opposing-wall openings (DETACHED yes, CONTINUOUS limited) — coarse | NBC Part 8 |
+
+**Honest framing in output:** all 3 new checks marked `[Preliminary check — Component 4 will validate with actual layout]` — same disclaimer pattern we used for parking in v0.9.1.
+
+Does NOT include "structural feasibility as a new check" because Component 1 already does that.
+
+## What this changes
+
+- **Sessions: 3-4 → 4-5** (one extra session for the 3 heuristic checkers)
+- **Tests: ~120 → ~160**
+- **Risk: similar** (heuristics are well-bounded, don't claim layout-level precision)
+
+What you'd be giving up if you insist on full parking/daylight/ventilation engines now: **6-10 weeks of work building a layout-quality engine that Component 4 will replace.**
+
+## Two questions
+
+1. **Approve the 8-check scope** (5 hard + 3 brief-stage heuristics with "Component 4 will validate" disclaimers)? Or want me to drop the 3 heuristics and keep just the 5 hard checks?
+
+2. **Confirm: Component 4 (layout engine) is where actual parking/daylight/ventilation validation happens.** I want this on the record so we don't relitigate later. **Confirm?**
+
+Tell me your call. The honest answer here is "no, you can't have layout-level checks without a layout" — but heuristic versions of all three at brief-stage are doable now and will make the user output materially better.
+
+--- USER ---
+1. Approve 8 check scope 
+2. Confirm on component 4 
+
+Before doing anything can you research in the web what other checks do we need. Frankly I don’t think think this is enough
+
+--- CLAUDE ---
+ Good instinct. Researching now before I commit to scope.
+[TOOL web_search]
+NBC findings: damp sites, surface drainage, distance from electric lines, distance from water course. Soil testing requirement. Hazard risk vulnerability analysis is in NBC's design brief checklist. Let me research what specifically makes a brief infeasible — I want to find checks that can be done WITHOUT a layout:
+[TOOL web_search]
+Excellent — strong findings. Now I want to look at fire/safety + FAR/coverage + statutory approvals which keep appearing:
+[TOOL web_search]
+That's the goldmine. Now I have a comprehensive picture. Let me also check fire access since that was repeatedly flagged in NBC docs:
+[TOOL web_search]
+I have enough now. Let me synthesize this into a comprehensive scope.
+
+---
+
+# Research findings — what Component 2 should actually check
+
+The web research surfaced **6 categories of checks I had missed**. Here's the honest assessment:
+
+## What's added beyond my original 8 (all checkable at brief stage, no layout needed)
+
+### Category 1: Site/plot physical viability (4 new checks)
+
+These are NBC Part 3 site requirements — checkable purely from plot data:
+
+1. **Soil bearing capacity / type warning** — IS 1892 mandates soil testing for buildings >2 storeys. Bearing capacity, soil type identification, water table level, chemical composition, settlement & compaction. We can flag risk based on city soil profile (Chennai = sandy alluvial, black cotton in parts of Maharashtra, laterite in Kerala, rocky in Bangalore).
+
+2. **Damp site / water table risk** — NBC Part 3 Clause 6.2. Plot type (low-lying, near water body) affects feasibility.
+
+3. **Distance from electric lines** — NBC Part 3 Clause 6.4. Mandatory minimum clearance (3.7m horizontal for low-voltage, more for HT).
+
+4. **Distance from water course** — NBC Part 3 Clause 6.5. Riverbank/drain clearance.
+
+### Category 2: FAR + ground coverage compliance (2 new checks)
+
+**This is huge — I missed it entirely in my original scope.**
+
+5. **Ground coverage check** — Each city has a max GC% (e.g., Haryana 60-150 sqm: 85%, 150-225 sqm: 70%; plots up to 250 sqm: GC 66-75%). User's stated built area must not exceed GC × plot area.
+
+6. **FAR (Floor Area Ratio) compliance** — Each city has a max FAR (e.g., 60-150 sqm: 1.98; 226-450: 1.60; above 450: 1.50). Total built area across all floors × plot area must not exceed FAR. **A user with a small plot wanting 4 floors will fail FAR — that's a hard infeasibility**.
+
+### Category 3: Statutory + safety requirements (3 new checks)
+
+7. **Fire tender access** — Minimum road width for fire tender movement: 6 meters. Buildings on roads <6m have severe restrictions. Building height >15m must have minimum road width 12m. Critical for G+3 dreams on narrow lanes.
+
+8. **Mandatory rainwater harvesting check** — Tamil Nadu mandates RWH for ALL buildings. Karnataka mandates for plots >2400 sqft. Mumbai for >1000 sqm. Delhi for all new buildings. **Plot area + city = is RWH mandatory?** Affects build cost + statutory approval.
+
+9. **Stilt parking mandatory check** — Several states mandate stilt for plots above certain size (Delhi MPD 100-1000 sqm). User declining stilt may violate code.
+
+### Category 4: Approval pathway warnings (1 new check)
+
+10. **Statutory approval complexity flag** — Plot size + floors + locality determines the approval path complexity (single-window self-cert for small, multi-NOC for larger). Useful expectation-setting, not blocking.
+
+## My final recommended scope: 18 checks (was 8)
+
+| # | Check | Origin | Hard/Soft |
+|---|---|---|---|
+| 1 | Envelope sufficiency | original | Hard |
+| 2 | Floor stack feasibility | original | Hard |
+| 3 | Room minimum violations | original | Hard |
+| 4 | Setback feasibility | original | Hard |
+| 5 | Budget feasibility | original | Soft |
+| 6 | Parking width feasibility | original | Soft |
+| 7 | Solar exposure heuristic | original | Soft |
+| 8 | Cross-vent possibility | original | Soft |
+| **9** | **Ground coverage compliance** | research | **Hard (legal)** |
+| **10** | **FAR compliance** | research | **Hard (legal)** |
+| **11** | **Fire tender access** | research | **Hard if >15m, Soft otherwise** |
+| **12** | **Soil type risk warning** | research | Soft |
+| **13** | **Water table / damp risk** | research | Soft |
+| **14** | **Electric line clearance** | research | Hard |
+| **15** | **Water course clearance** | research | Hard |
+| **16** | **Mandatory RWH check** | research | Soft (cost-impacting) |
+| **17** | **Mandatory stilt check** | research | Hard if mandated |
+| **18** | **Statutory approval complexity** | research | Soft (info only) |
+
+## What I want to flag honestly before you approve
+
+**1. This is now substantially bigger.** 18 checks vs 8. Roughly **5-6 sessions** instead of 3-4. New KB modules needed:
+- `kb_rules/coverage_rules.json` (FAR + ground coverage by city + plot tier)
+- `kb_rules/rwh_rules.json` (RWH mandate threshold by city)
+- `kb_rules/site_safety_rules.json` (electric line + water course clearances)
+- `kb_data/city_soil_profiles.json` (Chennai alluvial, Bangalore rocky, etc.)
+
+**2. Some checks need new user input.** Soil type, presence of water body within 30m, presence of overhead electric lines — these aren't in the current Brief. We'd need to add them to Component 1's form OR mark them "user must verify on site." I recommend the latter for v0.1 — checks become advisory rather than blocking, with "if [X] is true on your plot, this becomes a HARD issue."
+
+**3. FAR + Ground coverage are the most valuable additions.** These are the most common reasons real builds get rejected by municipalities. Adding them is straightforward — we already have plot data in the Brief. **These two alone justify the expanded scope.**
+
+**4. Fire tender access at 6m road minimum is a hard finding.** A user with `road_width_m=4.5` planning G+2 will likely fail municipal approval. We currently silently accept this. Should be a HIGH risk warning.
+
+## Three questions
+
+1. **Approve all 18?** Or trim somewhere — for example skip statutory approval complexity (#18) and water course/electric line if you think they're niche?
+
+2. **Confirm the new user inputs are "advisory"** (we ask but don't validate)? Alternative: extend Component 1's form to capture them properly. I lean advisory because it keeps Component 1 untouched.
+
+3. **Sessions estimate now 5-6.** Confirm you want to commit that scope to Component 2, or split into Component 2 (core 10 — checks 1-10 ) + Component 2.5 (statutory/safety 11-18) for a faster initial ship?
+
+Tell me and I'll start building.
+
+--- USER ---
+I want all 18 checks but some checks user might not know also so you have take a general guess and tell him the guess you have taken or ask the user to get the data from a reputed source and give suggestions also but we will do with whatever the user gives and what he knows do you understand
+
+--- CLAUDE ---
+ Yes, I understand exactly. Let me play it back to you precisely so we're aligned before I commit to the architecture:
+
+## What you want — in concrete terms
+
+For checks where the user doesn't know the answer (soil type, water table, distance from electric lines, etc.), the system has **three modes** based on what the user provides:
+
+### Mode A: User provides the data
+Run the check normally with their value. Standard pass/fail/warn.
+
+### Mode B: User says "I don't know" (or skips the field)
+1. Make a **city-based educated guess** (e.g., Chennai → "likely sandy alluvial soil, 1.5m water table in monsoon")
+2. Run the check using the guess
+3. **Mark the result with "Based on assumption: [X]"** — never pretend it's verified
+4. Tell the user: "We assumed [X] for your check. To verify, get a soil test report from [reputable source recommendation]"
+5. Result is advisory, not blocking — even if the guessed value would be a HARD fail
+
+### Mode C: User provides bad/unverified data
+Run the check, but flag with disclaimer: "Based on user-provided value (not verified). Confirm with [reputable source]."
+
+**The principle:** Always proceed with whatever input is available. Never block the user from getting an output. Be honest about what was assumed vs verified. Always tell the user where to verify properly.
+
+## How this changes the architecture
+
+Each new field that requires non-Brief data (soil_type, water_table_depth_m, distance_from_electric_line_m, distance_from_water_body_m, presence_of_low_lying_area, etc.) becomes a **3-state input**:
+
+```python
+@dataclass
+class FeasibilityInput:
+    # ... existing Brief data ...
+    
+    soil_type: SoilType | None = None      # None = "user doesn't know"
+    soil_type_source: str = "unspecified"  # "user_provided" | "user_unknown" | "verified"
+    
+    # ... same pattern for ~6 other "user might not know" fields ...
+```
+
+When the engine runs a check:
+- If `soil_type is None` → look up city default in `city_soil_profiles.json` → run check → output says **"Assumed: laterite soil (typical for Bangalore). To verify, get a soil bearing test from a NABL-accredited lab."**
+- If `soil_type` is provided but `soil_type_source != "verified"` → output says **"Based on your provided value. To confirm, get a soil bearing test from a NABL-accredited lab."**
+- If verified → just runs the check.
+
+## What the user sees in the output
+
+For each "user doesn't know" check, the FeasibilityReport includes:
+
+- The result (pass/fail/warn) based on best available data
+- An `assumptions_used` entry: "Soil type: assumed laterite (Bangalore typical) — your plot may have different soil"
+- A `recommendations[]` entry: "Get NABL-accredited soil test (₹5,000-₹15,000, 3-5 days). Look for: bearing capacity, water table, chemical composition. Trusted labs in your city: [city-specific suggestions]"
+- The confidence level on this specific check is `LOW` or `MEDIUM` (not HIGH)
+
+## The reputable-source suggestions (per check)
+
+I'll build these into the KB so the suggestions are concrete, not vague. Examples:
+
+| Check | "I don't know" → guess source | "Verify with" recommendation |
+|---|---|---|
+| Soil type | City soil profile (Chennai = sandy alluvial, etc.) | NABL-accredited geotech lab |
+| Water table | City + season + GW board data | Central Ground Water Board (CGWB) report for your district |
+| Distance from electric lines | Default = "assume safe" + warning | Walk plot with measuring tape; check power line maps from local DISCOM |
+| Distance from water body | Default = "no water body within 100m" | Survey of India topographic map; revenue records (FMB sketch) |
+| Existing trees / encroachments | Default = none | Land survey report from licensed surveyor |
+| Plot orientation precision | User stated facing | Magnetic compass app reading or survey report |
+| Existing soil contamination | Default = none | Local revenue office (industrial-use history) |
+
+## What I'm NOT going to do
+
+To make sure we stay honest:
+
+- **NOT invent precise numbers from city defaults.** "Chennai alluvial soil" is fine; "your plot has 90 kN/m² bearing capacity" is not. The default is a **type label**, not a value.
+- **NOT block the user when guessing.** Even if the guessed soil type would be HARD fail (e.g., "city default = black cotton, your G+2 brief is risky"), we soft-warn and recommend testing.
+- **NOT charge confidence the assumption doesn't have.** Every assumed-value output is marked `confidence_level: LOW` for that check. The overall feasibility score weights LOW-confidence checks less.
+- **NOT make the user fill the new fields.** All new feasibility-input fields are optional. Component 1's form stays untouched. Only the API caller (or a future v1.0 "Detailed feasibility" form) optionally populates them.
+
+## Honest implementation cost
+
+This raises Component 2 from a 5-6 session estimate to **6-7 sessions** because of:
+
+1. New KB module: `city_defaults_for_feasibility.json` (soil + water table + climate by city, with citations)
+2. New KB module: `verification_recommendations.json` (per-check trusted-source suggestions)
+3. The 3-state input pattern (None / user-provided / verified) for ~7 fields
+4. Two-mode rendering in explain() and API (with-assumption vs verified)
+5. ~30 additional tests for the assumption/verification paths
+
+**This is the right architecture though.** It captures one of the biggest real-world problems with feasibility tools: most homeowners genuinely don't know their soil type, water table, etc. A tool that only works for users who already have engineering data is useless. A tool that pretends to know things it doesn't is dangerous. Your design — guess transparently, recommend verification, never block — is the honest path.
+
+## Two confirmations before I start
+
+1. **Confirm: 18 checks total, 7 of them with the 3-state "user might not know" pattern, 6-7 sessions estimated.**
+
+2. **Confirm: when an assumed value would produce a HARD fail, we still soft-warn and recommend verification rather than blocking.** (Critical principle — I want this on the record.)
+
+Tell me yes on both and I'll start Session A in the next turn (domain types + 4 of the 18 checks: envelope, floor stack, room minimums, setback feasibility — the original "hard" ones with no new KB needed).
+
+--- USER ---
+Confirm on both but please explain it to user clearly so that he understands and make sure to have doubts session so that he can clarify if doesn’t understand
+
+--- CLAUDE ---
+ Confirmed on both. Adding the user-doubts mechanism is a good call — it's a real product feature, not just doc sugar. Let me design it carefully before I start coding.
+
+## What "doubts session" should mean — concretely
+
+I want to push back on one ambiguity first. "Have a doubts session" could mean two different things:
+
+### Interpretation A: A live Q&A surface in the output
+After every output, an explicit section like:
+```
+HAVE A DOUBT?
+─────────────────────────────────────────
+Common questions about this report:
+  • "Why did you assume my soil is laterite?"
+  • "What if I disagree with the FAR check?"
+  • "How do I verify the soil type?"
+  
+[The user mentally answers these or escalates to architect]
+```
+This is **static FAQ** baked into the output. Doesn't actually answer their question, just acknowledges the question is reasonable.
+
+### Interpretation B: A real Q&A endpoint
+A POST endpoint where the user sends `{question, feasibility_report_id}` and the system answers based on the report's contents. This requires either:
+- A canned-answer database (limited, can't anticipate every question)
+- An LLM call to interpret + answer (real cost, real latency, real reliability concerns)
+
+**Honest take:** Interpretation A is the right v0.1 answer. We don't have an LLM in the architecture; adding one for "doubts" creates a new dependency that needs its own SPEC, error handling, cost monitoring, hallucination guarding. **B belongs to v1.0+.**
+
+What I'll build instead is **Interpretation A done well** — every assumption and check has a "common doubts" entry attached to it, so when the user reads the output they see the question they were going to ask, with a concrete answer or "this is when to ask an architect."
+
+Confirm interpretation A, or push back if you actually meant B?
+
+---
+
+## Now the user-explanation document
+
+Below is what I'll ship in `docs/feasibility_user_guide.md` alongside the code. Read it carefully — this is what your users will read to understand what Component 2 does and doesn't do.
+
+---
+
+# Feasibility Check — How To Read Your Report
+
+*A plain-language guide for homeowners using BuildemUp*
+
+## What this report is
+
+You gave us your plot details, the home you want, and your budget. Component 2 ran 18 separate checks to answer one question:
+
+> **"Is what you're asking for actually possible to build on this plot, given Indian building rules and physical reality?"**
+
+Some checks are hard physics — does the building even fit? Some are legal — does the city allow this floor area on this plot? Some are practical — can a fire truck reach you? Some are advisory — what's the soil likely to be, given your city?
+
+The report tells you, for each check: **passed**, **needs your attention**, or **likely impossible without changes**.
+
+## What this report is NOT
+
+This is a **planning aid for early-stage decisions.** It is NOT:
+
+- A construction document
+- A municipal permit
+- A substitute for an architect
+- A guarantee of approval
+- A guarantee of cost
+
+If you proceed with construction based only on this report, you will have problems. Always engage a licensed architect and structural engineer for the actual design and approval phase. Component 2 helps you decide *whether to engage them in the first place* and *what to ask them.*
+
+## How "I don't know" works (this is important)
+
+Some checks need information you probably don't have:
+
+- What type of soil is under your plot?
+- How deep is the water table in monsoon?
+- Are overhead electric lines within 3.7m of your plot edge?
+- Is there a stream or storm drain within 30m?
+- What's the actual angle of your plot relative to true north (not just "north-facing")?
+
+For each of these, you have three options:
+
+### Option 1: Tell us what you know
+If you have a recent soil test report, a property survey, or you've checked your plot — provide the value. We use it directly.
+
+### Option 2: Tell us "I don't know"
+We will **make a city-based educated guess** and run the check using that guess. The report will say:
+
+> *"⚠ Soil type: assumed sandy alluvial (Chennai typical). Your plot may differ. To verify, get a NABL-accredited soil test from [recommendation]."*
+
+The check still runs. You still get a result. **But the result is marked LOW confidence**, and we explicitly tell you what we assumed.
+
+### Option 3: Provide unverified data
+Same as Option 1, but flagged in output as "user-provided value, not independently verified."
+
+## What we will NEVER do
+
+- **Block your output because you don't have data.** You always get a feasibility report. Worst case, several checks are marked "assumed" and you know what to verify.
+- **Pretend a guess is a verified fact.** Every assumed value is labeled in the output. If you see a number without a "verified" or "user-provided" tag, it's a city-based estimate.
+- **Give you a HARD FAIL based on a guess alone.** If our city-default for your soil type would technically fail your G+2 build, we'll **soft-warn** with: *"Based on city soil profile, your build is risky. Get verified soil data before proceeding — this could change to a HARD issue depending on actual soil."*
+- **Send you somewhere shady to verify.** Every "go verify with X" recommendation names an actual reputable source: NABL labs for soil, CGWB for water table, your city's electric utility (DISCOM) for power lines, licensed surveyor for boundaries.
+
+## The 18 checks, plain-language
+
+### Group 1: Will it physically fit? (4 checks, no assumptions needed)
+
+1. **Envelope sufficiency** — Can your rooms even fit in the buildable area after legal setbacks?
+2. **Floor stack feasibility** — Have you accounted for staircase area? (Stairs eat 3-5 sqm per floor.)
+3. **Room minimum violations** — Are any rooms below NBC's minimum size? (e.g. bedroom < 8.4 sqm.)
+4. **Setback feasibility** — After legal setbacks, is there even a 5×5m area left to build on?
+
+### Group 2: Money + practicality (4 checks)
+
+5. **Budget feasibility** — Is your budget below our cost engine's minimum estimate?
+6. **Parking width feasibility** — Can a car physically fit in your stated parking, given setbacks? (Already in v0.9.)
+7. **Solar exposure heuristic** — Will your plot get adequate sunlight given facing + neighboring building setbacks? (Coarse.)
+8. **Cross-ventilation possibility** — Is your plot type likely to allow cross-ventilation? (e.g. row houses can't.)
+
+### Group 3: Legal compliance (3 checks, hard fail if violated)
+
+9. **Ground coverage compliance** — City-specific limit on how much of your plot can be built footprint. Common reason for permit rejection.
+10. **FAR (Floor Area Ratio) compliance** — City-specific limit on total built area across all floors. **A small plot wanting 4 floors will fail this.**
+11. **Fire tender access** — NBC requires 6m road for any building, 12m road for buildings over 15m height. Hard fail if your road is too narrow for your stated height.
+
+### Group 4: Site safety (4 checks, may use "I don't know" mode)
+
+12. **Soil type risk** — Black cotton soil + heavy structure = settling problems. Defaults to city-typical soil if you don't know.
+13. **Water table / damp risk** — High water table affects foundation cost + design. Defaults to seasonal estimate by city.
+14. **Electric line clearance** — NBC mandates minimum distance from overhead HT/LT lines. Defaults to "no lines within 5m" — flagged if you confirm otherwise.
+15. **Water course clearance** — Riverbank, drain, storm channel mandatory setbacks. Defaults to "none within 30m."
+
+### Group 5: Statutory mandates (3 checks)
+
+16. **Mandatory rainwater harvesting** — Tamil Nadu = always required. Karnataka = plots > 2400 sqft. Mumbai = > 1000 sqm. Adds ₹50K-₹2L to budget.
+17. **Mandatory stilt parking** — Several cities mandate stilt for plots above certain size (Delhi 100-1000 sqm).
+18. **Statutory approval complexity** — Tells you whether your project is simple-permit, multi-NOC, or complex-clearance category. Sets time + paperwork expectations.
+
+## How to read the report
+
+The output has 5 sections:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ FEASIBILITY VERDICT                                      │
+│   Score: 73/100                                          │
+│   Status: NEEDS ATTENTION                                │
+│   Most critical: FAR compliance (HARD)                   │
+└─────────────────────────────────────────────────────────┘
+
+BLOCKING ISSUES (must fix before proceeding)
+  • FAR compliance: You're at 2.4 FAR, your plot tier allows 1.8.
+    Reduce total floors or built area.
+  
+TIGHT CONSTRAINTS (likely workable but watch closely)  
+  • Setback feasibility: 5.1×5.0m buildable after setbacks — 
+    very tight for your 3 BHK ask.
+
+ASSUMPTIONS WE MADE (you should verify)
+  • Soil type: Assumed sandy alluvial (Chennai typical)
+    → Verify with NABL-accredited geotech lab (₹5K-₹15K)
+  • Water table: Assumed 2m below surface in monsoon (Chennai average)  
+    → CGWB district report (free, gov.in)
+  • Distance from electric lines: Assumed >5m clear
+    → Walk plot with tape; check DISCOM line maps
+
+WHAT TO DO NEXT
+  1. [Specific actions based on what failed]
+
+HAVE A DOUBT?  
+  Common questions:
+  • "What if my soil is actually black cotton, not alluvial?"
+    → Then check #12 likely changes to HARD. Re-run with verified data.
+  • "Why does my G+3 fail FAR but my neighbor's same plot didn't?"
+    → Likely they were grandfathered or violated. Verify with municipal cell.
+  • [More canned doubts mapped to the specific issues raised]
+```
+
+## Confidence levels
+
+Each check carries a confidence:
+
+- **HIGH** — based on data you provided + verified rules (most legal checks)
+- **MEDIUM** — based on rules + your data, but some assumption involved
+- **LOW** — based on city-default guess; verify before acting
+
+Your overall feasibility score weights HIGH-confidence checks more than LOW-confidence ones.
+
+## When to bring in a human
+
+Component 2 is good at: rules, percentages, standard cases, surfacing known unknowns.
+
+Component 2 is **bad at**: anything site-specific that's unusual. Plot with weird shape, neighbour's encroachment, recent rule change in your sub-zone, structural concerns specific to your soil.
+
+If anything in your report says "needs verification" or shows LOW confidence, that's a signal to bring in a licensed local architect. Don't proceed on assumed data alone.
+
+---
+
+# What I want you to confirm before I start coding
+
+Three things:
+
+### 1. Confirm Interpretation A for the doubts mechanism
+Static "common doubts mapped to the issues raised" baked into the output. Not a live Q&A endpoint. Real Q&A is v1.0+ work.
+
+### 2. Confirm the user-explanation doc above is accurate
+Read the doc carefully. If anything misrepresents what you want (especially the "we will NEVER" section), tell me now. This is what users will see — getting it right matters more than getting started fast.
+
+### 3. Confirm one concrete edge case
+A user provides `road_width_m=4.5` (below 6m fire access minimum) and says they want G+2 (~9m height). 
+
+Per our agreement: **HARD fail on fire access** because the road width is user-provided and verifiable physical fact. Even though we're soft on assumed-value HARDs, we are NOT soft on user-provided HARDs. Confirm?
+
+This matters because if you say "soft-warn on everything HARD," then we never block anything which means the report becomes advisory-only across the board. I think the right rule is:
+- **Assumed values that would HARD-fail → soft-warn** (because the assumption might be wrong)
+- **User-provided or self-verified facts that HARD-fail → HARD fail** (because the user gave us the truth)
+
+Confirm this distinction, then I start Session A.
+
+--- USER ---
+Confirm on all three and I want you to know we are creating two designs one working design and the other nbc compliant design so the checks should be different right
+
+--- CLAUDE ---
+ **Stop. Hold the build for 5 minutes.** This is the kind of architectural decision that has to be settled before any code, or we will be ripping it out in 2 sessions.
+
+You just told me something that changes the foundation. Let me make sure I understand it correctly, because I don't yet.
+
+## What I think you're saying
+
+The product produces **two outputs** for the same brief:
+
+### Output A — "Working Design"
+What's *physically practical* given the user's plot, budget, and city. May knowingly violate some NBC norms because the user can't afford to comply, or the plot doesn't allow it (e.g., NBC bedroom min is 9.5 sqm but the plot only allows 8.0 sqm — Working Design says "8 sqm bedroom is what you can actually build").
+
+### Output B — "NBC-Compliant Design"  
+What's *legally compliant* — meets every NBC + city-DCR requirement strictly. May be infeasible on the user's plot (the bedroom can't be 9.5 sqm given setbacks) or unaffordable given the user's budget.
+
+The user sees both. They choose. Or sees the gap and decides what tradeoff they want.
+
+**Is this what you mean?** If yes, this is genuinely smart product thinking — most Indian self-build is some compromise between code and reality, and forcing users to pretend otherwise is dishonest. But I need to verify before I commit.
+
+## Why this matters massively for Component 2
+
+If yes, then **Component 2 doesn't run "18 checks"** — it runs **two parallel feasibility passes** against the same brief, with different rule sets:
+
+| Check | Working Design pass | NBC-Compliant pass |
+|---|---|---|
+| Room minimums | Practical floors (e.g., 8 sqm bedroom OK if that's what fits) | NBC strict (9.5 sqm or fail) |
+| Setbacks | DCR-mandated (legal floor) | DCR + NBC stricter wherever applicable |
+| FAR + Ground coverage | DCR-mandated | DCR + NBC sustainable-design recommendations |
+| Fire tender access | Hard-fail at 6m | Hard-fail at 6m, recommend 9m+ |
+| Cross-ventilation | Possibility check | NBC Part 8 specific air-change rates |
+| Daylight | Heuristic possibility | NBC Part 8 specific daylight factors |
+| Rainwater harvesting | Mandatory if city requires it | Always recommended even when not legally mandated |
+| Soil testing | Recommended for >2 storey | NBC mandatory for any RCC structure |
+
+The output becomes:
+
+```
+WORKING DESIGN — what your plot + budget can actually build
+  Verdict: WORKABLE (74/100)
+  ...
+
+NBC-COMPLIANT DESIGN — what fully compliant looks like  
+  Verdict: NEEDS COMPROMISE (58/100)
+  Reason: Your plot is 4 sqm too small for compliant 3 BHK + parking.
+  ...
+
+THE GAP — what you'd be giving up
+  • Bedroom minimum: 8 sqm working vs 9.5 sqm NBC. Visible 16% smaller.
+  • Cross-ventilation: Possible but not NBC daylight-factor compliant.
+  • Recommendation: [tradeoffs]
+```
+
+## What I do NOT want to do
+
+**I don't want to just call them "Working" and "NBC-Compliant" and move on.** That naming is dangerous. "Working Design" sounds like "what works" — but actually means "knowingly compromises code." If a user shows the Working Design to a contractor and the contractor builds it, **they may be building something that fails municipal approval or a future safety inspection.**
+
+I'd want different naming and very explicit framing. Something like:
+
+- **"Practical Design"** = what fits your real-world constraints (plot + budget + your priorities) — **MAY require code variance applications or knowingly fall short of best-practice norms**
+- **"Code-Strict Design"** = what NBC + city DCR strictly mandate — **MAY exceed your plot's capacity or your budget**
+
+And the framing must be brutally honest: "Practical Design is NOT a permit-ready design. It is a starting point for a conversation with your architect about which compromises are acceptable on your specific plot. Some of those compromises require formal variance applications; some are routinely tolerated; some will get your build rejected. Your architect knows which is which for your municipality."
+
+## Questions I need answered before any code
+
+### 1. Did I read your intent correctly?
+Two parallel design outputs from the same brief, showing the gap, letting the user choose? **Yes / No / something different.**
+
+### 2. What "Working Design" really means in your head — pick one
+   - **(a) Knowingly violates code where physically necessary** (e.g., bedroom 8 sqm because plot too tight)
+   - **(b) Meets minimum legal DCR but skips NBC's recommended-not-mandatory items** (e.g., legal bedroom but no rainwater harvesting where not mandated)
+   - **(c) Meets all hard-mandatory rules but optimizes for budget over comfort** (e.g., legal bedroom but smaller-than-ideal living)
+   - **(d) Combination of all three with user choosing which compromises are acceptable**
+
+These are very different products. (a) is dangerous if not framed right. (b) is the honest middle. (c) is conservative. (d) is most powerful but most complex.
+
+### 3. Which is the "default" output the user sees first?
+NBC-Compliant first (with gaps to working) or Working first (with gaps to NBC)? This sets the user's mental anchor.
+
+### 4. What about cases where Working = NBC-Compliant?
+Often the user's plot + budget + brief will satisfy both. Output should still show "Both designs identical for your brief — you got lucky" rather than producing two identical reports.
+
+### 5. Does the user pick one to proceed to Component 4 (layout)?
+If so, the choice gets carried forward as `chosen_design_path: PRACTICAL | CODE_STRICT`. If not, Component 4 has to handle both — which doubles its scope.
+
+### 6. Cost implications
+Code-Strict design is almost always more expensive (proper soil test mandatory, RWH always added, NBC-spec everything). The cost output should show **both numbers** — Practical estimate vs Code-Strict estimate. Confirm?
+
+### 7. What about my 18 checks — do they all branch into two modes?
+Some checks (FAR, ground coverage) are **legal only** — there's no "working" version because they're mandatory. Some checks (room minimums, daylight) are **gradable** with NBC-strict and practical versions. **About 8 of 18 have meaningful Working vs NBC versions; 10 are legal-only.**
+
+Confirm I should branch only the 8 gradable checks?
+
+### 8. Honest impact on session count
+If yes to the dual-design pattern, Component 2 goes from **6-7 sessions to 9-11 sessions.** New work:
+- Dual rule sets per gradable check
+- Comparison/gap renderer
+- Domain types: `PracticalFeasibilityReport` + `CodeStrictFeasibilityReport` + `DesignGapAnalysis`  
+- Tests for each check in both modes
+- The honest-naming framing throughout
+- Documentation of which compromises are routinely tolerated vs which fail approval
+
+## My recommendation
+
+If you're sure about this, **I'm in.** It's the most honest framing of Indian residential reality I've seen articulated in software. Most "code-compliant generators" are useless because nobody can afford strict compliance on a small plot. Most "what fits" generators are dangerous because they hide the legal cost.
+
+But please answer the 8 questions above before I start. Especially **#2, #3, and #5** — those determine the data model. Getting those wrong means refactoring everything in Session 4.
+
+Also worth flagging: **this is now closer to 10 sessions of work**. Are you OK with that, or do you want to ship Component 2 v0.1 with single-mode (legal compliance only) and add the dual-mode in Component 2 v0.2 after real users? I'd argue v0.2 is the wiser path — get one working flow first, then add the second once we understand which compromises users actually want.
+
+Tell me how you want to sequence this.
+
+--- USER ---
+1. Yes
+2. I want d let the user choose like the setbacks and everything 
+3. We will create working first and give him nbc compliant next because I want the user to be satisfied first then we will give him the rules but users push mostly on setbacks only 
+4. Yes
+5.if the user wants the practical design first we will go with that first it’s up to the user
+6. Yes
+7. Yeah go with the checks that fit the practical design only
+8. Yeah it’s ok
+ I am ok with the session counts I want a good saleable product first
+
+--- CLAUDE ---
+ Locked in. Let me confirm what I heard and write down the spec before I touch any code — this is too big to start without alignment.
+
+## Spec confirmation
+
+### 1. Two designs from one brief ✓
+Both produced for every brief.
+
+### 2. "Practical Design" = user-chosen compromises (option d) ✓
+Most users will push on **setbacks** specifically (your insight — important). The user picks which compromises they accept. The system asks rather than assumes.
+
+### 3. Practical Design first → NBC-Compliant Design after ✓
+Default order: practical first, NBC-compliant second, gap analysis third. **User can override** to see NBC-Compliant first if they prefer (your point about "it's up to the user").
+
+### 4. When both designs are identical → say so ✓
+Single combined report when no gap exists.
+
+### 5. User chooses which design proceeds to Component 4 ✓
+`chosen_design_path: PRACTICAL | CODE_STRICT` carried forward in the Brief.
+
+### 6. Cost shown for both ✓
+Practical cost (cheaper) + NBC-Compliant cost (higher). User sees the gap in lakhs.
+
+### 7. Practical-fit checks only ✓
+Of 18 checks, branch only the 8 that have meaningful Practical vs NBC versions:
+
+| Check | Branches? | Why |
+|---|---|---|
+| 1 Envelope sufficiency | ❌ | Physics, no flexibility |
+| 2 Floor stack feasibility | ❌ | Physics |
+| 3 Room minimum violations | ✅ | NBC strict vs user-accepted smaller |
+| 4 **Setback feasibility** | ✅ | **The big one — user pushes here most** |
+| 5 Budget feasibility | ❌ | Money is money |
+| 6 Parking width | ❌ | Physics |
+| 7 Solar exposure | ✅ | NBC daylight factor vs heuristic |
+| 8 Cross-ventilation | ✅ | NBC air-change rate vs possibility |
+| 9 Ground coverage | ❌ | Hard legal — variance possible but rare |
+| 10 FAR | ❌ | Hard legal |
+| 11 Fire tender access | ❌ | Hard safety |
+| 12 Soil type risk | ✅ | NBC mandatory test vs user-skip |
+| 13 Water table | ✅ | NBC waterproofing vs basic |
+| 14 Electric line | ❌ | Hard safety |
+| 15 Water course | ❌ | Hard legal |
+| 16 RWH mandate | ✅ | Adopt-only-if-mandated vs always-recommend |
+| 17 Stilt mandate | ❌ | Hard legal where mandated |
+| 18 Approval complexity | ✅ | Practical path vs full NBC path |
+
+**8 branched + 10 legal-only.** Confirm count.
+
+### 8. Session count: 9-11 ✓
+You said "good saleable product first." Got it.
+
+---
+
+## One more thing I want to settle now — how the user expresses compromise choices
+
+You said "let the user choose, like setbacks." There are two ways to do that:
+
+### Approach X: Up-front compromise picker (before feasibility runs)
+Component 1 form gets a new step: "Which compromises are you willing to consider?" with checkboxes:
+- ☐ Smaller-than-NBC bedroom (down to absolute minimum 7 sqm)
+- ☐ Below-NBC setbacks (front, side, rear individually)
+- ☐ Skip soil testing
+- ☐ Skip rainwater harvesting where not mandated
+- ☐ ... etc
+
+System runs Practical pass with these allowances, NBC pass strictly.
+
+**Pros:** User signals intent up front; cleaner data flow.  
+**Cons:** Most users don't know what to compromise on until they see the gap.
+
+### Approach Y: Post-report iteration (default approach)
+First run uses sensible defaults (e.g., "user accepts setback compromise of up to 0.5m below DCR if needed"). Practical and NBC reports both produced. User reads the gap. If they want to revise compromises, they re-run with explicit choices.
+
+**Pros:** Matches how users actually think — show me the problem first, then I decide what to give up.  
+**Cons:** Two-step interaction.
+
+**I strongly recommend Y.** It matches your insight that "users push mostly on setbacks." Most users won't know to push until they see "you're 0.3m short on your front setback — accept 0.3m relaxation? Y/N."
+
+**Confirm Y or override to X.**
+
+---
+
+## Domain types I'll create
+
+Let me write these out so you can sanity-check the data model before I commit:
+
+```python
+# domain/feasibility.py
+
+class DesignVariant(Enum):
+    PRACTICAL = "practical"     # User's accepted compromises
+    CODE_STRICT = "code_strict" # NBC + DCR strict
+
+class CheckSeverity(Enum):
+    HARD_FAIL = "hard_fail"           # blocks proceeding
+    SOFT_WARN = "soft_warn"           # advisory
+    PASS = "pass"
+    NOT_APPLICABLE = "not_applicable"
+
+class ConfidenceLevel(Enum):
+    HIGH = "high"           # verified data, strict rule
+    MEDIUM = "medium"       # user-provided unverified
+    LOW = "low"             # city-default assumed
+
+class CheckResult:
+    check_id: str               # "envelope_sufficiency"
+    check_name: str             # "Envelope sufficiency"
+    severity: CheckSeverity
+    confidence: ConfidenceLevel
+    message: str                # plain-language result
+    details: dict               # numbers behind it
+    assumption_used: str | None # "Assumed Chennai sandy alluvial soil"
+    verification_recommendation: str | None  # "Get NABL soil test"
+    common_doubts: tuple[str, ...]   # canned doubts for this result
+
+class FeasibilityReport:
+    variant: DesignVariant
+    overall_score: int          # 0-100
+    is_feasible: bool
+    blocking_issues: tuple[CheckResult, ...]   # HARD_FAIL only
+    soft_warnings: tuple[CheckResult, ...]     # SOFT_WARN only
+    passed_checks: tuple[CheckResult, ...]     # PASS only
+    cost_estimate: TransparencyTriple
+    assumptions_used: tuple[str, ...]
+    action_steps: tuple[str, ...]
+
+class DesignGapAnalysis:
+    practical_report: FeasibilityReport
+    code_strict_report: FeasibilityReport
+    gaps: tuple[Gap, ...]                    # per-check differences
+    cost_delta_lakhs: float                  # extra cost for code-strict
+    user_decisions_required: tuple[str, ...] # "Accept setback below DCR?"
+    
+class Gap:
+    check_id: str
+    practical_value: Any
+    code_strict_value: Any
+    impact_description: str       # "Bedroom 16% smaller than NBC min"
+    user_acceptable: bool | None  # User's stated tolerance
+```
+
+The orchestrator emits `DesignGapAnalysis` containing both reports plus the gap. The user sees one rendered output that contains both.
+
+**Confirm the data model is right, or push back.**
+
+---
+
+## Sessions plan
+
+Now planned at **10 sessions**:
+
+| Session | Scope | Tests |
+|---|---|---|
+| **A** | Domain types + 4 hard-physics checks (1, 2, 5, 6) for Practical variant only | ~50 |
+| **B** | 4 legal-only checks (9, 10, 11, 14, 15, 17 = 6 hard-legal) | ~40 |
+| **C** | Branched check #4 (setbacks) — Practical vs NBC, gap rendering | ~25 |
+| **D** | Branched checks #3, #7, #8 (room min, solar, ventilation) | ~30 |
+| **E** | "I don't know" / 3-state input pattern + city defaults KB + branched checks #12, #13 (soil, water table) | ~35 |
+| **F** | Branched checks #16, #18 (RWH, approval complexity) — finishes all 18 | ~20 |
+| **G** | Orchestrator: parallel run, gap analysis, DesignGapAnalysis assembly | ~25 |
+| **H** | explain() rendering for both variants + gap section + doubts mechanism | ~20 |
+| **I** | API endpoint + integration with Component 1 brief | ~20 |
+| **J** | Full sweep + repackaging + user guide doc + polish | ~10 |
+
+Approximately **275 new tests, 10 sessions**. Total project after Component 2: **534 + 275 = ~810 PASS**.
+
+---
+
+## Three final confirmations before Session A
+
+1. **Confirm Approach Y** for compromise expression (post-report iteration with sensible defaults).
+
+2. **Confirm the domain model** above is correct, particularly:
+   - `DesignVariant.PRACTICAL` vs `CODE_STRICT` naming
+   - `ConfidenceLevel` separate from `CheckSeverity` (the "I don't know" channel)
+   - `DesignGapAnalysis` as the top-level output (containing both reports)
+
+3. **One philosophical question I want pinned down:** if a check has SOFT_WARN in Practical but HARD_FAIL in Code-Strict (e.g., setback is 0.3m below DCR), what should the OVERALL `is_feasible` for Practical be?
+   - **(a) Practical is_feasible=True** (because user accepts the compromise)  
+   - **(b) Practical is_feasible=False but with `is_feasible_with_user_acceptance=True`** flag
+
+I lean (b) because it's more honest — even though the user's accepting the compromise, the design is *technically* not feasible without their acceptance. Then explain() says: *"Practical design is feasible IF you accept the listed compromises. Without those acceptances, it would be infeasible. Code-Strict design is genuinely infeasible without bigger plot or design changes."*
+
+Which one?
+
+Confirm 1, 2, 3 and I start Session A immediately.
+
+--- USER ---
+1.Let’s go with approach Y 
+3. I also approve b 
+
+Here is the analysis of feasibility domain. Tell me what is valid and what not and then we will start the sessions
+
+--- CLAUDE ---
+ Working through all 12 honestly. Pattern's clear: most are correct, some are over-engineering, and the reviewer's own conclusion at the bottom is the most important point in the whole review.
+
+## My verdict on each
+
+| # | Drawback | Verdict | Action |
+|---|---|---|---|
+| 1 | overall_score undefined | **Strongly agree** | Define scoring contract NOW |
+| 2 | is_feasible vs HARD_FAIL duplication | **Strongly agree** | Make it derived |
+| 3 | Check independence | **Disagree — premature** | Punt to v0.2 |
+| 4 | DesignVariant too binary | **Disagree — analyst self-cancels** | No-op |
+| 5 | ConfidenceLevel incomplete | **Agree** | Add `confidence_reason` |
+| 6 | verification not actionable | **Agree** | Add `verification_priority` |
+| 7 | common_doubts under-leveraged | **Disagree — already designed** | No-op |
+| 8 | Gap lacks severity | **Strongly agree** | Add severity |
+| 9 | user_acceptable underspecified | **Agree** | Document the None semantics |
+| 10 | No category grouping | **Agree** | Add `category` enum |
+| 11 | No unknowns bucket | **Agree but already covered** | Promote `unknowns` to top-level |
+| 12 | action_steps not tied to checks | **Agree** | Link to `triggering_check_ids` |
+
+**8 of 12 valid.** Worth shipping all 8 in the domain layer before any check is implemented — these are foundation changes, painful to retrofit later.
+
+---
+
+## Detailed reasoning
+
+### Where I push back
+
+**#3 — Check independence is a real concern but premature for v0.1.**
+
+The reviewer is right that real checks are interdependent (smaller bedroom relaxes setback, but breaks usability). But adding a `dependencies: tuple[check_id, ...]` field now means I have to model dependency graphs across 18 checks before I know which dependencies actually matter. I'd be guessing. Better to ship checks individually, observe which ones interact in user testing, then add dependencies for the 3-4 pairs that actually matter. The DesignGapAnalysis abstraction already partially handles this for the practical-vs-strict axis, which is the most important interaction.
+
+**Defer to v0.2.** Note in domain comment: "Future: dependencies field if user testing reveals 3+ check pairs that need it."
+
+**#4 — DesignVariant binary.**
+
+The reviewer raises this then immediately self-cancels: *"Don't add new enum yet. But allow partial compliance inside PRACTICAL."* That's exactly what we already designed. PRACTICAL is the user's accepted compromises, which is by definition a gradient (the user picks how much to compromise on each thing). The current 2-enum design with the gradient living inside PRACTICAL is correct.
+
+**No-op.** The "PRACTICAL ≠ illegal, just user-adjusted" line they want is good docstring fodder — I'll add it to the enum's docstring.
+
+**#7 — common_doubts under-leveraged.**
+
+The reviewer is restating my own decision (Interpretation A from last turn — surface doubts conditionally in UI when checks fail). Already designed. No code change.
+
+---
+
+### The real work — 8 changes worth shipping in Session A before any check runs
+
+These are foundation changes, expensive to retrofit later. Doing them now is cheap.
+
+#### #1 + #2: Scoring contract and `is_feasible` derivation
+
+**The big one.** The reviewer is right that `overall_score: int` with no defined contract is dangerous — different engineers (or different sessions) will compute it differently, scores will drift between releases, and users will lose trust.
+
+**Concrete contract:**
+```python
+def compute_overall_score(check_results: tuple[CheckResult, ...]) -> int:
+    """Score is 100 minus weighted penalties.
+    
+    HARD_FAIL → cap score at 40 (dramatic visible drop)
+    SOFT_WARN → -5 each (LOW confidence) or -10 each (MEDIUM/HIGH confidence)
+    PASS → no penalty
+    NOT_APPLICABLE → ignored
+    
+    Confidence-aware: a HIGH-confidence SOFT_WARN penalizes more than 
+    a LOW-confidence one, because we trust the data more.
+    """
+```
+
+And:
+```python
+@property
+def is_feasible(self) -> bool:
+    """Derived from blocking_issues — never set directly."""
+    return len(self.blocking_issues) == 0
+```
+
+Plus expose `score_breakdown: dict[str, int]` so the user (and future-me) can audit which check contributed what.
+
+**For the dual-design with `is_feasible_with_user_acceptance` we agreed on:**
+```python
+@property
+def is_feasible(self) -> bool:
+    """Strict feasibility — no user-accepted compromises counted."""
+    return len(self.blocking_issues) == 0
+
+@property  
+def is_feasible_with_user_acceptance(self) -> bool:
+    """User has accepted all listed compromises."""
+    return len(self.unaccepted_blocking_issues) == 0
+```
+
+#### #5: confidence_reason
+
+Trivial addition. `confidence_reason: str | None = None` — whenever LOW or MEDIUM, set it. "Soil type not provided → assumed Chennai sandy alluvial default."
+
+#### #6: verification_priority
+
+```python
+class VerificationPriority(Enum):
+    CRITICAL = "critical"     # affects HARD_FAIL outcome — verify before proceeding
+    IMPORTANT = "important"   # affects feasibility score significantly
+    OPTIONAL = "optional"     # nice-to-have for confidence
+```
+
+Set per check based on what's at stake. Soil test for G+3 = CRITICAL. Plot orientation precision for solar = OPTIONAL.
+
+#### #8: Gap severity
+
+```python
+class Gap:
+    check_id: str
+    severity: GapSeverity         # NEW — not all gaps are equal
+    practical_value: Any
+    code_strict_value: Any
+    impact_description: str
+    user_acceptable: bool | None
+
+class GapSeverity(Enum):
+    BLOCKING_IF_NOT_ACCEPTED = "blocking_if_not_accepted"  # would HARD_FAIL strict
+    SIGNIFICANT = "significant"                             # 15%+ shortfall
+    MARGINAL = "marginal"                                   # < 15% shortfall
+    INFO_ONLY = "info_only"                                 # cost/timing differ
+```
+
+#### #9: user_acceptable semantics
+
+Document precisely:
+- `None` = system hasn't asked yet (default state)
+- `True` = user explicitly accepted this compromise
+- `False` = user explicitly rejected (forces NBC-strict path for this check)
+
+Plus the optional `decision_source: DecisionSource` enum the reviewer suggested:
+```python
+class DecisionSource(Enum):
+    USER_EXPLICIT = "user_explicit"
+    SYSTEM_DEFAULT = "system_default"
+    INFERRED_FROM_BRIEF = "inferred_from_brief"
+```
+
+#### #10: Category grouping
+
+```python
+class CheckCategory(Enum):
+    COMPLIANCE = "compliance"      # FAR, ground coverage, fire access — legal
+    SPATIAL = "spatial"            # envelope, setbacks, room sizes — geometry
+    STRUCTURAL = "structural"      # soil, foundation — engineering
+    USABILITY = "usability"        # parking, daylight, ventilation — livability
+    COST = "cost"                  # budget, RWH, stilt mandates — money
+    SAFETY = "safety"              # electric line, water course — hazards
+```
+
+Maps cleanly to my 18 checks. Output groups by category in explain() — same pattern as v0.9.1 grouped guidance.
+
+#### #11: Unknowns bucket — promote to top-level
+
+Already covered partially via `assumption_used` per check, but the reviewer is right it should be aggregated:
+
+```python
+class FeasibilityReport:
+    # ... existing fields ...
+    unknowns: tuple[Unknown, ...]  # NEW
+
+class Unknown:
+    field_name: str                    # "soil_type"
+    user_facing_question: str          # "What soil type is your plot?"
+    assumed_value: str                 # "sandy alluvial (Chennai default)"
+    affects_check_ids: tuple[str, ...] # ["soil_risk", "foundation_depth"]
+    verification_recommendation: str
+    priority: VerificationPriority
+```
+
+Single source of truth for "what we don't know." Avoids duplicating across 7 different `assumption_used` strings.
+
+#### #12: action_steps tied to triggering checks
+
+```python
+class ActionStep:
+    step_text: str
+    triggering_check_ids: tuple[str, ...]  # which checks generated this
+    priority: int                          # 1 = highest
+```
+
+When user asks "why is this action recommended?" the system can show "because checks X, Y, Z failed."
+
+---
+
+## Updated domain model — final version before Session A
+
+```python
+# domain/feasibility.py
+
+# ─── Enums ─────────────────────────────────────────────────────────────
+
+class DesignVariant(Enum):
+    PRACTICAL = "practical"
+    CODE_STRICT = "code_strict"
+
+class CheckSeverity(Enum):
+    HARD_FAIL = "hard_fail"
+    SOFT_WARN = "soft_warn"
+    PASS = "pass"
+    NOT_APPLICABLE = "not_applicable"
+
+class CheckCategory(Enum):
+    COMPLIANCE = "compliance"
+    SPATIAL = "spatial"
+    STRUCTURAL = "structural"
+    USABILITY = "usability"
+    COST = "cost"
+    SAFETY = "safety"
+
+class ConfidenceLevel(Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+class VerificationPriority(Enum):
+    CRITICAL = "critical"
+    IMPORTANT = "important"
+    OPTIONAL = "optional"
+
+class GapSeverity(Enum):
+    BLOCKING_IF_NOT_ACCEPTED = "blocking_if_not_accepted"
+    SIGNIFICANT = "significant"
+    MARGINAL = "marginal"
+    INFO_ONLY = "info_only"
+
+class DecisionSource(Enum):
+    USER_EXPLICIT = "user_explicit"
+    SYSTEM_DEFAULT = "system_default"
+    INFERRED_FROM_BRIEF = "inferred_from_brief"
+
+# ─── Core types ────────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class CheckResult:
+    check_id: str
+    check_name: str
+    category: CheckCategory               # NEW
+    severity: CheckSeverity
+    confidence: ConfidenceLevel
+    confidence_reason: str | None         # NEW (#5)
+    score_contribution: int               # NEW (#1) — penalty applied
+    message: str
+    details: dict[str, Any]
+    assumption_used: str | None
+    verification_recommendation: str | None
+    verification_priority: VerificationPriority  # NEW (#6)
+    common_doubts: tuple[str, ...]
+
+@dataclass(frozen=True)
+class Unknown:                            # NEW (#11)
+    field_name: str
+    user_facing_question: str
+    assumed_value: str
+    affects_check_ids: tuple[str, ...]
+    verification_recommendation: str
+    priority: VerificationPriority
+
+@dataclass(frozen=True)
+class ActionStep:                         # NEW (#12)
+    step_text: str
+    triggering_check_ids: tuple[str, ...]
+    priority: int
+
+@dataclass(frozen=True)
+class FeasibilityReport:
+    variant: DesignVariant
+    overall_score: int                    # 0-100, see scoring contract
+    score_breakdown: dict[str, int]       # NEW (#1) — per-check contribution
+    blocking_issues: tuple[CheckResult, ...]
+    unaccepted_blocking_issues: tuple[CheckResult, ...]  # NEW
+    soft_warnings: tuple[CheckResult, ...]
+    passed_checks: tuple[CheckResult, ...]
+    not_applicable_checks: tuple[CheckResult, ...]
+    cost_estimate: TransparencyTriple
+    unknowns: tuple[Unknown, ...]         # NEW (#11)
+    action_steps: tuple[ActionStep, ...]  # NEW (#12)
+    
+    @property
+    def is_feasible(self) -> bool:        # NEW (#2) — derived not stored
+        return len(self.blocking_issues) == 0
+    
+    @property
+    def is_feasible_with_user_acceptance(self) -> bool:  # NEW
+        return len(self.unaccepted_blocking_issues) == 0
+
+@dataclass(frozen=True)
+class Gap:
+    check_id: str
+    severity: GapSeverity                 # NEW (#8)
+    practical_value: Any
+    code_strict_value: Any
+    impact_description: str
+    user_acceptable: bool | None
+    decision_source: DecisionSource       # NEW (#9)
+
+@dataclass(frozen=True)
+class DesignGapAnalysis:
+    practical_report: FeasibilityReport
+    code_strict_report: FeasibilityReport
+    gaps: tuple[Gap, ...]
+    cost_delta_lakhs: float
+    user_decisions_required: tuple[str, ...]
+```
+
+---
+
+## The reviewer's own conclusion is the most important part
+
+Read this again carefully:
+
+> "Do NOT over-engineer this further. Instead: 1. Implement 5–7 real checks. 2. Run 20 real user scenarios. 3. Observe where users get confused. That will reveal the real missing pieces."
+
+**They're right.** The 8 domain changes above are ~2 hours of work, all done in Session A before any check is built. After that, the right move is to **build 4-5 real checks (envelope, setbacks, room minimums, FAR, ground coverage), test them, and stop adding domain abstractions until I see real check behavior.**
+
+Concretely, this means I'm **NOT** going to add #3 (dependencies), I'm **NOT** going to redesign DesignVariant (#4), and I'm **NOT** going to over-build common_doubts UI flow (#7). Even though they're "real concerns," they're concerns about future-me, not now-me. Real check behavior in real user scenarios will tell us whether they matter.
+
+---
+
+## Updated session plan
+
+| Session | Scope | Tests |
+|---|---|---|
+| **A** | Domain types with all 8 valid review items + scoring contract + 4 hard-physics checks (envelope, floor stack, parking width, budget) | ~70 |
+| **B** | 6 legal-only checks (FAR, ground coverage, fire access, electric line, water course, stilt mandate) | ~50 |
+| **C** | The branched setback check (Practical vs NBC) — proves the dual-variant pattern works end-to-end | ~30 |
+| **D** | 3 more branched checks (room min, solar, ventilation) | ~35 |
+| **E** | 3-state input pattern + city defaults KB + branched soil + water table | ~40 |
+| **F** | Branched RWH + approval complexity = all 18 checks done | ~25 |
+| **G** | Orchestrator + DesignGapAnalysis assembly + scoring | ~30 |
+| **H** | explain() rendering + doubts surfacing + user guide doc | ~25 |
+| **I** | API + integration with C1 brief | ~25 |
+| **J** | Full sweep + repackage + 20 user-scenario validation | ~10 |
+
+**~340 new tests, 10 sessions.** Slightly higher than my last estimate because the 8 domain additions need their own coverage.
+
+---
+
+## Final confirmation before Session A
+
+1. **Approve all 8 valid drawbacks as Session A foundation work** (#1, #2, #5, #6, #8, #9, #10, #11, #12)?
+
+2. **Approve deferring the 4 invalid/premature ones** (#3 dependencies, #4 enum redesign, #7 common_doubts UI elaboration) with documentation noting why?
+
+3. **Approve the scoring contract** (HARD_FAIL caps score at 40; SOFT_WARN -5 to -10 by confidence; score_breakdown exposed)?
+
+Confirm 1, 2, 3 and I start Session A.
+
+--- USER ---
+Approved on all three and let’s start the session
+
+--- CLAUDE ---
+ Starting Session A. Verifying baseline first:
+[TOOL bash_tool: Verify 534 PASS baseline]
+534 confirmed. Now building Session A in this order:
+1. Domain enums (`domain/feasibility.py`)
+2. Core types (CheckResult, Unknown, ActionStep, FeasibilityReport, Gap, DesignGapAnalysis)
+3. Scoring contract module (`components/c02/scoring.py`)
+4. 4 hard-physics checks (envelope, floor stack, parking width, budget)
+5. Tests for everything
+[TOOL bash_tool: Create c02 module dir]
+[TOOL create_file]
+
+--- CLAUDE ---
+ Continuing — domain types are written. Now scoring contract:
+[TOOL bash_tool: Sanity-check domain types compile]
+Now the scoring contract module:
+[TOOL create_file]
+Now the 4 hard-physics checks. Let me look at what's already in the Brief to understand input shape:
+[TOOL bash_tool: See domain shape for input]
+[TOOL view: See Brief shape]
+Good. Now build the 4 hard-physics checks in one file (related, share patterns):
+[TOOL create_file]
+Smoke test that everything imports + runs against a real Brief:
+[TOOL bash_tool: Smoke test all 4 checks + scoring]
+[TOOL bash_tool: Find correct method name]
+[TOOL view: See total_area_sqm signature]
+`total_area_sqm` is a property (already includes count). Simpler — just sum:
+[TOOL str_replace]
+[TOOL str_replace]
+Re-run smoke test. Also need to check `total_room_area_sqm` is method vs property:
+[TOOL view: Check total_room_area_sqm signature]
+It's a method, called correctly. Re-run:
+[TOOL bash_tool: Re-run smoke test]
+[TOOL bash_tool: Check BudgetRange field names]
+Field is `max_rupees` not `max_inr`. Fix:
+[TOOL str_replace]
+[TOOL bash_tool: Re-run smoke test]
+All 4 checks running. Now stress-test with adversarial cases (HARD_FAIL paths):
+[TOOL bash_tool: Adversarial test: tiny plot, big rooms, low budget]
+Score capped at 40 with multiple HARD_FAILs. Scoring contract working as designed. Now write the tests:
+[TOOL create_file]
+[TOOL bash_tool: Run Session A tests]
+All Session A tests passing. Full sweep to confirm no regression:
+[TOOL bash_tool: Full sweep]
+**581 PASS across 28 suites. 0 fails.** 534 baseline + 47 new Session A tests = 581.
+
+Quick package + verify from clean extract:
+[TOOL bash_tool: Build + verify zip]
+[TOOL present_files]
+# Component 2 — Session A SHIPPED
+
+## What's in the zip
+
+**581 PASS across 28 suites. 0 fails.** Verified from clean extract.
+
+| Bucket | Tests |
+|---|---|
+| Baseline (v0.9.3 final) | 534 |
+| **NEW Session A** | **47** |
+| **Total** | **581** |
+
+## What got built this session
+
+### Domain types — `domain/feasibility.py` (full file, 280 lines)
+
+**7 enums** with all 8 review-driven additions baked in from the start:
+
+- `DesignVariant` — PRACTICAL / CODE_STRICT (with explicit "PRACTICAL ≠ illegal" docstring)
+- `CheckSeverity` — HARD_FAIL / SOFT_WARN / PASS / NOT_APPLICABLE
+- `CheckCategory` (#10) — COMPLIANCE / SPATIAL / STRUCTURAL / USABILITY / COST / SAFETY
+- `ConfidenceLevel` — HIGH / MEDIUM / LOW
+- `VerificationPriority` (#6) — CRITICAL / IMPORTANT / OPTIONAL
+- `GapSeverity` (#8) — BLOCKING_IF_NOT_ACCEPTED / SIGNIFICANT / MARGINAL / INFO_ONLY
+- `DecisionSource` (#9) — USER_EXPLICIT / SYSTEM_DEFAULT / INFERRED_FROM_BRIEF
+
+**5 dataclasses (frozen):**
+
+- `CheckResult` with `__post_init__` enforcing score sign convention (PASS≥0, SOFT_WARN/HARD_FAIL≤0, NOT_APPLICABLE=0)
+- `Unknown` (#11) — promoted from per-check assumptions
+- `ActionStep` (#12) with `triggering_check_ids`
+- `FeasibilityReport` with `is_feasible` derived (#2), `is_feasible_with_user_acceptance`, `all_check_results`, `checks_by_category`
+- `Gap` with `severity` + `decision_source`
+- `DesignGapAnalysis` with `has_meaningful_gap` + `blocking_gaps` properties
+
+### Scoring contract — `components/c02/scoring.py` (130 lines)
+
+Per Drawback #1 — explainable, deterministic, confidence-aware:
+
+- Baseline 100
+- HARD_FAIL caps at 40 (dramatic visible drop, the user knows it's blocked)
+- SOFT_WARN: -10 / -7 / -5 weighted by HIGH/MEDIUM/LOW confidence
+- Score floored at 0
+- `score_breakdown` dict exposed per check_id (audit trail)
+- `explain_score()` renders human-readable breakdown
+
+### 4 hard-physics checks — `components/c02/hard_physics_checks.py` (440 lines)
+
+| Check | NOT_APPLICABLE | PASS | SOFT_WARN | HARD_FAIL |
+|---|---|---|---|---|
+| **Envelope sufficiency** | No habitable rooms | util ≤95% | util 95-100% | util >100% |
+| **Floor stack** | Single floor | Residual ≥5 sqm | Residual <5 sqm | Residual <0 |
+| **Parking width** | No stilt floor | Internal ≥6m | Internal 3.5-6m | Internal <3.5m |
+| **Budget** | No C7 estimate | Budget ≥ exact | Budget in range but <exact | Budget < range_min |
+
+All 4 checks return `CheckResult` with proper category + confidence + common_doubts on FAIL/WARN.
+
+### Honesty notes built into checks
+
+- `score_contribution` auto-computed via `compute_score_contribution()` — no drift between checks
+- All 4 checks have `confidence=HIGH` because they use verified user data + physics; soft/hard verdicts are based on math, not assumption
+- Common doubts attached to HARD_FAIL/SOFT_WARN results (per Interpretation A — static mapped, not live Q&A)
+- Smoke test confirmed adversarial brief (6×8m plot, 4 rooms, ₹7L budget) → 3 HARD_FAILs → score capped at 40
+
+## Honest hand-off
+
+### What's NOT yet built (next sessions)
+
+- 14 remaining checks (Sessions B-F)
+- Branched checks (the dual-design split — Session C onward)
+- 3-state input pattern for "I don't know" fields (Session E)
+- Orchestrator that runs both variants in parallel (Session G)
+- explain() + API + integration (Sessions H-I)
+
+### What IS solidly in place
+
+- All foundation domain types — these are hard to retrofit, easy to extend
+- Scoring contract locked down with tests covering all edge cases (empty, multi-HARD_FAIL, floor-at-zero, weight by confidence)
+- Score sign convention enforced at the dataclass level — wrong-sign contributions get coerced
+- 4 working checks demonstrate the pattern other 14 will follow
+
+### Risks I want to flag
+
+1. **`cost_estimate` typed as `Any`** in `FeasibilityReport` to avoid Component 7 import cycle. Will resolve in Session G when orchestrator pulls everything together. Logged in domain file's docstring.
+
+2. **`STAIRCASE_AREA_PER_FLOOR_SQM = 4.0`** is conservative. Real architects can do 3 sqm. Will become a city KB lookup later, not Session A.
+
+3. **No tests yet for the gap mechanism** (since no check is branched yet). First branched check (setbacks) lands in Session C — that's where the dual-variant pattern proves out end-to-end.
+
+4. **Domain file's `cost_estimate: Any` is brittle.** If someone later adds runtime type checking on `FeasibilityReport`, this will break. Acceptable for v0.1 — when Component 2 orchestrator is done, move to a Protocol type.
+
+## What's next per roadmap
+
+**Session B** = 6 legal-only checks (FAR, ground coverage, fire access, electric line, water course, stilt mandate). All branchless (legal hard-rules don't have a "Practical" version). Estimated ~50 tests, similar architecture to Session A.
+
+**Tell me when ready and I'll start Session B.**
+
+--- USER ---
+Continue
+
+--- CLAUDE ---
+ Starting Session B. Verifying baseline first:
+[TOOL bash_tool: Verify Session A baseline]
+581 confirmed. Session B = 6 legal-only checks: FAR, ground coverage, fire access, electric line clearance, water course clearance, stilt mandate.
+
+Before writing any code, I need to research city-specific FAR + ground coverage tables — these are 100% legal-data-driven, no point coding without sources:
+[TOOL web_search]
+Solid data. Let me get the Chennai/TN specifics confirmed:
+[TOOL web_search]
+Strong data. Let me synthesize the FAR/coverage table I'll use, then build the KB and checks. Quick last check on Mumbai + Pune:
+[TOOL web_search]
+Enough research. I have working numbers for all 6 cities. Now building the KB + checks.
+
+## Honest data synthesis
+
+I have **directional** numbers but the granularity varies significantly. Some cities have plot-tier tables (Delhi, Haryana), some have road-width-driven tables (Mumbai, Bangalore, Chennai). For v0.1, using simplified ground coverage + base FAR per city. Documenting the simplification clearly.
+
+| City | Base FAR | Max GC% | Notes |
+|---|---|---|---|
+| Chennai | 2.0 | 65% | TNCDBR 2019. Non-high-rise residential. |
+| Bangalore | 1.75-3.25 (avg 2.0) | 55% | BDA Master Plan. Road-width-tiered. |
+| Hyderabad | 1.50-2.50 (avg 1.75) | 60% | GHMC G.O.168. |
+| Mumbai | 1.33 (island) / 1.00 (suburbs) base | 60% | DCPR 2034. Road-width tiered. |
+| Pune | 1.10 base | 60% | UDCPR 2020. |
+| Delhi | 1.50 base / up to 3.50 small plots | 60% | UBBL/MPD-2021. |
+
+Building the KB:
+[TOOL create_file]
+Now build the 6 legal-only checks. Looking at how existing kb_rules_loader works:
+[TOOL bash_tool: Find KB loader helper]
+[TOOL bash_tool: Find main loader entry]
+[TOOL view: See load_rules signature]
+I need to register a validator. Let me look at an existing simple validator pattern:
+[TOOL bash_tool: Find validators dict]
+[TOOL view: See setback_rules validator as template]
+Adding a coverage_rules validator and registering it:
+[TOOL str_replace]
+[TOOL bash_tool: Verify KB loads]
+KB loaded. Now writing the 6 legal-only checks:
+[TOOL create_file]
+Smoke test:
+[TOOL bash_tool: Smoke test 6 legal checks]
+[TOOL bash_tool: Find correct name for floor-area helper]
+Just docstring references — function doesn't actually exist. Let me check for actual helpers:
+[TOOL bash_tool: Find actual area helpers]
+[TOOL bash_tool: Check helper names]
+[TOOL bash_tool: All defs]
+OK there's `total_room_area_sqm()` (rooms only, no circulation) and Component 1 must have its own helper. Let me find it:
+[TOOL bash_tool: Find total built area helper]
+Found it. Use the existing helper:
+[TOOL str_replace]
+[TOOL bash_tool: Re-run smoke after import fix]
+
+--- CLAUDE ---
+ Both smoke tests producing expected results. Score capped at 40 with the 2 HARD_FAILs. Now writing the test suite:
+[TOOL create_file]
+[TOOL bash_tool: Run Session B tests]
+[TOOL bash_tool: Debug stilt exclusion]
+[TOOL bash_tool: Investigate diff]
+Component 1's `BriefCaptureEngine` automatically inserts a staircase room into the upper floor when there's a multi-floor brief. That's why brief1's residential floor has 3 rooms vs brief2's 2 rooms. The test premise was flawed — brief1 has an extra staircase room on residential floor 1 because it's a multi-floor build.
+
+Fixing the test to assert what we actually want: stilt floor itself has zero contribution to FAR. Compare two-floor briefs (with vs without stilt):
+[TOOL str_replace]
+[TOOL bash_tool: Re-run Session B tests]
+All passing. Full sweep:
+[TOOL bash_tool: Full sweep]
+**623 PASS across 29 suites, 0 fails.** Session A 581 + 42 new Session B tests.
+
+Package + verify from clean extract:
+[TOOL bash_tool: Build and verify zip]
+[TOOL present_files]
+# Component 2 — Session B SHIPPED
+
+## What's in the zip
+
+**623 PASS across 29 suites, 0 fails.** Verified from clean extract.
+
+| Bucket | Tests |
+|---|---|
+| Baseline (Session A) | 581 |
+| **NEW Session B** | **42** |
+| **Total** | **623** |
+
+## What got built this session
+
+### KB module — `kb_rules/coverage_rules.json` (new)
+
+`Coverage_India_2026_v1` — 6 cities with base FAR + max ground coverage % + authority + regulation citation:
+
+| City | Base FAR | Max GC% | Source |
+|---|---|---|---|
+| Chennai | 2.0 | 65% | TNCDBR 2019 |
+| Bangalore | 2.0 | 55% | BDA RMP 2015 |
+| Hyderabad | 1.75 | 60% | GHMC G.O.168 |
+| Mumbai | 1.33 | 60% | DCPR 2034 |
+| Pune | 1.10 | 60% | UDCPR 2020 |
+| Delhi | 1.5 (or 3.5 if ≤100 sqm) | 60% (or 75%) | UBBL 2016 / MPD-2021 |
+
+Plus a registered validator (`_validate_coverage_rules`) wired into `kb_rules_loader.py`.
+
+### Honesty notes baked into the KB
+
+The `_meta.notes` section explicitly discloses simplifications:
+- "Real DCRs are tiered by plot-area + road-width — these are flat estimates for v0.1 advisory feasibility."
+- Mumbai/Bangalore actual FAR can be much higher with road-width premium tiers
+- Delhi small-plot uniform 350% FAR exception modelled separately
+- Stilt + basement excluded from FAR (national convention)
+
+This means the user output should disclose: *"FAR check uses base estimate. Premium FSI may be available with extra payment — verify with [authority]."*
+
+### 6 legal-only checks — `components/c02/legal_only_checks.py` (new, ~580 lines)
+
+| Check | Category | NOT_APPLICABLE | PASS | SOFT_WARN | HARD_FAIL |
+|---|---|---|---|---|---|
+| **#10 FAR compliance** | COMPLIANCE | Plot=0 | actual ≤ 90% max | 90-100% max | > max |
+| **#9 Ground coverage** | COMPLIANCE | Plot=0 | actual ≤ 95% max | 95-100% max | > max |
+| **#11 Fire tender access** | SAFETY | (always runs) | road ≥ 8m (low-rise) | 6-8m (low-rise) | < required min |
+| **#14 Electric line** | SAFETY | — | distance ≥ NBC OR unspecified (LOW) | — | distance < NBC |
+| **#15 Water course** | COMPLIANCE | — | distance ≥ 9m / "no water" / unspecified | — | distance < 9m |
+| **#17 Stilt mandate** | COMPLIANCE | other cities, out-of-range | in range with stilt | — | in range without stilt |
+
+### Honesty pattern: "user might not know"
+
+Three of these checks (electric line, water course, stilt mandate) need user data not in the standard Brief. Session B implements a **pre-Session-E placeholder** for the 3-state pattern:
+
+- **Electric line:** Optional kwarg `distance_from_electric_line_m`. None → PASS with `confidence=LOW`, `confidence_reason` set, `assumption_used` set, `verification_recommendation` lists actual DISCOMs (TANGEDCO/BESCOM/TSSPDCL/MSEDCL/MSPGCL/BSES).
+- **Water course:** Three branches — distance provided / "no water course confirmed" / unspecified. Each gets appropriate confidence level.
+- **Stilt mandate:** Only Delhi has a clear plot-tier mandate (100-1000 sqm). Other 5 cities → NOT_APPLICABLE with note that stilt may still be required by parking norms (out of v0.1 scope).
+
+Full Session E will refactor this into a uniform `FeasibilityInput` 3-state pattern, but for B the checks already correctly emit `confidence=LOW` + verification recommendations.
+
+### Adversarial smoke test results
+
+A **Delhi G+3 brief on a 4m road, 150 sqm plot, no stilt** correctly produces:
+- Fire tender access → HARD_FAIL (4m < 6m min)
+- Stilt mandate → HARD_FAIL (150 sqm in mandate range, no stilt floor)
+- Score capped at 40
+
+This is exactly the kind of brief that gets rejected by Delhi's MCD planning office in real life, and it's now caught pre-design.
+
+## Honest hand-off
+
+### What's NOT yet built
+
+- 8 more checks (Sessions C-F)
+- Branched checks — the dual-design split (Session C onward) — first proof in setbacks
+- Proper 3-state input pattern for "I don't know" (Session E refactor)
+- Orchestrator running parallel variants (Session G)
+- explain() + API + integration (Sessions H-I)
+
+### What IS solidly in place
+
+- All 10 unbranched checks done (4 hard-physics from A + 6 legal-only from B)
+- KB validation + caching working through `load_rules("coverage_rules")`
+- `confidence_reason`, `assumption_used`, `verification_recommendation`, `verification_priority` fields all populated correctly
+- Common doubts surfaced for HARD_FAIL/SOFT_WARN paths
+- Score sign convention enforced via dataclass `__post_init__`
+
+### Risks I want to flag
+
+1. **Mumbai FAR=1.33 is conservative.** Real DCPR tiers it 1.33-2.7+ by road width. A user with 12m road in Mumbai will see FAR PASS at low utilization when they could legally do much more. Output discloses this in the regulation citation, but in v0.2 we should add road-width-tiered FAR.
+
+2. **Pune FAR=1.10 is also conservative.** UDCPR allows up to 3.0 with TDR + premium. v0.1 doesn't model these.
+
+3. **Stilt mandate KB only has Delhi.** Other cities have parking norms that effectively force stilt for many briefs but they depend on dwelling-unit count not just plot size. Out of v0.1 scope, flagged in NA messages.
+
+4. **`STAIRCASE_AREA_PER_FLOOR_SQM = 4.0`** still conservative. Same constraint as Session A.
+
+5. **No tests for branched/Practical-vs-CodeStrict logic yet.** First branched check (setbacks) lands in Session C — that's where the dual-variant pattern proves out end-to-end.
+
+6. **"Component 4" mentioned in your earlier message — I assumed it's the layout component referenced in the SPEC and the future roadmap.** No work was done on Component 4 in this session. If you meant something else, please clarify.
+
+## What's next per roadmap
+
+**Session C** = the first **branched** check — setbacks (Practical vs NBC). This proves the dual-design pattern works end-to-end:
+- Practical variant uses user-provided setbacks
+- Code-Strict variant uses NBC/DCR-mandated setbacks
+- A `Gap` is generated when they differ, with `GapSeverity` + `decision_source`
+- The `DesignGapAnalysis` data model gets exercised for the first time
+
+Estimated ~30 tests. Ready when you are.
+

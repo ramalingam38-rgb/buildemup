@@ -1,0 +1,92 @@
+{
+  "_kb_id": "plumbing_minimums",
+  "_kb_version": "Plumbing_v1_S35",
+  "_origin": "S35 Walk #2 reviewer #7 + #9. IPC 2018 + UPC values for fixture trap-arm maxima. Source confidence reflects whether the value comes from primary code citation (verified) or secondary aggregation (consensus / unverified). Awaits B-150-equivalent primary-source verification pass.",
+  "_status": "supports C10 v0.3 PROPOSED. Not LOCKED. (LOCKED at S35 Walk #9 close)",
+  "_units": {
+    "trap_arm_max_m": "metres (converted from inches in source)",
+    "min_pipe_diameter_mm": "millimetres",
+    "trap_seal_min_mm": "millimetres"
+  },
+  "rows": [
+    {
+      "fixture_type": "water_closet",
+      "trap_arm_max_m": 1.83,
+      "min_pipe_diameter_mm": 100,
+      "trap_seal_min_mm": 50,
+      "source": "UPC \u00a71002.2 / IPC \u00a7909.1",
+      "source_excerpt": "Larger pipe sizes, such as the 3-inch trap arm minimum for a toilet, are typically restricted to a maximum length of 6 feet (72 inches) under the UPC.",
+      "source_confidence": "secondary_consensus",
+      "_note": "6 feet = 1.8288m; rounded to 1.83m. WC minimum drain 3 inch = 76mm but Indian practice typically uses 100mm. Pending primary-source verification for India-specific applicability."
+    },
+    {
+      "fixture_type": "lavatory",
+      "trap_arm_max_m": 1.07,
+      "min_pipe_diameter_mm": 32,
+      "trap_seal_min_mm": 38,
+      "source": "IPC Table 909.1 (1-1/4 inch trap = 30 inches max)",
+      "source_excerpt": "30 inches for a 1-1/4 inch trap",
+      "source_confidence": "secondary_consensus",
+      "_note": "30 inches = 0.762m; the 1.07m figure assumes 1-1/2 inch trap (42 inches = 1.07m) which is more common in modern lavatories. Verification pending."
+    },
+    {
+      "fixture_type": "shower",
+      "trap_arm_max_m": 1.52,
+      "min_pipe_diameter_mm": 50,
+      "trap_seal_min_mm": 50,
+      "source": "IPC Table 909.1 (2 inch trap = 60 inches)",
+      "source_excerpt": "60 inches for a 2-inch trap",
+      "source_confidence": "secondary_consensus",
+      "_note": "60 inches = 1.524m \u2192 rounded to 1.52m. Indian shower stalls vary; verify against state-specific practice."
+    },
+    {
+      "fixture_type": "bathtub",
+      "trap_arm_max_m": 1.52,
+      "min_pipe_diameter_mm": 50,
+      "trap_seal_min_mm": 50,
+      "source": "IPC Table 909.1 (2 inch trap = 60 inches)",
+      "source_excerpt": "60 inches for a 2-inch trap",
+      "source_confidence": "secondary_consensus",
+      "_note": "Bathtubs less common in Indian residential v1 scope; included for completeness."
+    },
+    {
+      "fixture_type": "kitchen_sink",
+      "trap_arm_max_m": 1.07,
+      "min_pipe_diameter_mm": 38,
+      "trap_seal_min_mm": 50,
+      "source": "IPC Table 909.1 (1-1/2 inch trap = 42 inches)",
+      "source_excerpt": "42 inches for a 1-1/2 inch trap",
+      "source_confidence": "secondary_consensus",
+      "_note": "42 inches = 1.067m \u2192 1.07m. NSPC DFU = 2 for kitchen sink."
+    },
+    {
+      "fixture_type": "utility_sink",
+      "trap_arm_max_m": 1.07,
+      "min_pipe_diameter_mm": 38,
+      "trap_seal_min_mm": 50,
+      "source": "IPC Table 909.1 (1-1/2 inch trap = 42 inches)",
+      "source_excerpt": "42 inches for a 1-1/2 inch trap",
+      "source_confidence": "secondary_consensus",
+      "_note": "Utility-room laundry/washing sink. Similar profile to kitchen sink."
+    },
+    {
+      "fixture_type": "floor_drain",
+      "trap_arm_max_m": 1.52,
+      "min_pipe_diameter_mm": 50,
+      "trap_seal_min_mm": 50,
+      "source": "IPC Table 909.1 (2 inch trap)",
+      "source_excerpt": "60 inches for a 2-inch trap",
+      "source_confidence": "secondary_unverified",
+      "_note": "Floor drain DFU = 0 per NSPC Table 11.4.1 but trap-arm constraint still applies. Indian bathroom floor drains are universal but not covered cleanly in IPC primary source."
+    }
+  ],
+  "_global_constants": {
+    "min_slope_per_m": 0.0208,
+    "min_slope_source": "1/4 inch per foot (UPC \u00a71002.2 minimum)",
+    "max_slope_per_m": 0.083,
+    "max_slope_source": "one pipe diameter per foot (UPC max \u2014 beyond this, velocity strips water from pipe walls and induces siphon)",
+    "_note": "Slope feasibility check is C12/C14 territory; C10 only emits horizontal run distances and trap arm distances. Slopes recorded here as forward-compat KB anchor."
+  },
+  "_dfu_table_pointer": "Drainage Fixture Unit (DFU) loading per NSPC Table 11.4.1 / UPC Table 7-3 \u2014 deferred to B-220 plumbing-engineer review pass. Not encoded in v1 KB.",
+  "_ind_specific_caveats": "Indian residential plumbing follows NBC 2016 Part 9 + IS 1742 + state-specific by-laws. NBC adopts UPC framework via IAPMO partnership. Primary-source verification (analogous to B-150 for room minimums) needed before LOCK. v1 ships with secondary-consensus values + require_verified_plumbing config gate to mirror C9's require_verified_nbc pattern."
+}

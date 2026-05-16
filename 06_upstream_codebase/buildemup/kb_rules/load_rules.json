@@ -1,0 +1,86 @@
+{
+  "_meta": {
+    "kb_version": "Loads_India_2026_v1",
+    "source_standards": [
+      "IS 875 Part 1:1987 (Dead loads)",
+      "IS 875 Part 2:1987 (Imposed / live loads)",
+      "IS 456:2000 cl. 36.4 (Partial safety factors)"
+    ],
+    "last_updated": "2026-04-23",
+    "cadence": "yearly",
+    "notes": [
+      "Values extracted from kb/load_estimation.py per v0.7 migration.",
+      "Python logic (calculate_floor_load, calculate_column_axial_load_kn)",
+      "remains in Python. This JSON is the numeric data layer only.",
+      "Parity test verifies JSON == Python constants exactly."
+    ]
+  },
+
+  "dead_load": {
+    "description": "Self-weight coefficients per IS 875 Part 1:1987.",
+    "values": {
+      "slab_weight_kn_per_sqm_per_mm": 0.025,
+      "finishes_kn_per_sqm": 1.2,
+      "partition_wall_kn_per_sqm": 1.0
+    },
+    "unit_notes": {
+      "slab_weight": "Multiply by slab thickness in mm. 125mm slab = 3.125 kN/sqm",
+      "finishes": "Typical residential: tiling + flooring + false ceiling",
+      "partition": "Average allowance for 230mm internal walls over floor"
+    },
+    "source_clause": "IS 875 Part 1:1987"
+  },
+
+  "live_loads_by_floor_type": {
+    "description": "Imposed loads per IS 875 Part 2:1987 cl. 4.",
+    "values": {
+      "STILT_PARKING": 4.0,
+      "RESIDENTIAL": 2.0,
+      "TERRACE_ACCESSIBLE": 3.0,
+      "TERRACE_INACCESSIBLE": 1.5,
+      "BALCONY": 3.0,
+      "STAIRCASE": 4.0
+    },
+    "unit": "kN/sqm",
+    "source_clause": "IS 875 Part 2:1987 cl. 4"
+  },
+
+  "concentrated_loads": {
+    "description": "Point / localised loads that ADD to base floor load.",
+    "overhead_water_tank": {
+      "capacity_l": 5000,
+      "total_load_kn": 50,
+      "footprint_sqm": 4.0,
+      "distributed_kn_per_sqm": 12.5
+    },
+    "notes": [
+      "Water tank often missed in amateur design — critical for top-floor",
+      "column sizing. 5000L = 5 tonnes = 50 kN over ~4 sqm area."
+    ]
+  },
+
+  "wall_loads": {
+    "description": "Linear loads from masonry walls on beams/slabs (IS 875 Part 1).",
+    "values": {
+      "brick_230mm_3m_height_kn_per_m": 13.8,
+      "brick_115mm_3m_height_kn_per_m": 6.9
+    },
+    "unit_notes": {
+      "formula": "thickness × height × density(≈20 kN/m³) + plaster allowance",
+      "heights": "Both values assume 3m floor-to-floor (typical residential)"
+    },
+    "source_clause": "IS 875 Part 1:1987"
+  },
+
+  "partial_safety_factors": {
+    "description": "Partial safety factors for limit state design per IS 456 cl. 36.4.",
+    "values": {
+      "dead_load": 1.5,
+      "live_load": 1.5,
+      "concrete_material": 1.5,
+      "steel_material": 1.15,
+      "seismic_combination": 1.2
+    },
+    "source_clause": "IS 456:2000 cl. 36.4"
+  }
+}

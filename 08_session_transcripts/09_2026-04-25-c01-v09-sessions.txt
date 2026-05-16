@@ -1,0 +1,718 @@
+
+--- CLAUDE ---
+ Good call on the vastu tiering. Let me think about this honestly before locking it.
+
+## On the vastu partial/full tiering
+
+Yes, this IS good — but let me tighten what "very important" means so we don't leave it vague.
+
+Vastu has dozens of rules, and they vary in how much users actually care about them. My proposal for the three-tier version:
+
+**OFF (default)** — No vastu mentioned anywhere.
+
+**PARTIAL (your "very important items")** — The 5-7 vastu items that ~90% of Indian homeowners actually care about:
+1. Main door direction (most critical — most families check this)
+2. Kitchen direction (southeast preferred — cooking = Agni)
+3. Master bedroom direction (southwest preferred)
+4. Pooja room direction (northeast preferred)
+5. Toilet/bathroom location (avoid northeast)
+6. Staircase direction (avoid northeast)
+7. Water tank location (underground northeast, overhead southwest)
+
+These are the ones that come up in 90% of Indian construction conversations. If we surface only these, users get vastu value without being overwhelmed.
+
+**FULL** — Everything in the existing Component 7 `vastu_engine` KB, including secondary items: furniture placement within rooms, window directions, plot shape preferences, slope direction, tree placement, mirror placement in bedrooms, etc.
+
+**User picks on the form:** radio button with three options, default = OFF.
+
+**Important — ALL tiers show as INFO-level guidance only.** We never block, never STRONG_CONCERN based on vastu. Vastu is a cultural preference, not a building code. Even in FULL mode, every vastu message is informational: *"Consider placing kitchen in southeast for traditional vastu alignment."*
+
+Does that work? Tell me if you'd adjust the partial list — you may know what Indian homebuyers actually prioritise better than I do.
+
+## One thing I want to check with you before I lock
+
+Looking at my "partial" list, I'm second-guessing whether **main door direction** and **pooja room direction** should both be in partial. They might be the two most important ones, which makes sense. But I'm not sure if I'm missing anything equally critical. 
+
+For Tamil Nadu families specifically (your target market per userMemories), would you say:
+- Are the 7 items I listed the right partial set?
+- Is there anything I missed that should be in partial? (e.g., "Brahmasthan" / center of house kept clear — is that partial or full?)
+- Is there anything in partial that should be demoted to full?
+
+You're closer to this than I am. Tell me what to adjust, or confirm the list is right.
+
+## Everything else is locked
+
+Just to confirm the complete status for v0.2 spec update:
+
+- ✅ All 10 drawbacks accepted with my triage notes (#3 is documentation-only, #2 is smaller than it looks)
+- ✅ Option A for Drawback 4 — Component 1 calls Component 7 cost engine for single source of truth
+- ✅ Email-resume-link in addition to localStorage
+- ✅ Vastu three-tier: OFF / PARTIAL / FULL, default OFF, all tiers INFO-level only
+- ✅ Optional email + phone in Brief (session-only in v0.1)
+- ✅ Form UI template — I build it
+- ✅ INR only
+- ✅ Save and resume via localStorage + optional email link
+
+**Final question before I write SPEC_v0.2.md:**
+
+Answer the vastu partial-list question above (confirm my 7 items OR tell me what to change), then I update the spec with everything locked and we move to actual code.
+
+--- USER ---
+Yes the 7 items is fine make sure to give the user the list also so he knows
+
+--- CLAUDE ---
+ Locked. Updating the spec now.
+[TOOL bash_tool: Check spec folder]
+[TOOL create_file]
+[TOOL bash_tool: Copy spec to outputs]
+[TOOL present_files]
+## SPEC v0.2 — LOCKED and ready for your review
+
+Updated spec: ~43KB, 1051 lines, 17 sections. All 10 drawbacks addressed. All 5 Q&A answers integrated. All your feedback on vastu tiering included (with the 7-item list shown to user on the form).
+
+### Key changes from v0.1 spec
+
+**14 updates integrated:**
+
+1. `PlotType` enum (DETACHED / SEMI_DETACHED / CONTINUOUS) drives setback shape
+2. Envelope has explicit `is_rectangular=True` assumption + disclosure
+3. Floor count translation documented clearly (stilt + residential + terrace all count)
+4. **Component 1 calls Component 7 cost engine — single source of truth** (big architectural decision)
+5. `circulation_factor = 1.30` applied to floor area estimates
+6. `top_guidance` (top 3) surfaced prominently + full list below
+7. Parking feasibility check (width < 8m + stilt → STRONG_CONCERN)
+8. Auto-staircase for floors ≥ 2
+9. Phased construction suggestion if budget < estimate
+10. "ASSUMPTIONS USED" section in explain()
+11. Optional email + phone in Brief (session-only in v0.1)
+12. Save/resume via localStorage (email-resume-link deferred to v0.2 because it needs server-side state)
+13. Form UI I build it — HTML + Tailwind + vanilla JS
+14. Vastu three-tier (OFF/PARTIAL/FULL) with the 7 PARTIAL items shown on form
+
+### One honest re-think I did mid-spec
+
+Initially I said "email-resume-link + localStorage". When writing it out, I realised email-resume-link actually requires server-side storage (email link has to point somewhere that holds the brief). That contradicts our "no DB in v0.1" constraint. So I changed it to:
+
+- **v0.1**: localStorage only (browser-local save/resume)
+- **v0.2**: email-resume-link (needs server storage + auth — properly scoped then)
+
+If user provides email in v0.1, we store it in the Brief for later use (billing notifications when we flip to chargeable per your Q2), but we don't send resume links. I flagged this clearly in Section 8 of the spec. Tell me if you want to push back on this.
+
+### Test count went up
+
+From ~35 tests → ~50 tests, added coverage for:
+- Plot type setback rules (CONTINUOUS / SEMI_DETACHED)
+- Circulation factor in floor area
+- Auto-staircase behaviour
+- Parking feasibility
+- Top 3 guidance prioritisation
+- Vastu tier filtering
+- Component 7 cost handshake
+- Assumptions tracking
+
+### Sessions went up
+
+From 5 sessions → 7 sessions. Session 6 added for form UI. Session 7 is packaging. Still realistic.
+
+### What I need from you
+
+Just three things:
+
+1. **Read Sections 1, 2.1 (PlotType + VastuPreference), 5 (budget via Component 7), 8 (save/resume honest re-think), and 17 (my commitments).** Those are the parts that changed most substantively.
+
+2. **Confirm one specific trade-off:** On save/resume, localStorage-only means if user clears cookies or switches devices in v0.1, they lose progress. Email-resume-link is v0.2 because it needs server storage. OK?
+
+3. **Say "Spec locked, start Session 1"** — or tell me what to change.
+
+Per your "time is not an issue, want a good product" directive, I'd rather you catch anything now than after 7 sessions of code.
+
+--- USER ---
+Here is the analysis
+
+--- CLAUDE ---
+ Looked through the review carefully. Let me give you my honest take before we do anything.
+
+## What this review actually is
+
+This is a **summary** of the 10 drawbacks I already integrated into SPEC_v0.2, plus the 5 user decisions (vastu, localStorage, form UI, domain enforcement, top 3). It's not new feedback. It's the same 10 items renamed as "Drawbacks 1-10" with "Improvements A-E" for the user decisions.
+
+I compared every item against SPEC_v0.2 section-by-section:
+
+| Review item | Already in SPEC_v0.2? |
+|---|---|
+| Drawback 1 — PlotType DETACHED/SEMI_DETACHED/CONTINUOUS | ✅ Section 2.1, 3.2 |
+| Drawback 2 — Explicit rectangular envelope assumption | ✅ Section 10.1 |
+| Drawback 3 — Floor count documentation | ✅ Section 10.1 with explicit comment |
+| Drawback 4 — Component 7 as single cost source | ✅ Section 5.1 |
+| Drawback 5 — Circulation factor 1.30 | ✅ Section 4.3 |
+| Drawback 6 — Top 3 prioritisation | ✅ Section 6.2 |
+| Drawback 7 — Parking feasibility (< 8m + stilt) | ✅ Section 4.5 |
+| Drawback 8 — Auto-staircase for ≥ 2 floors | ✅ Section 4.4 |
+| Drawback 9 — Phased construction at 80% threshold | ✅ Section 5.3 |
+| Drawback 10 — ASSUMPTIONS USED section | ✅ Section 10.3 |
+| Improvement A — Vastu 3-tier | ✅ Section 7 |
+| Improvement B — localStorage only | ✅ Section 8 |
+| Improvement C — Form UI ownership | ✅ Section 9 |
+| Improvement D — Domain enforcement | ✅ Section 2.2 |
+| Improvement E — Top 3 UX | ✅ Section 10.3 |
+
+**Everything in the review is already locked in SPEC_v0.2.** Nothing new to change.
+
+## Why I'm flagging this before coding
+
+This is exactly the pattern that cost us 2 months on Component 7 — re-reviewing locked decisions and restarting work instead of executing.
+
+Three possibilities for what's happening here:
+
+1. **You're double-checking that my spec actually matches the review.** That's reasonable. The answer is yes, it matches completely.
+
+2. **You're signalling approval** by sending back a summary that matches my spec. If so, this is "spec locked, go" — just confirm.
+
+3. **You want me to re-review something.** If so, tell me specifically which section needs changing, because the review itself doesn't propose any changes beyond what SPEC_v0.2 already has.
+
+## My request
+
+Per my commitment in SPEC_v0.2 Section 17 ("I will not change the spec mid-build without pausing for user approval") and your "no more reviewing, moving to next component" directive from v0.7.2:
+
+**Please do one of these three things, clearly:**
+
+**Option A** — Reply with: *"Spec locked. Start Session 1: Domain Objects."*
+→ I begin code immediately, no more review cycles until v0.1 ships.
+
+**Option B** — Point to a specific section number in SPEC_v0.2 that needs changing, and explain what's wrong with what's there.
+→ I update that section only, re-lock, then code.
+
+**Option C** — Tell me you want me to treat this review document as a replacement for SPEC_v0.2.
+→ I'll explain why I think that's worse, but I'll do it if you insist.
+
+I'm holding the line here because we locked scope together, and kicking off Session 1 matters more than another review round. You told me twice now: "time is not an issue but I want a good product" and "no more reviewing, moving to next component." Both of those mean: **lock + execute**, not lock + review + lock + review.
+
+Which option?
+
+--- USER ---
+Let’s go with option a
+
+--- CLAUDE ---
+ Locked. Starting Session 1: Domain Objects.
+[TOOL bash_tool: Check existing domain layer]
+[TOOL view: Check existing domain __init__ to understand export pattern]
+[TOOL view: See existing envelope pattern to match style]
+Good — I see the existing style. Immutable frozen dataclasses, explicit units in comments, validation in `__post_init__`. I'll match this for all Component 1 domain objects.
+
+Let me check if there's already a `PlotOrientation` that I should reuse (spec mentions `PlotFacing`):
+[TOOL bash_tool: Check existing usage]
+**Good catch — spec drift.** My spec called it `PlotFacing` but the existing domain already has `PlotOrientation`. I'll reuse the existing enum rather than create a duplicate. This is exactly the architectural drift the v0.7.1 domain enforcement is meant to prevent — and I almost made the mistake. Noting this as a spec correction I'm making during Session 1.
+
+Now building Plot domain:
+[TOOL create_file]
+Now `Setbacks` — separate file since it's used widely:
+[TOOL create_file]
+Now FloorRequirement + RoomRequirement:
+[TOOL create_file]
+Now `Brief` itself + supporting types (VastuTier, BudgetRange, GuidanceMessage, ComplianceSummary):
+[TOOL create_file]
+Now update `__init__.py` to export everything + register with v0.7.1 domain enforcement:
+[TOOL create_file]
+[TOOL str_replace]
+Now register Component 1 types with the v0.7.1 domain enforcement. Check where `_DOMAIN_TYPE_NAMES` lives:
+[TOOL bash_tool: Find _DOMAIN_TYPE_NAMES location]
+[TOOL str_replace]
+Smoke test all imports work before writing any tests:
+[TOOL bash_tool: End-to-end smoke test - build everything from scratch]
+Caught a bug from my own smoke test. `Setbacks.difference_from()` produces negative values when subtracting a larger setback from a smaller one — but my `__post_init__` rejects negatives. The difference should be representable (it's signalling "user's setback is 0.5m smaller than compliant"). Fix: use a separate type or allow negatives only in the difference context.
+
+The cleanest fix: return a plain tuple from `difference_from()` not a `Setbacks` object. Differences aren't setbacks — they're signed comparisons.
+[TOOL str_replace]
+[TOOL bash_tool: Full smoke test + validation edge cases]
+Domain objects work end-to-end. Validation catches all the bad inputs I tested. Now the Session 1 test suite covering the ~10 test cases from spec Section 13-A:
+[TOOL create_file]
+[TOOL bash_tool: Run Session 1 tests]
+All 13 Session 1 tests pass first try. Final check — verify Component 7's 274 tests still green (no regression from domain layer changes):
+[TOOL bash_tool: Full sweep - verify Component 7 still green after Component 1 domain additions]
+**All 15 suites green. 288 PASS markers.** (274 Component 7 baseline + 14 Component 1 Session 1 = 288.) Zero regression on Component 7.
+
+Note: the spec said ~10 tests for Section A, I delivered 13 (+1 bonus for enforcement registration = 14 PASS markers). Better coverage than promised, same scope.
+
+---
+
+## Session 1 — COMPLETE
+
+### What shipped
+
+**5 new files in `domain/`:**
+- `plot.py` — `Plot`, `PlotType`, `SharedSide`, `SoilType`, `SUPPORTED_CITIES`
+- `setbacks.py` — `Setbacks` with `is_at_least()` + signed `difference_from()`
+- `floor_requirement.py` — `FloorRequirement`, `RoomRequirement`, `FloorUse`, `RoomType`, `NBC_MINIMUM_ROOM_SIZES_SQM`
+- `brief.py` — `Brief`, `BudgetRange`, `CostEstimate`, `VastuTier`, `VASTU_PARTIAL_ITEMS`, `GuidanceSeverity`, `GuidanceMessage`, `ComplianceSummary`
+- Updated `__init__.py` with all new exports
+
+**Domain enforcement extended:** Added 13 new types to `_DOMAIN_TYPE_NAMES` in `component_contract.py`. 21 total types now registered. Downstream components cannot accept raw dicts for Component 1 types.
+
+**1 new test file:** `test_c01_session1_domain.py` with 13 tests, all passing.
+
+### One spec correction I caught during build
+
+The spec called the orientation enum `PlotFacing`, but existing domain already has `PlotOrientation`. I reused the existing enum rather than create a duplicate — this is exactly the architectural drift the v0.7.1 domain enforcement is meant to prevent. I almost made the mistake myself. Noting for future sessions.
+
+### One bug I caught from my own smoke test
+
+`Setbacks.difference_from()` originally returned a `Setbacks` object, but differences can be negative (a "setback violation" where user stated less than NBC requires). Since `Setbacks.__post_init__` rejects negatives, this would crash. Fixed by returning a `dict[str, float]` of signed diffs instead, plus added an `is_at_least()` method for the common compliance check. Better domain design: differences aren't setbacks.
+
+### What's next — Session 2
+
+Per SPEC_v0.2 Section 15 sequence:
+- **Session 2**: Setback calculator + `kb_rules/setback_rules.json` + `kb_rules/room_minimums.json` + parity tests
+- Covers spec Section B (setback calculation, ~10 tests) + Section C partial (room composition)
+- Chennai TNCDBR implementation (full) + NBC fallback (for other 5 cities)
+- Plot type branching (DETACHED / SEMI_DETACHED / CONTINUOUS)
+
+No scope creep. No re-review. Just execute Session 2 when you say continue.
+
+Baseline for Session 2: 288 PASS across 15 suites.
+
+--- USER ---
+Continue
+
+--- CLAUDE ---
+ Starting Session 2: Setback calculator + KB JSON files.
+[TOOL bash_tool: Verify Session 1 baseline intact]
+Good. Now building the setback KB JSON. Following the v0.7.1 single-source pattern — JSON authoritative, Python reads from it:
+[TOOL create_file]
+[TOOL create_file]
+Now register loaders + validators for the new JSON files:
+[TOOL view: Find validator registration spot]
+[TOOL str_replace]
+Now typed accessors at end of `kb_rules_loader.py`:
+[TOOL bash_tool: Append Component 1 typed accessors]
+Smoke test the loaders:
+[TOOL bash_tool: Smoke test KB loaders]
+KB loaders work end-to-end, Chennai gets TNCDBR, Mumbai falls back to NBC with disclosure. Now the setback calculator:
+[TOOL bash_tool: Create c01 subfolder]
+[TOOL create_file]
+[TOOL create_file]
+Smoke test the setback calculator:
+[TOOL bash_tool: Smoke test setback calculator across all plot types + cities]
+Every case behaves correctly:
+- Chennai 108 sqm → small-plot tier (0.9/0.7/0.7/0.0)
+- Chennai 216 sqm → medium-plot tier (1.5 all sides)
+- CONTINUOUS → 0 sides + 0.9 front + 1.0 rear (correct for CBA)
+- SEMI_DETACHED LEFT → left side zeroed out from 0.7 to 0
+- Mumbai → NBC fallback with explicit disclosure
+- Compliance check catches violations cleanly
+
+Now add parity check between JSON and Python domain constants for `room_minimums` (like v0.6 pattern):
+[TOOL create_file]
+[TOOL bash_tool: Run Session 2 tests]
+All 16 Session 2 tests pass on first run. Final sweep to verify no regression:
+[TOOL bash_tool: Full sweep all 16 suites]
+**All 16 suites green. 305 PASS markers.** (274 Component 7 baseline + 14 Component 1 Session 1 + 17 Component 1 Session 2 = 305.) Zero Component 7 regression.
+
+---
+
+## Session 2 — COMPLETE
+
+### What shipped
+
+**2 new KB JSON files:**
+- `kb_rules/setback_rules.json` — Chennai TNCDBR 2019 full (5 tiers for DETACHED + CONTINUOUS + SEMI_DETACHED rule), 5 cities fall back to NBC 2016 with explicit disclosure
+- `kb_rules/room_minimums.json` — 12 NBC room minimum sizes + circulation_factor = 1.30
+
+**1 new calculator module:**
+- `components/c01/setback_calculator.py` — `compute_compliant_setbacks()` branches on PlotType, `_continuous_setbacks()` with road-width buckets, `_semi_detached_setbacks()` with shared-side zeroing, `_detached_setbacks()` with tier lookup, `check_setback_compliance()` for user-stated vs compliant comparison
+
+**KB loader extensions:**
+- Added `_validate_setback_rules()` and `_validate_room_minimums()` validators
+- Registered both in `_VALIDATORS` dict
+- Added 4 typed accessors: `get_setback_rules_for_city()`, `get_setback_authority_for_city()`, `get_room_minimum_sqm()`, `get_circulation_factor()`
+
+**1 new test file:**
+- `tests/test_c01_session2_setbacks.py` — 11 setback calculation tests + 5 KB parity/schema tests = 16 tests (+1 bonus PASS marker for parity coverage)
+
+### Real numbers (smoke-tested)
+
+| Scenario | Result |
+|---|---|
+| Chennai 30×40 DETACHED (108 sqm) | F=0.9 R=0.7 L=0.7 R=0.0 |
+| Chennai 60×40 DETACHED (216 sqm) | F=1.5 R=1.5 L=1.5 R=1.5 |
+| Chennai G+3 on 400 sqm | F=3.0 R=2.0 L=2.0 R=2.0 |
+| Chennai CONTINUOUS 6m road | F=0.9 R=1.0 L=0 R=0 |
+| Chennai CONTINUOUS 15m road | F=3.0 R=1.0 L=0 R=0 |
+| Chennai SEMI_DETACHED LEFT shared | L=0, other 3 per DETACHED |
+| Mumbai DETACHED (NBC fallback) | F=3.0 R=2.0 L=1.5 R=1.5 with "NBC 2016 general — city DCR pending" |
+
+The NBC fallback is honest — it discloses which authority we're using and that Mumbai/Delhi/etc. DCR support is coming in v0.2. No fake authority claimed.
+
+### Architectural notes
+
+**Single-source pattern extended** (v0.7.1 discipline maintained): Python's `NBC_MINIMUM_ROOM_SIZES_SQM` and `room_minimums.json` are both validated as identical via parity test. If someone updates one and not the other, the test catches it on next CI run.
+
+**Three plot types × road width bucketing**: The CONTINUOUS plot type uses a bucket table keyed `"3.0_to_7.0"`, `"7.0_to_12.0"`, `"12.0_and_above"`. Parsed at calc time, works identically across Chennai and NBC-fallback configs. Adding a new city's CONTINUOUS rules is just editing the JSON — no code change.
+
+### What's next — Session 3
+
+Per SPEC_v0.2 Section 15:
+- **Session 3**: Room composer + circulation factor + auto-staircase + parking feasibility + vastu filter
+- Covers spec Section C (room composition + NBC minimums) and Section F (vastu) + partial Section E (soft-guide messages for parking)
+
+Baseline for Session 3: 305 PASS across 16 suites. No scope creep, no re-review. Continue when ready.
+
+--- USER ---
+Continue
+
+--- CLAUDE ---
+ Starting Session 3: Room composer + circulation factor + auto-staircase + parking feasibility + vastu filter.
+[TOOL bash_tool: Verify baseline]
+Good — 14 + 17 = 31 Component 1 tests green. Building Session 3 modules.
+
+## Room Composer — circulation factor + auto-staircase + defaults
+[TOOL create_file]
+Smoke test room composer:
+[TOOL bash_tool: Smoke test room composer]
+All behaviour correct. Room composer smoke-clean. Now parking feasibility:
+
+## Parking Feasibility (Drawback 7)
+[TOOL create_file]
+## Vastu Filter (Q5 — 3-tier opt-in)
+
+Need to check what's in Component 7's vastu_engine so I can reuse it cleanly:
+[TOOL bash_tool: Check existing vastu_engine]
+[TOOL bash_tool: Map out vastu engine structure]
+[TOOL view: See VASTU_RULES structure]
+Existing vastu_engine has 5 rules mapped to that component's internal `RoomType` enum (different from Component 1's). I'll reuse the 5 rules by importing them and add 2 more for the 7 PARTIAL items. For FULL mode, the full set lives alongside PARTIAL.
+
+Since the spec's 7 PARTIAL items are: main door, kitchen, master bedroom, pooja, toilet, staircase, water tank — I have 5 from vastu_engine (entrance=main door, kitchen, master bedroom, toilet, pooja) and need to add 2 (staircase, water tank).
+[TOOL create_file]
+Smoke test vastu:
+[TOOL bash_tool: Smoke test vastu filter]
+All vastu behaviour correct. PARTIAL = 7 messages, FULL = 15 messages (7 + 8 additional), OFF = 0. North-facing plot says "auspicious", South-facing says "traditionally avoided". The 7 partial items match exactly what user sees on form.
+
+Now Session 3 tests:
+[TOOL create_file]
+[TOOL bash_tool: Run Session 3 tests]
+All 22 Session 3 tests pass first run. Final sweep — 17 suites total:
+[TOOL bash_tool: Full sweep all 17 suites]
+**All 17 suites green. 328 PASS markers.** (274 Component 7 baseline + 14 S1 + 17 S2 + 23 S3 = 328.) Zero regression.
+
+---
+
+## Session 3 — COMPLETE
+
+### What shipped
+
+**3 new modules in `components/c01/`:**
+- `room_composer.py` — circulation factor application, default floor templates (G-only through G+3), auto-staircase enforcement
+- `parking_feasibility.py` — width-based parking check with two severity tiers (< 6m critical, < 8m concern), car capacity estimator
+- `vastu_filter.py` — 3-tier vastu (OFF/PARTIAL/FULL) with the 7 user-approved items + 8 additional FULL items, INFO-severity only
+
+**1 new test file:**
+- `tests/test_c01_session3_composition.py` — 22 tests across 3 sections (C: composition, E: parking, F: vastu), all pass first run
+
+### Real numbers (smoke-tested)
+
+**Default templates:**
+- G-only: 4 rooms (living, kitchen, bathroom, pooja)
+- G+1: ground (4 rooms) + first floor (master+attached bath, regular bedroom+common bath) — auto-staircase adds STAIRCASE to ground
+- G+3: ground + 2 residential + 1 terrace accessible (with utility for water tank)
+
+**Circulation factor impact:**
+- 23 sqm of rooms → 29.9 sqm of floor (×1.30)
+- Explicit per Drawback 5 fix, sourced from `room_minimums.json`
+
+**Auto-staircase behaviour:**
+- Single floor home: no staircase, no message (correct — not needed)
+- Multi-floor home, no explicit staircase: added to ground floor with INFO message
+- Multi-floor with stilt at ground: staircase goes to first floor (not stilt) with INFO naming "first floor"
+- User already added staircase: idempotent, no duplicates, no message
+
+**Parking feasibility:**
+- 10m plot + stilt → OK, no concern
+- 7m plot + stilt → STRONG_CONCERN ("tight, 1 car + surface parking alternative")
+- 5m plot + stilt → STRONG_CONCERN ("very tight, reconsider stilt entirely")
+- No stilt → no check at all
+
+**Vastu tiers:**
+- OFF: 0 messages
+- PARTIAL: exactly 7 messages (main door, kitchen, master bedroom, pooja, toilet, staircase, water tank) — matches user-approved list byte-for-byte
+- FULL: 7 PARTIAL + 8 additional (brahmasthan, dining, windows, plot shape, sleeping direction, pooja altar, mirrors, slope) = 15 total
+- South-facing plot: main door message switches to "traditionally avoided" wording — but remains INFO severity (we never block on vastu)
+
+### Architectural notes
+
+**Reuse not duplication:** The 5 rules in Component 7's `kb/vastu_engine.py` were conceptually reused (same spiritual basis, same cardinal-direction rules) but I wrote fresh messages instead of importing the existing `VASTU_RULES` tuples. Reason: the existing tuples have a different `RoomType` enum (C7's `ENTRANCE`, `POOJA_ROOM`, `MASTER_BEDROOM`, etc. vs C1's `BEDROOM_MASTER`, `POOJA`, etc.) so importing them directly would have required an adapter layer. Freshly-written messages are cleaner and the underlying knowledge is public vastu domain — not proprietary code.
+
+**Immutability preserved:** All `room_composer` functions are pure — `ensure_staircase_present()` returns a new tuple with a new `FloorRequirement` built via `dataclasses.replace()`. No mutation of input. This matches the frozen-dataclass pattern we established in v0.6.
+
+**Parking severity:** I added an intermediate "critical" tier (< 6m) not in the original spec. Reason: 5m vs 7m are quite different user experiences — 5m means "give up on stilt entirely," 7m means "single-car stilt possible." Giving both the same STRONG_CONCERN severity but different wording lets the user make the right call. Still within spec intent (Drawback 7).
+
+### What's next — Session 4
+
+Per SPEC_v0.2 Section 15:
+- **Session 4**: Budget bridge to Component 7 + phased construction + soft-guide prioritisation + assumptions tracker
+- Covers spec Section D (budget via Component 7), E full (soft-guide), G (Component 7 handshake), I (assumptions)
+- This is where Component 1 starts calling Component 7 for the cost estimate (Drawback 4 fix — single source of truth)
+
+Baseline for Session 4: 328 PASS across 17 suites. Continue when ready.
+
+--- USER ---
+Let’s go
+
+--- CLAUDE ---
+ Starting Session 4: Budget bridge to Component 7 + phased construction + soft-guide prioritisation + assumptions tracker.
+[TOOL bash_tool: Verify baseline]
+Before writing the budget bridge, I need to understand the Brief → Component 7 translation in detail. That's where both Drawback 2 (rectangular envelope + assumption disclosure) and Drawback 3 (floor count = all load-bearing) live. Let me add that first as a method on `Brief`:
+[TOOL bash_tool: Check StructuralGridInput signature]
+[TOOL bash_tool: See exact StructuralGridInput fields]
+[TOOL view: Full StructuralGridInput to understand defaults]
+Good. Now I know exactly what Component 7 wants. Let me add the city→seismic zone lookup (it must match Component 7's scope) and the `to_structural_grid_input()` method:
+[TOOL bash_tool: Find existing city-to-zone lookup]
+No existing lookup — I need to create it. Let me check how Component 7 defaults handle city:
+[TOOL bash_tool: Find city handling in C7]
+[TOOL view: Check how C7 seismic zone is chosen]
+The user passes `seismic_zone` into Component 7 directly — C7 doesn't infer from city. So Component 1 needs a city→zone map. Per IS 1893:2016 (matches Component 7's launch cities):
+
+- Chennai, Bangalore, Hyderabad → Zone II (low)
+- Mumbai, Pune → Zone III (moderate)
+- Delhi → Zone IV (high)
+
+Now building the budget bridge module and extending `Brief` with the Component-7 conversion:
+[TOOL create_file]
+Now extend `Brief` with `to_structural_grid_input()`. This is where Drawbacks 2 and 3 both live. Let me add it as a method on Brief:
+[TOOL str_replace]
+Smoke test the bridge end-to-end:
+[TOOL bash_tool: Smoke test bridge end-to-end]
+The cost shape is unexpected. Let me inspect what Component 7 actually returns:
+[TOOL bash_tool: Inspect actual C7 cost shape]
+So `result.cost` is a `TransparencyTriple` with `exact_value`, `low`, `high`, `confidence`. My bridge used `range_min/range_max` but actual fields are `low/high`. Fixing:
+[TOOL str_replace]
+[TOOL bash_tool: Verify budget bridge works end-to-end]
+Bridge works end-to-end. Component 7 cost comes through cleanly (~₹6.7L structural for this tiny design). All three budget scenarios produce correct guidance.
+
+Now phased construction module:
+[TOOL create_file]
+Now Soft-guide engine with top-3 prioritisation (Drawback 6) + Assumptions tracker (Drawback 10):
+[TOOL create_file]
+[TOOL create_file]
+Smoke test all four Session 4 modules together:
+[TOOL bash_tool: Smoke test all Session 4 modules]
+All 4 modules work correctly end-to-end:
+
+- Top-3 correctly picks STRONG_CONCERN first (2 of them) then the first CONCERN
+- Severity counts accurate
+- Phased construction: generated when budget < 80% of estimate, skipped when aligned
+- Assumptions list adapts to plot type + NBC fallback + auto-staircase + vastu tier
+
+Now Session 4 tests:
+[TOOL create_file]
+[TOOL bash_tool: Run Session 4 tests]
+Found a real one. Component 7 requires envelope ≥ 5m × 5m (not the 3m I assumed). My fallback cap at 3m is below Component 7's minimum. Two fixes possible:
+
+1. Raise the cap to 5m (matches downstream requirement)
+2. Accept that very tiny plots simply can't proceed and let C7 reject
+
+Option 1 is more defensive — our handshake produces a valid C7 input even for edge cases. I'll go with that. Updating both the `Brief.to_structural_grid_input()` and the test:
+[TOOL str_replace]
+## Session 4 — IN PROGRESS (not yet complete this session)
+
+### What shipped
+
+**4 new modules** in `components/c01/`:
+- `budget_bridge.py` — `call_component_7_for_cost()` calls Component 7 and wraps its cost (Drawback 4 single-source fix), `compare_budget_to_estimate()` for under/aligned/over budget messages, `CITY_TO_SEISMIC_ZONE` lookup
+- `phased_construction.py` — `suggest_phased_construction_if_needed()` with 55% ground-only estimate rule (Drawback 9)
+- `soft_guide_engine.py` — `compute_top_guidance()` top-3 prioritisation, `merge_guidance_sources()`, `count_by_severity()`, `has_strong_concerns()` (Drawback 6)
+- `assumptions_log.py` — `build_assumptions_list()` with plot-type/vastu/NBC-fallback/auto-staircase adapters and 5 default assumptions (Drawback 10)
+
+**Brief extended** with `to_structural_grid_input()` method (SPEC Section 10.1 — Drawbacks 2 + 3 both live here):
+- Drawback 2: rectangular envelope = plot - setbacks
+- Drawback 3: floors_above_ground counts all floors with floor_number > 0 (stilt, residential, terrace all load-bearing)
+- Seismic zone derived from city
+
+### Real numbers (smoke-tested end-to-end)
+
+- Bridge runs Component 7 and extracts ₹6.7L cost for test G+1 brief
+- Bridge cost **matches direct C7 execution exactly** (₹669911 == ₹669911) — single source of truth verified
+- Under-budget (₹3-4L vs ₹7L est) → STRONG_CONCERN + phased construction at ~₹4L ground-only
+- Aligned budget → INFO
+- Generous budget (₹50-100L vs ₹7L est) → INFO "generous"
+- City lookup: chennai→II, mumbai→III, delhi→IV
+
+### Two bugs caught during build
+
+**Bug 1 — TransparencyTriple field names.** My initial bridge used `range_min/range_max`; actual C7 fields are `low/high`. Fixed with actual inspection of `result.cost` object. Confidence extraction also handled (enum `.value` access).
+
+**Bug 2 — Envelope minimum mismatch.** Component 7 requires envelope ≥ 5m × 5m (not 3m). My handshake was capping at 3m and crashing C7. Fixed by raising the cap to 5m — we still produce a valid C7 input for edge-case tiny plots, and the soft-guide engine will separately warn the user about insufficient buildable area.
+
+### Session 4 tests — 13 of 24 passed before tool-use limit
+
+- ✅ All 6 budget bridge tests PASS (D section complete)
+- ✅ 3 of 5 handshake tests PASS (envelope, floors-count, seismic-zone derivation)
+- ⏸ `test_handshake_envelope_capped_at_minimum_3m` — needs rename to `_5m` + assertion update (bug 2 fix done, test update pending)
+- ⏸ `test_handshake_c7_accepts_brief_output` — not yet reached
+- ⏸ Phased construction (3 tests), soft-guide prioritisation (5 tests), assumptions tracking (5 tests) — written but not yet run
+
+### What's next (finishing Session 4 next round)
+
+1. Rename the capped-envelope test from `_3m` to `_5m` and update assertion to `== 5.0`
+2. Run full Session 4 suite — expect all 24 to pass
+3. Run full 18-suite sweep (Component 7 baseline + 4 Component 1 sessions) — expect 352 total PASS
+4. Then Session 5: BriefCaptureEngine orchestrator + explain() rendering + ComponentContract registration
+
+Baseline after Session 4 completion (projected): **~352 PASS across 18 suites** — no Component 7 regression.
+
+Component 1 is ~60% complete in terms of behavioural coverage. All 10 Drawbacks from the v0.2 spec are addressed in code; 4 Drawbacks (2, 3, 4, 6, 9, 10) had their logic completed this session.
+
+--- USER ---
+Continue
+
+--- CLAUDE ---
+ Finishing Session 4.
+[TOOL str_replace]
+[TOOL str_replace]
+[TOOL bash_tool: Run full Session 4 suite]
+All 24 Session 4 tests pass. Now full 18-suite sweep:
+[TOOL bash_tool: Full sweep all 18 suites]
+**All 18 suites green. 353 PASS markers.** (274 Component 7 baseline + 14 S1 + 17 S2 + 23 S3 + 25 S4 = 353.) Zero Component 7 regression.
+
+---
+
+## Session 4 — COMPLETE
+
+### What shipped (consolidated)
+
+**4 new modules in `components/c01/`:**
+- `budget_bridge.py` (Drawback 4 single source of truth)
+- `phased_construction.py` (Drawback 9)
+- `soft_guide_engine.py` (Drawback 6 prioritisation + aggregation)
+- `assumptions_log.py` (Drawback 10)
+
+**1 method on Brief:** `to_structural_grid_input()` — contains Drawback 2 (rectangular envelope assumption with 5m minimum floor) + Drawback 3 (floors_above_ground counts all load-bearing floors).
+
+**1 new test file:** 25 tests across 5 sections (D budget bridge, G handshake, phased, E soft-guide, I assumptions). All pass first run after the two bugs I caught during build.
+
+### All 10 Drawbacks status
+
+| # | Drawback | Status | Session |
+|---|---|---|---|
+| 1 | PlotType setback logic | ✅ Done | S1 + S2 |
+| 2 | Envelope naive → explicit rectangular | ✅ Done | S4 (in Brief method) |
+| 3 | Floor count counts all load-bearing | ✅ Done | S4 (in Brief method) |
+| 4 | Single-source cost via Component 7 | ✅ Done | S4 |
+| 5 | Circulation factor 1.30 | ✅ Done | S3 |
+| 6 | Top-3 guidance prioritisation | ✅ Done | S4 |
+| 7 | Parking feasibility | ✅ Done | S3 |
+| 8 | Auto-staircase ≥2 floors | ✅ Done | S3 |
+| 9 | Phased construction suggestion | ✅ Done | S4 |
+| 10 | ASSUMPTIONS USED transparency | ✅ Done | S4 |
+
+**All 10 drawbacks from the v0.2 spec are now implemented in code and tested.** No drawback was skipped or deferred.
+
+### Real end-to-end flow verified
+
+For a G+1 brief (12×15m plot, Chennai, ₹15-25L budget):
+- Brief.to_structural_grid_input() produces envelope 9×12m, floors_above_ground=1, city=chennai, zone=II
+- Component 7 runs on that input → ₹6.7L exact (₹6.2-7.2L range), WELL_CONSTRAINED confidence
+- Budget bridge wraps that into CostEstimate with source="Component 7 structural + foundation cost engine"
+- compare_budget_to_estimate() for ₹3-4L budget → STRONG_CONCERN (under-budget)
+- suggest_phased_construction_if_needed() kicks in → INFO "build ground now at ~₹4L"
+- Top-3 prioritisation puts STRONG_CONCERN first, then INFO messages
+- Assumptions list shows 8 items transparent to user
+
+### What's left — Session 5
+
+Per SPEC_v0.2 Section 15:
+- `BriefCaptureEngine` orchestrator in `components/c01_brief_capture.py`
+- `explain()` method rendering all sections per spec Section 10.3
+- `ComponentContract` declaration (with Brief as produces — v0.7.1 enforcement)
+- Component 1 → Component 7 end-to-end integration test
+- Trace IDs correlate between Component 1 and Component 7
+
+Baseline for Session 5: 353 PASS across 18 suites. Continue when ready.
+
+--- USER ---
+Continue
+
+--- CLAUDE ---
+ Starting Session 5: BriefCaptureEngine orchestrator + explain() + ComponentContract.
+[TOOL bash_tool: Verify baseline]
+Good. Let me check what Component 7's orchestrator looks like so I match its style and the ComponentContract pattern:
+[TOOL bash_tool: Check Component 7 orchestrator pattern]
+[TOOL view: See how Component 7 declares contract]
+Good — now I understand the pattern. Building Component 1 orchestrator + output + contract:
+[TOOL create_file]
+Smoke test end-to-end:
+[TOOL bash_tool: Smoke test BriefCaptureEngine execute]
+Need to check where `new_trace_id` lives:
+[TOOL bash_tool: Find new_trace_id definition]
+[TOOL str_replace]
+[TOOL bash_tool: Smoke test execute]
+End-to-end works. Now render explain() to make sure all sections come out right:
+[TOOL bash_tool: Render explain end-to-end]
+The explain output is beautiful. All sections render correctly:
+- **TOP 3 RECOMMENDATIONS** (Drawback 6) — prominent at top
+- **PLOT** — with plot_type shown (Drawback 1)
+- **SETBACKS** — 4-column comparison table, compliance status
+- **FLOOR COMPOSITION** — notice "Staircase" auto-added to ground (Drawback 8)
+- **BUDGET** — ₹6.7L from Component 7 (Drawback 4 single source)
+- **VASTU GUIDANCE (PARTIAL tier)** — all 7 items displayed (Q5)
+- **COMPLETE GUIDANCE** — non-vastu messages
+- **ASSUMPTIONS USED** — transparency (Drawback 10)
+- **NEXT STEPS**
+- **LEGAL DISCLOSURES** — v0.6 mandatory block
+- **REPRODUCIBILITY** — trace_id + kb_versions
+
+Now Session 5 tests:
+[TOOL create_file]
+[TOOL bash_tool: Run Session 5 tests]
+All 25 Session 5 tests pass first run. Now full 19-suite sweep:
+[TOOL bash_tool: Full sweep all 19 suites]
+**All 19 suites green. 379 PASS markers.** (274 C7 baseline + 14 S1 + 17 S2 + 23 S3 + 25 S4 + 26 S5 = 379.) Zero regression.
+
+---
+
+## Session 5 — COMPLETE
+
+### What shipped
+
+**1 new top-level module:** `components/c01_brief_capture.py` — the orchestrator.
+
+**Contains:**
+- `BriefCaptureInput` — form-shaped input dataclass with all primitives plus pre-built FloorRequirement tuple (which IS a domain object)
+- `BriefCaptureOutput` — full output with `brief`, `soft_guidance`, `top_guidance`, `compliance_summary`, `assumptions_used`, `c7_preview_cost`, `trace_id`, `kb_versions`, `ready_for_downstream`, `resume_token`, `total_built_area_sqm/sqft`
+- `BriefCaptureEngine.execute()` — 12-step pipeline orchestrating all 9 Session 1-4 modules
+- `BriefCaptureEngine.explain()` — 11-section rendering (top-3, plot, setbacks with conditional columns for CONTINUOUS, floor composition with built-area, budget with C7 estimate, vastu tier, full guidance, assumptions, next steps, legal block, reproducibility)
+- Helper methods for parsing plot_facing string → PlotOrientation, plot_type → PlotType, shared_side → SharedSide, vastu_preference → VastuTier
+- `_CONTRACT` declaration registering Component 1 with the v0.7.1 contract system — declares 19 consumed fields and 10 produced fields including `Brief` as a domain type
+
+**1 new test file:** 26 tests across 5 sections (pipeline, handshake, contract, explain, edge cases). All pass first run.
+
+### Orchestrator pipeline (what happens when execute() runs)
+
+1. Fresh trace_id (unique per run)
+2. Parse primitives → `Plot`, `Setbacks`, `BudgetRange`, `VastuTier` domain objects
+3. Compute NBC/DCR setbacks via setback_calculator (plot-type branched)
+4. Compare user vs compliant → setback guidance messages
+5. ensure_staircase_present → add staircase if needed (Drawback 8)
+6. check_parking_feasibility → STRONG_CONCERN if width < 8m + stilt (Drawback 7)
+7. generate_vastu_guidance → 0/7/15 INFO messages based on tier
+8. Call Component 7 via budget_bridge for cost (Drawback 4 single source)
+9. compare_budget_to_estimate + suggest_phased_construction_if_needed (Drawbacks 4 + 9)
+10. merge_guidance_sources → all messages in order
+11. compute_top_guidance → top 3 prioritised (Drawback 6)
+12. build_assumptions_list → 8-9 explicit assumption items (Drawback 10)
+13. Assemble final Brief with all fields populated
+14. Return BriefCaptureOutput
+
+### End-to-end verified
+
+- Chennai 12×15m G+1, ₹20-30L, vastu partial → compliant, ₹6.7L C7 estimate, 10 guidance messages (7 vastu + 3 non-vastu), top 3 all INFO, 9 assumptions listed, ready_for_downstream=True
+- Non-compliant setbacks (0.5m front) → STRONG_CONCERN in top 3, ready_for_downstream=False
+- CONTINUOUS plot → setback table shows only Front + Rear (spec 10.3 behaviour)
+- Direct C7 cost matches bridge cost exactly (₹669911 == ₹669911)
+
+### What's next — Session 6
+
+Per SPEC_v0.2 Section 15:
+- **Session 6**: Form UI (HTML/Tailwind/vanilla JS) + API endpoint handler + end-to-end smoke test with a real JSON POST
+- Delivers `static/brief_form.html`, `static/brief_form.js`, `static/brief_form.css`, `api/brief_endpoint.py`
+
+Baseline for Session 6: 379 PASS across 19 suites. Continue when ready.
+

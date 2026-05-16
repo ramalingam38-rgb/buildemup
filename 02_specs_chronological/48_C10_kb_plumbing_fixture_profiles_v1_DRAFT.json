@@ -1,0 +1,41 @@
+{
+  "_kb_id": "plumbing_fixture_profiles",
+  "_kb_version": "Profiles_v1_S35_DRAFT",
+  "_origin": "S35 Walk #4 reviewer #12: extracted from C10 v0.4 spec § 3 Phase 4 inline mapping table. Moves fixture-mapping out of code/spec text into versioned KB so v2/v3 luxury fixtures (bidet, dual-sink kitchens, modern utility) extend the KB without spec/code change.",
+  "_status": "DRAFT — supports C10 v0.5 PROPOSED. Not LOCKED.",
+  "_lookup_key": "(room_category, bathroom_subtype) where bathroom_subtype = null for non-bathroom rows",
+  "_fixture_types_must_exist_in": "kb/plumbing_minimums.json — Inv 16 of C10 v0.5 enforces this consistency",
+  "rows": [
+    {
+      "room_category": "bathroom",
+      "bathroom_subtype": "combined",
+      "fixture_types": ["water_closet", "lavatory", "shower"],
+      "_note": "Standard Indian residential combined bathroom: WC + sink + shower stall."
+    },
+    {
+      "room_category": "bathroom",
+      "bathroom_subtype": "bath_only",
+      "fixture_types": ["lavatory", "shower"],
+      "_note": "Bath area without WC — typical in 3+ bath dwellings as washroom."
+    },
+    {
+      "room_category": "bathroom",
+      "bathroom_subtype": "wc_only",
+      "fixture_types": ["water_closet"],
+      "_note": "Standalone WC. NBC 2016 Part 3 Clause 12.4. Often the smallest wet room."
+    },
+    {
+      "room_category": "kitchen",
+      "bathroom_subtype": null,
+      "fixture_types": ["kitchen_sink"],
+      "_note": "Single sink default. Dual-sink luxury extension via B-227."
+    },
+    {
+      "room_category": "utility",
+      "bathroom_subtype": null,
+      "fixture_types": ["utility_sink"],
+      "_note": "Indian utility room: washing machine + utility sink. Fixture mapping covers sink only; washing-machine connection is separate plumbing concern (B-220)."
+    }
+  ],
+  "_v2_extension_notes": "Future fixtures via B-227: bidet (typically paired with WC in luxury bathrooms), dual_kitchen_sink, dishwasher_drain, washing_machine_drain, water_purifier_drain. Each new fixture must add a row to kb/plumbing_minimums.json first (trap_arm_max_m + pipe diameter + trap seal), then this profile KB references it."
+}

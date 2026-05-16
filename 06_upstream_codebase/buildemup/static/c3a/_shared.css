@@ -1,0 +1,190 @@
+/* S8 § 5.5 + § 5.7 — Shared design tokens + baseline styles for
+ * /c3a/* pages. Hand-written, no framework. Mirrors brief_form.css
+ * aesthetic: utilitarian, form-focused, system fonts only.
+ *
+ * All page CSS files start with `@import url("/c3a/_shared.css");`
+ */
+
+/* ─── Design tokens ─────────────────────────────────────────────── */
+:root {
+    --c3a-color-text:        #111827;
+    --c3a-color-text-muted:  #6b7280;
+    --c3a-color-bg:          #ffffff;
+    --c3a-color-bg-subtle:   #f9fafb;
+    --c3a-color-border:      #d1d5db;
+    --c3a-color-accent:      #1a4d8a;
+    --c3a-color-accent-hover:#1e5fa8;
+    --c3a-color-success:     #047857;
+    --c3a-color-warning:     #b45309;
+    --c3a-color-error:       #b91c1c;
+    --c3a-color-error-bg:    #fef2f2;
+    --c3a-color-warning-bg:  #fff8eb;
+
+    --c3a-radius:            6px;
+    --c3a-spacing-xs:        4px;
+    --c3a-spacing-sm:        8px;
+    --c3a-spacing-md:        16px;
+    --c3a-spacing-lg:        24px;
+    --c3a-spacing-xl:        32px;
+
+    --c3a-font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* ─── Reset + body ──────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+body {
+    font-family: var(--c3a-font-stack);
+    color: var(--c3a-color-text);
+    background: var(--c3a-color-bg);
+    line-height: 1.5;
+    margin: 0;
+    padding: var(--c3a-spacing-lg);
+}
+
+main {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: var(--c3a-spacing-md);
+}
+
+h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 var(--c3a-spacing-md);
+}
+
+h2 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin: var(--c3a-spacing-lg) 0 var(--c3a-spacing-sm);
+}
+
+p { margin: 0 0 var(--c3a-spacing-md); }
+
+/* ─── Card ──────────────────────────────────────────────────────── */
+.c3a-card {
+    border: 1px solid var(--c3a-color-border);
+    border-radius: var(--c3a-radius);
+    padding: var(--c3a-spacing-lg);
+    margin-bottom: var(--c3a-spacing-md);
+    background: var(--c3a-color-bg);
+}
+
+/* ─── Buttons ───────────────────────────────────────────────────── */
+button, .c3a-button {
+    font: inherit;
+    color: #fff;
+    background: var(--c3a-color-accent);
+    border: 1px solid var(--c3a-color-accent);
+    border-radius: var(--c3a-radius);
+    padding: var(--c3a-spacing-sm) var(--c3a-spacing-md);
+    cursor: pointer;
+    min-height: 44px;
+    transition: background-color 0.1s ease;
+}
+
+button:hover, .c3a-button:hover {
+    background: var(--c3a-color-accent-hover);
+}
+
+button:focus, .c3a-button:focus {
+    outline: 2px solid var(--c3a-color-accent);
+    outline-offset: 2px;
+}
+
+button.c3a-secondary {
+    color: var(--c3a-color-text);
+    background: var(--c3a-color-bg);
+    border-color: var(--c3a-color-border);
+}
+
+button.c3a-secondary:hover {
+    background: var(--c3a-color-bg-subtle);
+}
+
+button[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ─── Form inputs ───────────────────────────────────────────────── */
+input[type="text"], input[type="email"], textarea, select {
+    font: inherit;
+    color: var(--c3a-color-text);
+    background: var(--c3a-color-bg);
+    border: 1px solid var(--c3a-color-border);
+    border-radius: var(--c3a-radius);
+    padding: var(--c3a-spacing-sm) var(--c3a-spacing-md);
+    width: 100%;
+    min-height: 44px;
+}
+
+label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: var(--c3a-spacing-xs);
+}
+
+/* Radio options */
+.c3a-option {
+    display: block;
+    padding: var(--c3a-spacing-md);
+    margin-bottom: var(--c3a-spacing-sm);
+    border: 1px solid var(--c3a-color-border);
+    border-radius: var(--c3a-radius);
+    cursor: pointer;
+    background: var(--c3a-color-bg);
+}
+
+.c3a-option:hover { background: var(--c3a-color-bg-subtle); }
+
+.c3a-option input[type="radio"] {
+    margin-right: var(--c3a-spacing-sm);
+}
+
+/* ─── Status colors ─────────────────────────────────────────────── */
+.c3a-error {
+    color: var(--c3a-color-error);
+    background: var(--c3a-color-error-bg);
+    border: 1px solid var(--c3a-color-error);
+    border-radius: var(--c3a-radius);
+    padding: var(--c3a-spacing-md);
+    margin: var(--c3a-spacing-md) 0;
+}
+
+.c3a-warning {
+    color: var(--c3a-color-warning);
+    background: var(--c3a-color-warning-bg);
+    border: 1px solid var(--c3a-color-warning);
+    border-radius: var(--c3a-radius);
+    padding: var(--c3a-spacing-md);
+    margin: var(--c3a-spacing-md) 0;
+}
+
+.c3a-success {
+    color: var(--c3a-color-success);
+    font-weight: 500;
+}
+
+.c3a-trace {
+    font-family: ui-monospace, monospace;
+    font-size: 0.875rem;
+    color: var(--c3a-color-text-muted);
+    word-break: break-all;
+}
+
+/* ─── Loading state ─────────────────────────────────────────────── */
+.c3a-loading {
+    color: var(--c3a-color-text-muted);
+    font-style: italic;
+}
+
+.c3a-hidden { display: none !important; }
+
+/* ─── Mobile (responsive baseline; not optimized per § 1.3 (g)) ─ */
+@media (max-width: 480px) {
+    body { padding: var(--c3a-spacing-md); }
+    main { padding: var(--c3a-spacing-sm); }
+}

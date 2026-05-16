@@ -1,0 +1,529 @@
+{
+  "_meta": {
+    "kb_version": "Setbacks_India_2026_v1",
+    "source_standards": [
+      "Tamil Nadu Combined Development and Building Rules 2019 (CMDA)",
+      "Bangalore RMP 2015 amended 2026 (BBMP)",
+      "NBC 2016 Part 3 (general fallback for other cities)"
+    ],
+    "last_updated": "2026-04-24",
+    "cadence": "yearly",
+    "notes": [
+      "v0.1: Chennai full implementation, other 5 cities use NBC fallback.",
+      "NBC fallback is CONSERVATIVE — actual city DCRs may allow less.",
+      "Always disclose source authority in soft-guide messages.",
+      "Non-high-rise only (≤ 18.3m / ~G+3 + parapet). High-rise out of v0.1 scope."
+    ],
+    "_version": "Setbacks_India_2026_v4",
+    "_last_updated": "2026-05-16",
+    "_changelog": [
+      {
+        "version": "v2",
+        "date": "2026-04-25",
+        "changes": "Added Mumbai DCPR 2034 + Delhi MPD-2021 (Session C)"
+      },
+      {
+        "version": "v3",
+        "date": "2026-04-25",
+        "changes": "Added Bangalore BBMP/UDD-2026, Pune UDCPR-2020, Hyderabad GHMC G.O.168 (Session D). All 6 launch cities now have real DCRs."
+      },
+      {
+        "version": "v4",
+        "date": "2026-05-16",
+        "changes": "S54-004 fix: Chennai detached tier_50_to_150sqm side_right_m was incorrectly 0.0m (semi-detached/CBA behavior leaked into detached rules). Corrected to 0.7m, symmetric with side_left_m, per TNCDBR 2019 Schedule II."
+      }
+    ]
+  },
+  "chennai": {
+    "_authority": "TNCDBR 2019 (CMDA)",
+    "_authority_url": "https://chennaicorporation.gov.in/images/TNCDRBR-2019.pdf",
+    "_reference_clause": "Section 35(1) Explanation 1",
+    "detached": {
+      "_description": "Standalone plot with setbacks on all 4 sides.",
+      "tiers": [
+        {
+          "_tier_name": "tier_under_50sqm",
+          "plot_area_max_sqm": 50,
+          "front_m": 0.0,
+          "rear_m": 1.0,
+          "side_left_m": 1.0,
+          "side_right_m": 1.0,
+          "_notes": "Very small plots. Continuous Building Area may apply if declared — front = 0 if CBA, else 0.9m minimum."
+        },
+        {
+          "_tier_name": "tier_50_to_150sqm",
+          "plot_area_max_sqm": 150,
+          "front_m": 0.9,
+          "rear_m": 0.7,
+          "side_left_m": 0.7,
+          "side_right_m": 0.7,
+          "_notes": "Small plots (up to 30×40 ft). 0.7m setback on both sides per TNCDBR 2019 Schedule II. S54-004 fix (May 2026): side_right was incorrectly 0.0m (semi-detached/CBA behavior incorrectly applied to detached plots); now symmetric 0.7m matching side_left."
+        },
+        {
+          "_tier_name": "tier_150_to_300sqm",
+          "plot_area_max_sqm": 300,
+          "front_m": 1.5,
+          "rear_m": 1.5,
+          "side_left_m": 1.5,
+          "side_right_m": 1.5,
+          "_notes": "Medium plots. Full 4-side setbacks. Height ≤ 9m."
+        },
+        {
+          "_tier_name": "tier_over_300sqm_low",
+          "plot_area_max_sqm": 10000,
+          "height_max_m": 9.0,
+          "front_m": 1.5,
+          "rear_m": 1.5,
+          "side_left_m": 1.5,
+          "side_right_m": 1.5,
+          "_notes": "Larger plots, up to G+2. Road-width dependent front setback in real DCR — we use conservative 1.5m."
+        },
+        {
+          "_tier_name": "tier_over_300sqm_high",
+          "plot_area_max_sqm": 10000,
+          "height_max_m": 18.3,
+          "front_m": 3.0,
+          "rear_m": 2.0,
+          "side_left_m": 2.0,
+          "side_right_m": 2.0,
+          "_notes": "Larger plots, G+3. Road width ≥ 9m required. If road < 9m, revert to lower tier."
+        }
+      ]
+    },
+    "semi_detached": {
+      "_description": "Plot shares one side wall with a neighbour. Shared side = 0 setback.",
+      "_rule": "Use DETACHED tier setbacks, then zero out the shared side.",
+      "_notes": "Plot.shared_side (LEFT or RIGHT) determines which side is zeroed."
+    },
+    "continuous": {
+      "_description": "Row-house or Continuous Building Area (CBA) declared by local body per TNCDBR s.35(1) Explanation 1(v).",
+      "_rule": "No side setbacks. Front setback per road width. Rear setback minimum 1m.",
+      "front_m_by_road_width": {
+        "3.0_to_7.0": 0.9,
+        "7.0_to_12.0": 1.5,
+        "12.0_and_above": 3.0
+      },
+      "rear_m": 1.0,
+      "side_left_m": 0.0,
+      "side_right_m": 0.0,
+      "_notes": "Rear 1m required for internal passage + fire access per TNCDBR CBA rule."
+    }
+  },
+  "_fallback_nbc": {
+    "_authority": "NBC 2016 Part 3 (general — city DCR pending in v0.2)",
+    "_disclosure_text": "Using NBC 2016 general guidelines. Actual city DCR rules may differ — verify with your city's municipal corporation before applying for permit.",
+    "detached": {
+      "_description": "NBC conservative defaults. All sides fully set back.",
+      "tiers": [
+        {
+          "_tier_name": "nbc_all_sizes",
+          "plot_area_max_sqm": 10000,
+          "front_m": 3.0,
+          "rear_m": 2.0,
+          "side_left_m": 1.5,
+          "side_right_m": 1.5,
+          "_notes": "Conservative defaults per NBC 2016 Part 3. Actual DCR may allow less."
+        }
+      ]
+    },
+    "semi_detached": {
+      "_description": "Shared side = 0, other three per DETACHED.",
+      "_rule": "Use DETACHED NBC tier, zero out shared side."
+    },
+    "continuous": {
+      "_description": "Row-house pattern. Front + rear only.",
+      "front_m_by_road_width": {
+        "3.0_to_7.0": 1.5,
+        "7.0_to_12.0": 3.0,
+        "12.0_and_above": 4.5
+      },
+      "rear_m": 1.5,
+      "side_left_m": 0.0,
+      "side_right_m": 0.0,
+      "_notes": "Conservative NBC-aligned row-house setbacks."
+    }
+  },
+  "mumbai": {
+    "_authority": "DCPR 2034 (MCGM)",
+    "_authority_url": "https://www.projectmaitree.com/uploads/circulars_pdfs/1585037034396819017DCPR-2034-COMPILED.pdf",
+    "_reference_clause": "DCPR 2034 — Front Open Spaces (residential) + Open Spaces general",
+    "_disclosure_text": "DCPR 2034 distinguishes Mumbai Island City from Suburbs (different front setbacks). v0.9 defaults to SUBURBS values — most Mumbai homebuilders are outside Island City. If your plot is in Island City (south of Mahim/Sion), the rules differ. v1.0 will add a zone selector. For special roads (Pedder, Carmichael, Altamount, Napeansea, Hughes), front setback is 4.5m for both R and C — those are Island City-specific and not modelled here.",
+    "_zone_assumed": "SUBURBS",
+    "detached": {
+      "_description": "Suburbs-default residential plotted housing. Front setback per DCPR 2034 Criteria 1 (road width). Side setback 1.5-2m per general open-space norms for low-rise residential.",
+      "tiers": [
+        {
+          "_tier_name": "small_plot_road_under_21m",
+          "plot_area_max_sqm": 200,
+          "front_m": 4.5,
+          "rear_m": 1.5,
+          "side_left_m": 1.5,
+          "side_right_m": 1.5,
+          "_notes": "Suburbs, road width < 21m: front 4.5m for residential. Source: DCPR 2034 Criteria 1. Sides 1.5m for fire access and general open-space norms."
+        },
+        {
+          "_tier_name": "medium_plot_road_under_21m",
+          "plot_area_max_sqm": 500,
+          "front_m": 4.5,
+          "rear_m": 2.0,
+          "side_left_m": 2.0,
+          "side_right_m": 2.0,
+          "_notes": "Medium plots in Suburbs. Side increased to 2.0m for G+1/G+2. Source: DCPR 2034 + general open spaces rule."
+        },
+        {
+          "_tier_name": "large_plot_road_21_to_52m",
+          "plot_area_max_sqm": 2000,
+          "front_m": 6.0,
+          "rear_m": 3.0,
+          "side_left_m": 3.0,
+          "side_right_m": 3.0,
+          "_notes": "Suburbs, road width 21-52m: front 6.0m. Source: DCPR 2034 Criteria 1. Sides 3m for taller buildings."
+        },
+        {
+          "_tier_name": "highway_road_over_52m",
+          "plot_area_max_sqm": 100000,
+          "front_m": 7.5,
+          "rear_m": 3.0,
+          "side_left_m": 3.0,
+          "side_right_m": 3.0,
+          "_notes": "Highway / road > 52m: front 7.5m (both Island and Suburbs). Source: DCPR 2034 Criteria 1."
+        }
+      ]
+    },
+    "semi_detached": {
+      "_description": "Plot shares one side wall with a neighbour. Shared side = 0 setback.",
+      "_rule": "Use DETACHED tier setbacks, then zero out the shared side.",
+      "_notes": "Plot.shared_side (LEFT or RIGHT) determines which side is zeroed. Mumbai DCPR allows this for cluster developments and certain cessed-building redevelopment cases."
+    },
+    "continuous": {
+      "_description": "Row-house pattern. DCPR 2034 generally requires open spaces, but for declared row-house schemes (e.g., MHADA layouts) side setbacks may be 0 with rear retained for fire access.",
+      "_rule": "No side setbacks. Front per road width. Rear 1.5m minimum.",
+      "front_m_by_road_width": {
+        "3.0_to_9.0": 3.0,
+        "9.0_to_21.0": 4.5,
+        "21.0_to_52.0": 6.0,
+        "52.0_and_above": 7.5
+      },
+      "rear_m": 1.5,
+      "side_left_m": 0.0,
+      "side_right_m": 0.0,
+      "_notes": "Row housing in Mumbai is uncommon outside MHADA/cluster schemes. These values are conservative reads of DCPR 2034 + IS 7290 row-house norms. Verify with MCGM building permission cell."
+    }
+  },
+  "delhi": {
+    "_authority": "MPD-2021 + UBBL 2016 (DDA)",
+    "_authority_url": "https://dda.gov.in/sites/default/files/handbook-2021.pdf",
+    "_reference_clause": "MPD-2021 Clause 4.4.3 — Schedule of setbacks (residential)",
+    "_disclosure_text": "Delhi setback values are best-available reads from MPD-2021 Clause 4.4.3 schedule and DDA Handbook. The exact printed table uses 'preceding category may be allowed' fallback if coverage isn't achievable — we use conservative reads. Verify with DDA or MCD building permission cell before construction. Max height 15m for all residential. Stilt mandatory 100-1000 sqm.",
+    "detached": {
+      "_description": "Bungalow-pattern plotted housing. Plots ≤250 sqm follow row housing (no side setbacks). Plots >250 sqm are bungalow type with setback all around. Max height 15m.",
+      "tiers": [
+        {
+          "_tier_name": "very_small_plot_under_50sqm",
+          "plot_area_max_sqm": 50,
+          "front_m": 0.0,
+          "rear_m": 0.0,
+          "side_left_m": 0.0,
+          "side_right_m": 0.0,
+          "_notes": "MPD-2021 minimum plot 32 sqm (EWS schemes lower). Row housing pattern, no setbacks required. Min 3 DUs."
+        },
+        {
+          "_tier_name": "small_plot_50_to_100sqm",
+          "plot_area_max_sqm": 100,
+          "front_m": 0.0,
+          "rear_m": 0.0,
+          "side_left_m": 0.0,
+          "side_right_m": 0.0,
+          "_notes": "Row housing pattern. 2m × 2m open courtyard required for new construction (MPD-2021 Note (b) under 4.4.3)."
+        },
+        {
+          "_tier_name": "small_plot_100_to_250sqm",
+          "plot_area_max_sqm": 250,
+          "front_m": 3.0,
+          "rear_m": 1.0,
+          "side_left_m": 0.0,
+          "side_right_m": 0.0,
+          "_notes": "Row housing — front and rear only. Stilt mandatory in this range. Conservative read of MPD-2021 schedule."
+        },
+        {
+          "_tier_name": "medium_plot_250_to_500sqm",
+          "plot_area_max_sqm": 500,
+          "front_m": 3.0,
+          "rear_m": 3.0,
+          "side_left_m": 3.0,
+          "side_right_m": 3.0,
+          "_notes": "Bungalow type begins at 250 sqm — setback all around. Stilt still mandatory."
+        },
+        {
+          "_tier_name": "large_plot_500_to_1000sqm",
+          "plot_area_max_sqm": 1000,
+          "front_m": 6.0,
+          "rear_m": 3.0,
+          "side_left_m": 3.0,
+          "side_right_m": 3.0,
+          "_notes": "Larger bungalow. Stilt mandatory upper limit (1000 sqm)."
+        },
+        {
+          "_tier_name": "very_large_plot_1000_plus",
+          "plot_area_max_sqm": 100000,
+          "front_m": 9.0,
+          "rear_m": 6.0,
+          "side_left_m": 6.0,
+          "side_right_m": 6.0,
+          "_notes": "Large plot, often at edge of group housing scale. Stilt no longer mandatory; check fire access."
+        }
+      ]
+    },
+    "semi_detached": {
+      "_description": "Plot shares one side wall with a neighbour. Shared side = 0.",
+      "_rule": "Use DETACHED tier setbacks, then zero out the shared side.",
+      "_notes": "Common in DDA cooperative housing societies. Plot.shared_side (LEFT or RIGHT) determines which side is zeroed."
+    },
+    "continuous": {
+      "_description": "Row housing pattern — explicitly allowed in MPD-2021 for plots ≤250 sqm. No side setbacks; front + rear only.",
+      "_rule": "No side setbacks. Front per road width. Rear 1m minimum.",
+      "front_m_by_road_width": {
+        "3.0_to_9.0": 1.5,
+        "9.0_to_18.0": 3.0,
+        "18.0_and_above": 6.0
+      },
+      "rear_m": 1.0,
+      "side_left_m": 0.0,
+      "side_right_m": 0.0,
+      "_notes": "Row housing is the default pattern for plots ≤250 sqm in Delhi DDA areas. Minimum 3 DUs per row. Min plot 32 sqm."
+    }
+  },
+  "bangalore": {
+    "_authority": "BBMP / Karnataka UDD (RMP-2015 + 2026 amendments)",
+    "_authority_url": "https://lizahomes.in/blog/revised-setback-rules-bengaluru-2026/",
+    "_reference_clause": "BBMP Building Bye-laws + UDD Nov 2025 simplified setbacks",
+    "_disclosure_text": "Bangalore setback values reflect Karnataka UDD November 2025 amendments simplifying small-plot rules: plots ≤150 sqm now use fixed setbacks (0.6-0.9m) instead of percentage of dimensions. For plots >150 sqm, BBMP uses percentage-based formulas (typically 12%/8% of depth/width); we use conservative absolute values from the 2026 guide. Max height 12m for plots ≤150 sqm (excluding stilt). Verify with BBMP/BDA before construction as ward-specific rules may apply.",
+    "detached": {
+      "_description": "BBMP residential plotted housing under simplified 2026 rules. Small plots have fixed setbacks; medium plots use percentage calculations approximated below; large plots (>4000 sqm) need 5m all sides.",
+      "tiers": [
+        {
+          "_tier_name": "very_small_plot_under_60sqm",
+          "plot_area_max_sqm": 60,
+          "front_m": 0.7,
+          "rear_m": 0.6,
+          "side_left_m": 0.6,
+          "side_right_m": 0.6,
+          "_notes": "20×30 ft typical. UDD 2026 fixed setbacks. Source: NewsFirstPrime UDD draft Nov 13 2025."
+        },
+        {
+          "_tier_name": "small_plot_60_to_150sqm",
+          "plot_area_max_sqm": 150,
+          "front_m": 0.9,
+          "rear_m": 0.7,
+          "side_left_m": 0.7,
+          "side_right_m": 0.7,
+          "_notes": "30×40 to 30×50 ft typical. Max height 12m (excluding stilt). UDD 2026 simplified rules."
+        },
+        {
+          "_tier_name": "medium_plot_150_to_500sqm",
+          "plot_area_max_sqm": 500,
+          "front_m": 1.5,
+          "rear_m": 1.5,
+          "side_left_m": 1.5,
+          "side_right_m": 1.5,
+          "_notes": "BBMP rule: 12% depth front, 8% depth rear, 8% width sides. For 30×40 ft plot (~111 sqm): ~1.46m front, ~0.97m rear, ~0.74m sides. We use 1.5m as conservative rounded floor for plots in this range."
+        },
+        {
+          "_tier_name": "large_plot_500_to_4000sqm",
+          "plot_area_max_sqm": 4000,
+          "front_m": 3.0,
+          "rear_m": 2.0,
+          "side_left_m": 2.0,
+          "side_right_m": 2.0,
+          "_notes": "Larger plots scale up. BBMP percentage formulas give approximately these values. Source: WeBuildd BBMP byelaws guide."
+        },
+        {
+          "_tier_name": "very_large_plot_over_4000sqm",
+          "plot_area_max_sqm": 100000,
+          "front_m": 5.0,
+          "rear_m": 5.0,
+          "side_left_m": 5.0,
+          "side_right_m": 5.0,
+          "_notes": "Plots >4000 sqm: BBMP mandates 5m all sides. Source: RPRealtyPlus Karnataka amendments 2025."
+        }
+      ]
+    },
+    "semi_detached": {
+      "_description": "Plot shares one side wall with a neighbour. Shared side = 0 setback.",
+      "_rule": "Use DETACHED tier setbacks, then zero out the shared side.",
+      "_notes": "Plot.shared_side (LEFT or RIGHT) determines which side is zeroed. Common in BDA layouts and DDA-style cooperative housing in Bangalore."
+    },
+    "continuous": {
+      "_description": "Row housing — 'Row House' building type per BBMP byelaws. No side setbacks; front per road width; rear retained.",
+      "_rule": "No side setbacks. Front per road width. Rear 1m minimum.",
+      "front_m_by_road_width": {
+        "3.0_to_9.0": 1.5,
+        "9.0_to_18.0": 3.0,
+        "18.0_and_above": 5.0
+      },
+      "rear_m": 1.0,
+      "side_left_m": 0.0,
+      "side_right_m": 0.0,
+      "_notes": "Row housing common in older BDA layouts and CITB schemes. BBMP requires front setback to scale with road width."
+    }
+  },
+  "pune": {
+    "_authority": "UDCPR Maharashtra (2020) / PMC",
+    "_authority_url": "https://eastonassociate.com/udcpr-building-rules-for-maharashtra-state/side-margin-requirement/",
+    "_reference_clause": "UDCPR Table 6 — Marginal distances for residential ≤15m height",
+    "_disclosure_text": "Pune setbacks reflect UDCPR (Unified DCPR) 2020 — applies statewide to Maharashtra municipal areas. PMC and PMRDA both follow UDCPR. v0.9 defaults to NON-CONGESTED area values (modern Pune layouts where most homebuilders are). Congested area (old city core) has reduced setbacks 1-1.5m. For buildings >15m height add +1m to all sides; for >24m use H/4 minimum 3m. Stilt height max 3m. Verify with PMC building permission cell.",
+    "detached": {
+      "_description": "UDCPR residential plotted (height ≤15m, non-congested area). Front setback by road width per Table 6; sides/rear by plot size.",
+      "tiers": [
+        {
+          "_tier_name": "small_plot_under_100sqm",
+          "plot_area_max_sqm": 100,
+          "front_m": 1.5,
+          "rear_m": 1.0,
+          "side_left_m": 1.0,
+          "side_right_m": 1.0,
+          "_notes": "UDCPR Table 6 small plot tier. For roads 6-12m wide front 1.5m, sides 1.0m. Source: Slideshare Pune Bye Laws + UDCPR Table 6."
+        },
+        {
+          "_tier_name": "medium_plot_100_to_200sqm",
+          "plot_area_max_sqm": 200,
+          "front_m": 1.5,
+          "rear_m": 1.5,
+          "side_left_m": 1.5,
+          "side_right_m": 1.5,
+          "_notes": "Standard suburban Pune residential. Sides+rear 1.5m, front 1.5m for 6-12m roads. UDCPR Table 6 row."
+        },
+        {
+          "_tier_name": "large_plot_200_to_500sqm",
+          "plot_area_max_sqm": 500,
+          "front_m": 1.5,
+          "rear_m": 2.0,
+          "side_left_m": 2.0,
+          "side_right_m": 2.0,
+          "_notes": "Larger residential plot. UDCPR side margin scales up with plot area; rear 2m typical."
+        },
+        {
+          "_tier_name": "very_large_plot_500_to_1000sqm",
+          "plot_area_max_sqm": 1000,
+          "front_m": 2.25,
+          "rear_m": 3.0,
+          "side_left_m": 3.0,
+          "side_right_m": 3.0,
+          "_notes": "UDCPR for plots >500 sqm typically requires 3m sides and rear. Front 2.25m for 18m+ roads."
+        },
+        {
+          "_tier_name": "huge_plot_over_1000sqm",
+          "plot_area_max_sqm": 100000,
+          "front_m": 4.5,
+          "rear_m": 3.0,
+          "side_left_m": 3.0,
+          "side_right_m": 3.0,
+          "_notes": "Large plots — typically group housing scope. Front scales with building height for >15m structures."
+        }
+      ]
+    },
+    "semi_detached": {
+      "_description": "Plot shares one side wall with a neighbour. Shared side = 0 setback.",
+      "_rule": "Use DETACHED tier setbacks, then zero out the shared side.",
+      "_notes": "UDCPR explicitly allows semi-detached buildings (Table 6 note 3). Side margin required on one side only (the non-shared side)."
+    },
+    "continuous": {
+      "_description": "Row housing per UDCPR. No side setbacks; front per road width.",
+      "_rule": "No side setbacks. Front per road width. Rear 1.5m minimum.",
+      "front_m_by_road_width": {
+        "3.0_to_6.0": 1.5,
+        "6.0_to_12.0": 1.5,
+        "12.0_to_18.0": 2.0,
+        "18.0_and_above": 2.25
+      },
+      "rear_m": 1.5,
+      "side_left_m": 0.0,
+      "side_right_m": 0.0,
+      "_notes": "UDCPR row housing pattern. Common in PMC older townships and newer planned developments. Junction plots need larger setback."
+    }
+  },
+  "hyderabad": {
+    "_authority": "Telangana Building Rules G.O. Ms. 168 (GHMC/HMDA)",
+    "_authority_url": "https://www.hmda.gov.in/wp-content/uploads/2020/07/B9.pdf",
+    "_reference_clause": "G.O. Ms. No. 168 (2012) Table-III — Non-high-rise residential (buildings below 18m including stilt)",
+    "_disclosure_text": "Hyderabad setbacks reflect Telangana Building Rules G.O. Ms. 168 (2012) Table-III for non-high-rise residential (≤18m including stilt). HMDA and GHMC both apply this. For high-rise (>18m) different table applies; minimum 7m all sides for fire access. v0.9 covers G+1/G+2/G+3 residential which falls under the non-high-rise table. Front setback may also be governed by road width (separate building line rule). For final permit, use TS-bPASS portal with sanctioned setbacks. Verify with GHMC.",
+    "detached": {
+      "_description": "GHMC/HMDA residential plotted (buildings ≤18m height inclusive of stilt). G.O. Ms. 168 Table-III tiers.",
+      "tiers": [
+        {
+          "_tier_name": "small_plot_up_to_100sqm",
+          "plot_area_max_sqm": 100,
+          "front_m": 1.5,
+          "rear_m": 1.5,
+          "side_left_m": 1.0,
+          "side_right_m": 1.0,
+          "_notes": "G.O. 168 Table-III smallest residential tier. Front actually min(1.5m, 5% of plot width); we use 1.5m absolute floor as conservative read."
+        },
+        {
+          "_tier_name": "small_medium_plot_100_to_300sqm",
+          "plot_area_max_sqm": 300,
+          "front_m": 2.0,
+          "rear_m": 2.0,
+          "side_left_m": 1.5,
+          "side_right_m": 1.5,
+          "_notes": "100-300 sqm typical Hyderabad residential. G.O. 168 Table-III standard tier."
+        },
+        {
+          "_tier_name": "medium_plot_300_to_500sqm",
+          "plot_area_max_sqm": 500,
+          "front_m": 2.5,
+          "rear_m": 2.0,
+          "side_left_m": 2.0,
+          "side_right_m": 2.0,
+          "_notes": "Medium plot tier. Sides+rear 2m standard."
+        },
+        {
+          "_tier_name": "large_plot_500_to_750sqm",
+          "plot_area_max_sqm": 750,
+          "front_m": 3.0,
+          "rear_m": 2.5,
+          "side_left_m": 2.5,
+          "side_right_m": 2.5,
+          "_notes": "Larger residential. G.O. 168 Table-III scales setbacks up with plot area."
+        },
+        {
+          "_tier_name": "very_large_plot_750_to_1000sqm",
+          "plot_area_max_sqm": 1000,
+          "front_m": 3.0,
+          "rear_m": 3.0,
+          "side_left_m": 3.0,
+          "side_right_m": 3.0,
+          "_notes": "G.O. 168 — uniform 3m all sides for plots in this range."
+        },
+        {
+          "_tier_name": "huge_plot_over_1000sqm",
+          "plot_area_max_sqm": 100000,
+          "front_m": 4.5,
+          "rear_m": 3.0,
+          "side_left_m": 3.0,
+          "side_right_m": 3.0,
+          "_notes": "Plots >1000 sqm: front 4.5m. For high-rise (>18m) fire access requires 7m all sides — not modelled here since v0.9 targets G+1/G+2/G+3."
+        }
+      ]
+    },
+    "semi_detached": {
+      "_description": "Plot shares one side wall with a neighbour. Shared side = 0 setback.",
+      "_rule": "Use DETACHED tier setbacks, then zero out the shared side.",
+      "_notes": "Common in older Hyderabad townships (Banjara Hills, Jubilee Hills) and HMDA cooperative housing. Plot.shared_side determines which side is zeroed."
+    },
+    "continuous": {
+      "_description": "Row housing — 'Row Housing' permitted under HMDA layout rules. No side setbacks; front per road width; rear retained.",
+      "_rule": "No side setbacks. Front per road width. Rear 1.5m minimum.",
+      "front_m_by_road_width": {
+        "3.0_to_9.0": 1.5,
+        "9.0_to_18.0": 2.0,
+        "18.0_to_30.0": 3.0,
+        "30.0_and_above": 6.0
+      },
+      "rear_m": 1.5,
+      "side_left_m": 0.0,
+      "side_right_m": 0.0,
+      "_notes": "Row housing common in HMDA-approved layouts. Front building line scales with road width per HMDA amendments."
+    }
+  }
+}

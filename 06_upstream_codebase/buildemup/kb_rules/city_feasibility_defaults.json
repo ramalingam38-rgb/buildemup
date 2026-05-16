@@ -1,0 +1,123 @@
+{
+  "_meta": {
+    "_version": "CityDefaults_India_2026_v1",
+    "_last_updated": "2026-04-27",
+    "purpose": "City-typical defaults for fields the user might not know.",
+    "source_standards": [
+      "IS 1892 (Soil bearing capacity criteria)",
+      "IS 6403 (Code for safe bearing capacity)",
+      "Central Ground Water Board (CGWB) state hydrograph data 2022",
+      "Capital Buildcon city soil profiles 2025"
+    ],
+    "honesty_disclaimer": [
+      "These are CITY-TYPICAL educated guesses, not site-specific values.",
+      "Real soil + water table vary plot-by-plot, even within the same city.",
+      "When using these defaults, checks emit LOW confidence and recommend",
+      "site-specific verification (NABL geotech lab + CGWB district report).",
+      "If guess would HARD_FAIL a check, it is downgraded to SOFT_WARN per",
+      "the user-approved 'don't block on a guess' principle."
+    ]
+  },
+  "chennai": {
+    "soil_type": "sandy_alluvial",
+    "soil_typical_sbc_kn_m2": 100,
+    "soil_notes": [
+      "Coastal sandy alluvial dominant. Some pockets of soft clay near",
+      "marshes (Pallikaranai, Velachery). Compaction critical.",
+      "Building near coast (Thiruvanmiyur, Besant Nagar) has saline",
+      "groundwater risk affecting concrete durability."
+    ],
+    "water_table_depth_m_premonsoon": 6.0,
+    "water_table_depth_m_postmonsoon": 1.5,
+    "water_table_notes": [
+      "Highly variable. Coastal areas near monsoon maximum see ground",
+      "saturation. North + central Chennai have deeper water table",
+      "(8-12m). Check CGWB district report for your ward."
+    ]
+  },
+  "bangalore": {
+    "soil_type": "laterite",
+    "soil_typical_sbc_kn_m2": 200,
+    "soil_notes": [
+      "Laterite + weathered rock dominant. Good bearing capacity.",
+      "Periphery (Whitefield, Sarjapur) may have soft clay or fill",
+      "pockets — verify before deep foundation decisions.",
+      "Central Bangalore (Jayanagar, Indiranagar) has weathered rock",
+      "near surface — bearing capacity 250-400 kN/m²."
+    ],
+    "water_table_depth_m_premonsoon": 15.0,
+    "water_table_depth_m_postmonsoon": 8.0,
+    "water_table_notes": [
+      "Generally deep. Severe declining trend over 20 years.",
+      "South + East Bangalore typically 12-20m. Some areas now >25m."
+    ]
+  },
+  "hyderabad": {
+    "soil_type": "weathered_rock",
+    "soil_typical_sbc_kn_m2": 250,
+    "soil_notes": [
+      "Decomposed granite + weathered rock dominant. Generally strong.",
+      "Some clay pockets in lakebed areas (Hussainsagar perimeter).",
+      "Old city has shallow rock — easy strip foundations."
+    ],
+    "water_table_depth_m_premonsoon": 12.0,
+    "water_table_depth_m_postmonsoon": 6.0,
+    "water_table_notes": [
+      "Deep generally. Cyberabad/Gachibowli has 15-20m. Older areas",
+      "shallower at 8-12m."
+    ]
+  },
+  "mumbai": {
+    "soil_type": "coastal_alluvial",
+    "soil_typical_sbc_kn_m2": 100,
+    "soil_notes": [
+      "Coastal/reclaimed land dominant. Soft clay layers common.",
+      "Reclaimed areas (BKC, Lower Parel, Worli) need pile foundations.",
+      "Saline groundwater throughout — concrete spec: M30+ with",
+      "corrosion-resistant rebar.",
+      "Suburban areas (Borivali, Thane) have better-drained soils."
+    ],
+    "water_table_depth_m_premonsoon": 3.0,
+    "water_table_depth_m_postmonsoon": 0.5,
+    "water_table_notes": [
+      "Very shallow. Monsoon = surface or just below. Basement",
+      "construction needs robust waterproofing + pumping.",
+      "Tide-affected near coast — twice-daily fluctuation."
+    ]
+  },
+  "pune": {
+    "soil_type": "black_cotton",
+    "soil_typical_sbc_kn_m2": 80,
+    "soil_notes": [
+      "Black cotton soil common in many pockets — swells in monsoon,",
+      "shrinks in summer (cracks 100-150mm wide). HIGH RISK for shallow",
+      "foundations on G+1+ buildings.",
+      "Solution: pile foundation, raft + soil replacement, or under-",
+      "reamed piles.",
+      "Some suburbs (Hinjawadi, Kothrud) have basalt — better."
+    ],
+    "water_table_depth_m_premonsoon": 8.0,
+    "water_table_depth_m_postmonsoon": 3.0,
+    "water_table_notes": [
+      "Moderate depth. Monsoon brings shallow zones in low-lying areas."
+    ]
+  },
+  "delhi": {
+    "soil_type": "alluvial_silty_clay",
+    "soil_typical_sbc_kn_m2": 150,
+    "soil_notes": [
+      "Yamuna alluvial silty clay/sand dominant. Good bearing for",
+      "low-rise; pile or raft for G+3+.",
+      "Yamuna floodplain areas (Trans-Yamuna) have soft clay — extra",
+      "care needed.",
+      "South Delhi often has Aravalli quartzite at depth — strong base."
+    ],
+    "water_table_depth_m_premonsoon": 25.0,
+    "water_table_depth_m_postmonsoon": 18.0,
+    "water_table_notes": [
+      "Deep generally — Delhi part of CGWB-flagged 'critical' zone.",
+      "Trans-Yamuna shallower at 10-15m. South Delhi can be 30-40m.",
+      "Declining trend."
+    ]
+  }
+}

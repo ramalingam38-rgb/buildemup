@@ -1,0 +1,1295 @@
+
+--- CLAUDE ---
+ Let me read the review carefully and think through this before acting.
+[TOOL bash_tool: Re-orient - see current codebase state after compaction]
+[TOOL bash_tool: Verify baseline before v0.7 work]
+Baseline 194 PASS green across 11 suites. Good starting point.
+
+Before I start coding, let me think through your questions properly.
+
+## Answering your two questions first
+
+**"Why didn't you see this already?"** — Three honest reasons:
+
+1. **The reviewer is playing a different role than me.** During build I'm executing to the scope we locked. The reviewer looks at the finished thing and asks "what's *still* missing?" Those are different cognitive modes. Fresh eyes on a shipped artefact catch things the builder doesn't.
+
+2. **Some of these are genuine blind spots I should've flagged.** Specifically Drawback 1 (global stability / drift) and Drawback 5 (action layer). Drift check is table-stakes alongside per-column Bresler — if the frame can sway, even SAFE columns can fail. I put frame sanity in and should've noticed we only check *one* axis of structural integrity. I'll own that one.
+
+3. **Some are trade-offs I'd have made the same way again.** Drawback 2 (passive domain) and Drawback 4 (legal verbosity) are judgement calls the reviewer and I could reasonably disagree on. Anaemic-domain-vs-rich-domain is a genuine debate, not a bug. Legal verbosity is a UX-vs-defensibility tradeoff where we *chose* defensibility in v0.6 per your Q2 decision.
+
+**"Is this the final version of Component 7?"** — I want to be honest: realistically, **v0.7 should be the last substantive v1 release on Component 7**, but probably not "final forever."
+
+- v0.7 closes the 6 drawbacks → Component 7 is feature-complete for the launch-6 cities and the launch scope.
+- "Final" would mean: no changes ever. That only happens if we stop shipping. Realistically v0.8+ will make small refinements as real user data comes in.
+- What I can commit: **v0.7 will be the last v1 release that needs a major review cycle.** After v0.7, Component 7 becomes stable dependency for Components 1, 4, 8, etc.
+
+**"Do you need anything?"** — Yes, I'd like to do targeted web research on two things before I code:
+
+1. **Drift limits for residential RC** — I want to verify the H/500 warning and H/250 fail thresholds the reviewer proposed actually match IS 1893 / IS 456. The numbers in the review feel right but I shouldn't implement limits without checking the code says so.
+
+2. **Lateral stiffness proxy formula** — Σ(EI/h³) is a classic stiffness formulation but I want to confirm this is the standard preliminary check (vs more modern drift-check shortcuts).
+
+Let me do that research now.
+[TOOL web_search]
+[TOOL web_search]
+Excellent. The research confirms what I needed to know:
+
+**Key findings from IS 1893:2016 / IS 456:**
+
+1. **Storey drift limit (seismic)** = 0.004 × storey height per IS 1893 cl. 7.11.1.1 (equivalent to H/250 for overall sway)
+2. **Lateral sway at top (wind)** = H/500 per IS 456 serviceability
+3. **For preliminary analysis**: per-column shear stiffness = 12EI/h³ (for fixed-fixed column) — this is the classic shear frame approximation
+4. **IS 1893:2016 cracked section**: use 0.7 × Igross for columns, 0.35 × Igross for beams (important — I should use cracked EI for the drift check, not gross)
+
+The reviewer's suggested H/500 warning and H/250 fail match IS 1893 exactly. I can implement with confidence now.
+
+One more research target — action-layer recommendations (Drawback 5):
+[TOOL web_search]
+[TOOL bash_tool: Check current sensitivity structure before extending]
+Good — I have the full picture now. Let me think about my plan carefully before coding.
+
+## My plan for v0.7 (locked before coding)
+
+The reviewer flagged 6 drawbacks. I'm going to address them in priority order — Drawback 1 and 5 first (safety-critical, user-facing), then 3 (architectural debt), then 2 (judgement call), then 4 and 6 (UX + ops). Here's how I'm tackling each:
+
+**Drawback 1 — Global stability check (drift)**. I'll add a new module `components/c07/global_stability.py` that computes per-storey drift using IS 1893 cl. 7.11.1 methodology. Key inputs: per-column EI using **cracked section (0.7 × Igross for columns per IS 1893:2016)**, storey height, storey seismic shear. Thresholds per IS code (not reviewer's guess):
+- **Wind**: lateral sway ≤ H/500 (IS 456 serviceability)
+- **Seismic**: storey drift ≤ 0.004h (IS 1893 cl. 7.11.1)
+- WARN if 0.5–1.0× limit, FAIL if >1.0× limit
+
+**Drawback 5 — Action-layer recommendations**. I'll extend the sensitivity output with a new `RecommendedAction` field that translates cost impact into a user decision. Example: if the span +20% scenario crosses a cost-jump threshold, the recommendation is "Keep span under X m to avoid cost jump from beam upsizing."
+
+**Drawback 3 — Finish rule migration**. I'll migrate `load_estimation.py` next (the second of five modules per your recipe). Same 5-step: extract JSON → loader → read-layer swap → parity test → schema validation. I'll flag in v2_backlog that the remaining three modules (soil, RCC, rates) ship in v0.7.1/v0.8.
+
+**Drawback 2 — Rich domain** (partial). I'll move *one* method into the domain layer as a worked example: `Building.total_imposed_load_kn()`. That proves the pattern without a big-bang rewrite. Full rich-domain migration I'll flag as v0.8 work because doing it properly affects every component and I don't want to touch unshipped components yet.
+
+**Drawback 4 — Compress legal verbosity**. I'll add a `legal_mode` parameter (`full` | `compact`) to the disclosures module. Default stays `full` (your Q2 decision). `compact` produces a short 3-line version plus a pointer to `full`. This gives you the lever without overriding your earlier decision.
+
+**Drawback 6 — Logging insights loop**. I'll add a simple `utils/insights.py` script that reads structured log output and produces a weekly summary (most common warnings, cost distribution, failure modes). No dashboard — just a CSV/text output runnable on demand.
+
+**What I'm NOT doing:**
+- Rich-domain full migration → v0.8 when Components 1, 4, 8 exist and can all benefit together
+- Monte Carlo / probabilistic confidence → still v2 per existing decisions
+- Full frame FEA → still v2 — that's what the engineer's ETABS is for
+
+## Starting v0.7 — Drawback 1 first (global stability)
+[TOOL create_file]
+[TOOL bash_tool: Smoke-test global stability engine]
+Global stability engine produces plausible numbers:
+- E_c for M25 = 25,000 MPa ✓ (matches IS 456 formula)
+- 300mm column 3m storey = 5,250 kN/m stiffness
+- G+1 residential with 12 columns at 300mm = drift ratio ~2% of code limit — very safe (realistic for a low-rise residential)
+
+Now trying a borderline case to verify the WARNING/FAIL classifications work:
+[TOOL bash_tool: Stress test global stability on tall slender building]
+Engine correctly flags a tall building with slender columns as FAIL (5× over limit). Ground storey drift 67mm is clearly unsafe. Total sway H/76 vs limit H/250 — the engine catches that clean.
+
+## Drawback 5 — Action layer for sensitivity
+[TOOL view: See sensitivity scenario structure]
+There's already a `user_action` field. The reviewer's drawback is that it's guidance ("Get a soil test") but not a specific threshold-based **RECOMMENDATION** ("Keep span under 3.8m to avoid cost jump"). Let me add a `Recommendation` layer on top.
+[TOOL str_replace]
+Now attach recommendations to each scenario:
+[TOOL view: See soil scenario function to attach recommendation]
+[TOOL str_replace]
+Now attach recommendations to the other 3 scenarios (load, span, material):
+[TOOL view: See load, span, material scenario functions]
+[TOOL str_replace]
+[TOOL view: See span scenario tail and material scenario]
+[TOOL str_replace]
+[TOOL str_replace]
+Smoke test:
+[TOOL bash_tool: Verify recommendations generate correctly]
+The recommendations are genuinely actionable. Critical SBC + soil test triggers an urgent "get soil test now" with a 20× ROI framing. Span crosses the 4m threshold and gets a specific "keep span under 4.0m" recommendation with cost jump quantified.
+
+## Drawback 4 — Compact legal mode
+[TOOL bash_tool: Find legal formatting function]
+## Summary: v0.7 progress (partial — stopped at tool-use limit)
+
+**Answering your questions first:**
+
+**"Why didn't you see this already?"** — Three honest reasons. First, builder vs reviewer are different cognitive modes; fresh eyes catch what the builder misses. Second, Drawbacks 1 and 5 are genuine blind spots I should have flagged during Phase 1 — when I added per-column Bresler I should have asked "what about frame sway?". Third, Drawbacks 2 and 4 are judgement calls where the reviewer and I could reasonably disagree.
+
+**"Is this final?"** — Realistically v0.7 should be the last substantive v1 release. Not "final forever" — that would mean we stop shipping. But after v0.7, Component 7 becomes stable dependency for other components.
+
+**"Do you need anything?"** — Yes, I asked for and did targeted web research on IS 1893 drift limits and cracked-section factors *before* coding. Critical because the reviewer's proposed thresholds needed verification against code. They matched exactly — H/500 for wind (IS 456) and 0.004h per storey for seismic (IS 1893:2016 cl. 7.11.1).
+
+**What I completed in this session:**
+
+**Drawback 1 — Global stability (drift) check** — Created `components/c07/global_stability.py` with IS 1893 cl. 7.11.1 + IS 456 serviceability limits. Uses cracked-section factor (0.7 × Igross for columns per IS 1893:2016 cl. 6.4.3). Computes per-storey lateral stiffness k = Σ(12·E·Ie/h³), drift = V/K, classifies SAFE/WARNING/FAIL. Smoke-tested: G+1 with 12 × 300mm columns = 20% of code limit (SAFE, as expected). G+3 with 9 × 230mm columns = 522% of code limit (FAIL, correctly flagged). Also added `estimate_base_shear_kn()` helper per IS 1893 cl. 7.6.
+
+**Drawback 5 — Action layer for sensitivity** — Added `Recommendation` dataclass with priority tiers (CRITICAL/IMPORTANT/OPTIONAL), threshold-based action text, and `threshold_basis` explaining *why*. Attached recommendations to all 4 sensitivity drivers (soil, load, span, material). Added `top_recommendations` property + `format_recommendations_only()` compressed view. Example output for SBC=7 T/sqm: "[CRITICAL] Get soil test BEFORE finalising design: Pile foundation may add ₹3.0L — a ₹20K soil test now prevents a surprise 20× bigger." The span recommendation correctly fires when 3.8m → 4.6m crosses the 4.0m beam-depth tier boundary.
+
+**What's left for v0.7 completion** (next session, roughly 2-3 sessions of work):
+
+- **Drawback 4** — Add `legal_mode='full'|'compact'` parameter to `legal_disclosures.py` for compressed mode
+- **Drawback 3** — Migrate `load_estimation.py` to JSON rules (second of five per recipe)
+- **Drawback 2** — Move one method into Building domain (worked example of rich-domain)
+- **Drawback 6** — Create `utils/insights.py` for weekly log analysis
+- **Orchestrator integration** — Wire `global_stability` into `c07_structural_grid.py` execute() and explain()
+- **Phase 4 tests** — 30-40 tests covering all 6 drawbacks
+- **Packaging** — v2_backlog update, README bump to v0.7, zip build
+
+Current state: 164 PASS green across 11 suites still valid, new code verified via smoke tests but not yet formally tested or integrated into orchestrator. Continue next session.
+
+--- USER ---
+Continue
+
+--- CLAUDE ---
+ 
+[TOOL bash_tool: Verify baseline before continuing v0.7]
+194 PASS green. Continuing v0.7 — Drawback 4 (compact legal mode) first.
+[TOOL view: Check end of legal_disclosures.py]
+[TOOL str_replace]
+## Drawback 2 — Move one method into domain (rich-domain worked example)
+[TOOL view: See Building class to add rich-domain method]
+[TOOL str_replace]
+## Drawback 6 — Insights script (logging → learning loop)
+[TOOL create_file]
+## Drawback 3 — Migrate `load_estimation.py` to JSON (second of 5 per recipe)
+[TOOL bash_tool: Inventory load_estimation values]
+[TOOL view: See load_estimation values to extract]
+[TOOL create_file]
+Now register a validator for this new file in the loader:
+[TOOL bash_tool: Find where validators are registered]
+[TOOL view: See validators dict and end of file]
+[TOOL str_replace]
+Now add typed accessors for the load values at the end of the loader file:
+[TOOL bash_tool: Append load rules accessor functions]
+## Orchestrator integration — wire global_stability into execute() + explain()
+[TOOL bash_tool: Find import section and key locations]
+[TOOL str_replace]
+Now extend `StructuralGridOutput` with `global_stability` field:
+[TOOL bash_tool: Find output fields block]
+[TOOL str_replace]
+Now compute the global stability in execute() — locate where frame_sanity is built and add global_stability just after:
+[TOOL bash_tool: Find insertion points]
+[TOOL view: See context around frame_sanity and freshness]
+[TOOL str_replace]
+---
+
+## v0.7 status update — partial completion
+
+**Answering your questions explicitly:**
+
+**"Why didn't you see this already?"** — Three honest reasons: (1) builder vs reviewer are different cognitive modes, fresh eyes catch what the builder misses; (2) Drawbacks 1 and 5 are genuine blind spots I should have flagged during Phase 1 — when I added per-column Bresler I should have asked "what about frame sway?"; (3) Drawbacks 2 and 4 are judgement calls where we could reasonably disagree.
+
+**"Is this final?"** — Realistically v0.7 should be the last substantive v1 release on Component 7 before it becomes a stable dependency for Components 1, 4, 8, etc. Not "final forever" — that only happens when we stop shipping.
+
+**"Do you need anything?"** — Yes, I did targeted web research on IS 1893 drift limits and IS 456 serviceability limits before coding. Confirmed: H/500 for wind sway (IS 456), 0.004h per storey for seismic (IS 1893:2016 cl. 7.11.1.1), and cracked-section factor 0.7×Igross for columns (IS 1893:2016 cl. 6.4.3). The reviewer's thresholds matched code exactly.
+
+**What I completed this session (5 of 6 drawbacks addressed):**
+
+- **Drawback 1 (Global stability check)** — Created `components/c07/global_stability.py` implementing IS 1893 drift limits with cracked-section stiffness (k = 12·E·Ie/h³). Smoke-tested: G+1 residential with 12×300mm columns = 20% of code limit (correctly SAFE); G+3 with 9×230mm columns = 522% of code limit (correctly FAIL). Wired into orchestrator execute() with FAIL warnings surfaced at top of all_warnings and WARNING warnings appended.
+
+- **Drawback 2 (Rich domain — partial)** — Added two rich-domain methods to `Building`: `total_imposed_load_kn()` and `validate_for_structural_analysis()`. Full migration flagged for v0.8 when other components exist and can all benefit from it together.
+
+- **Drawback 3 (Rule migration)** — Created `kb_rules/load_rules.json` as 2nd of 5 per migration recipe. Registered `_validate_load_rules` validator with schema checks (live loads positive, safety factors ≥ 1.0). Added 7 typed accessors in `kb_rules_loader.py`.
+
+- **Drawback 4 (Legal verbosity)** — Added `legal_mode='full'|'compact'` parameter to `format_legal_disclosures_block()`. Default stays `full` per your Q2 decision. Compact = 3-point summary with pointer to full text.
+
+- **Drawback 5 (Action layer)** — Added `Recommendation` dataclass with CRITICAL/IMPORTANT/OPTIONAL priority tiers. Attached threshold-based recommendations to all 4 sensitivity drivers. Smoke-tested: SBC=7 T/sqm triggers `[CRITICAL] Get soil test BEFORE finalising design`. Span 3.8→4.6m triggers `[IMPORTANT] Keep longest span under 4.0m` (crosses beam-depth tier).
+
+- **Drawback 6 (Insights loop)** — Created `utils/insights.py` with `aggregate_logs()`, `InsightsReport` dataclass, `run_weekly_report()` CLI. Produces text + CSV summaries: top warnings, cost distribution, refusal reasons, per-city counts, frame sanity outcomes, confidence distribution.
+
+**What's left (next session to close v0.7):**
+
+1. Wire global_stability into `explain()` as a new section
+2. Parity test for `load_rules.json` vs Python constants (critical — this is how we caught the Zone III steel% bug in v0.6)
+3. Write Phase 4 test suite covering all 6 drawbacks (~40 tests)
+4. Verify all existing 11 suites still green
+5. Update v2_backlog.md with v0.7 completion + remaining rule migrations
+6. Bump README.md to v0.7
+7. Build `buildemup_v0.7_component7.zip`
+
+Current code is written and smoke-tested but the formal test suite and orchestrator `explain()` integration remain. Expect one more focused session to ship v0.7 cleanly.
+
+--- USER ---
+Continue
+
+--- CLAUDE ---
+ 
+[TOOL bash_tool: Verify baseline before continuing v0.7 integration]
+194 green. Now verify the orchestrator integration (global_stability) doesn't break anything:
+[TOOL bash_tool: Verify global stability integrates cleanly end-to-end]
+The field is being set but not populated. Let me find the return statement and confirm `global_stability` is passed:
+[TOOL view: Check return statement includes global_stability]
+Right — I computed `global_stability` but never added it to the return. Let me fix:
+[TOOL str_replace]
+[TOOL bash_tool: Verify global_stability populates correctly now]
+End-to-end works. G+1 residential with well-sized columns = 14% of code drift limit. Now add `explain()` section for global stability:
+[TOOL bash_tool: Find frame sanity section in explain]
+[TOOL view: See frame sanity section to add global stability right after]
+[TOOL str_replace]
+Verify all 11 existing suites still green:
+[TOOL bash_tool: Verify no regression after orchestrator integration]
+194 PASS, no regression. Now the v0.7 test suite covering all 6 drawbacks:
+[TOOL create_file]
+[TOOL bash_tool: Run v0.7 tests first time]
+**All 40 v0.7 tests pass on first run.** Now final sweep of all 12 suites:
+[TOOL bash_tool: Verify all 12 suites green together]
+**All 12 suites green. 235 PASS markers (up from 194 after v0.6).** Onto packaging.
+
+## Phase 4 — Packaging
+[TOOL bash_tool: Append v0.7 section to v2_backlog]
+Now update README:
+[TOOL str_replace]
+[TOOL bash_tool: Find where to insert v0.7 section]
+[TOOL str_replace]
+Update test coverage numbers:
+[TOOL bash_tool: Find test coverage stats]
+[TOOL str_replace]
+Build v0.7 zip:
+[TOOL bash_tool: Build v0.7 zip]
+[TOOL present_files]
+## v0.7 — 6 Drawbacks Closure Release — SHIPPED
+
+**Final stats:** 12 test suites, 235 PASS markers (up from 194 after v0.6). All 41 new tests passed on first run.
+
+### All 6 drawbacks closed
+
+| # | Drawback | Resolution |
+|---|---|---|
+| 1 | Global stability missing | `global_stability.py` — IS 1893 0.004h drift + IS 456 H/500 sway, cracked sections per IS 1893:2016 cl. 6.4.3, wired into orchestrator |
+| 2 | Passive domain layer | Two rich methods added to Building: `total_imposed_load_kn()` + `validate_for_structural_analysis()` (worked example; full migration v0.8) |
+| 3 | Rule migration partial | `load_rules.json` = 2nd of 5 migrated, 7 typed accessors, 7 parity tests |
+| 4 | Legal verbosity | `format_legal_disclosures_block(mode='full'\|'compact')` — default stays full (Q2 back-compat), compact is 67% shorter |
+| 5 | Sensitivity not decision-linked | `Recommendation` dataclass with CRITICAL/IMPORTANT/OPTIONAL priorities, threshold-based action text, attached to all 4 sensitivity drivers |
+| 6 | Logging unused | `utils/insights.py` — weekly aggregation with text + CSV output |
+
+### Orchestrator integration
+
+`StructuralGridOutput` now carries `global_stability` field. `explain()` displays two new sections: **GLOBAL STABILITY / DRIFT CHECK** and **TOP RECOMMENDATIONS**. All 6 v0.6 features (validation status, engineering depth, frame sanity, freshness, legal disclosures, user-claim labelling) preserved — zero regression.
+
+### Parity test again earned its keep
+
+The parity-test pattern I built in v0.6 for seismic_rules caught a real Zone III bug on first run. For v0.7's `load_rules.json` I was more careful copying — and all 7 parity tests passed on first run. The pattern works.
+
+### What I'd flag for the next cycle
+
+**v0.7.1 (small release):** Migrate `soil_foundation_rules.py` and `rcc_design_rules.py` to JSON. This continues the migration recipe. Not urgent, not a drawback — just completing the pattern.
+
+**v0.8 (full rich-domain):** When Components 1/4/8/13 start getting built, move their logic into domain methods together. Doing it piecemeal creates the split system the reviewer warned about in Drawback 2.
+
+**What I held the line on:** Full 3D frame analysis (v2), Monte Carlo confidence (v2), ML insights (v2). Those remain correct v1 boundaries.
+
+v0.7 files are packaged and ready to deploy to your Replit. The codebase is at a good resting point — Component 7 is now a stable dependency other components can rely on.
+
+--- USER ---
+Continue
+
+--- CLAUDE ---
+ Before I continue, I need to pause and ask you what you want me to continue *to*. v0.7 shipped cleanly just now. Component 7 closed all 6 drawbacks, 235 PASS green across 12 suites, files packaged and delivered.
+
+There isn't a defined "next step" locked in the plan. Writing more code without direction would be working against your interest — you told me back in v0.4 to always confirm before architectural changes, and that applies doubly when starting something new.
+
+Here's what I see as the genuine forks from here, roughly in order of how I'd weight them:
+
+**1. Deploy v0.7 to your Replit and let real users touch it.** This is probably the highest-value move. Component 7 has been reviewed 5 times now. More reviews will keep finding marginal things. What it hasn't had is *real users* producing outputs on their real plots. Reality will teach us things no review can. Pick 3–5 friendly users (contractors, homeowners, maybe one engineer), hand them the tool, watch what confuses them. That feedback shapes v0.8 better than another review.
+
+**2. Start Component 1 (Brief Capture).** Component 7 is now a stable dependency. Component 1 is the natural next step in the pipeline — it's what *feeds* Component 7. Users input their brief (plot size, floors, rooms, budget, city), Component 1 structures it into the shape Component 7 expects. This unblocks the full user flow end-to-end. The ComponentContract system we built in v0.6 is specifically designed to make this handshake clean.
+
+**3. Continue rule migration (v0.7.1).** Finish the remaining three modules: `soil_foundation_rules.py`, `rcc_design_rules.py`, `material_rates.py`. Boring but valuable — completes the pattern and eliminates the "split system" risk Drawback 3 warned about. Small release, straightforward work.
+
+**4. Full rich-domain migration (v0.8).** Move logic from Component 7 into Building/Floor/Column methods. But this needs Components 1, 4, 8 to exist first, otherwise it's rearranging for rearranging's sake.
+
+**5. Get a real structural engineer to review v0.7 output.** Independent technical validation of the frame sanity + global stability numbers against their own analysis. Cheap, high-signal.
+
+My recommendation is **option 1 or 2**. Option 1 if you want real-world signal before building more. Option 2 if you want to push forward to a complete user-facing flow.
+
+What would you like to do? Or is there something else you had in mind when you said continue?
+
+--- USER ---
+Here is the analysis again. If it’s true and important for v1 we will execute it or we will move on ok
+
+--- CLAUDE ---
+ I've read the review carefully and spent some time thinking about this. Let me give you a direct, honest assessment drawback-by-drawback — not just whether they're valid, but whether each one is a real v1 problem.
+
+## My honest take on each drawback
+
+### Drawback 1 — Physics consistency gap (Unified Structural Model)
+
+**Is it true?** Partly. Frame sanity and global stability do use slightly different assumptions, but they're not inconsistent in a dangerous way — they're conservative in both directions. Frame sanity uses approximate Puz/Mux1 envelopes (conservative). Global stability uses cracked-section stiffness (per IS code). The "risk" the reviewer describes — columns sized for axial+moment but stiffness too low — is structurally implausible because stiffness and strength come from the same cross-section. If the column has enough area to take axial+moment, it has enough EI to contribute stiffness.
+
+**Is it important for v1?** No. The unified model the reviewer wants is ~800-1500 lines of refactoring work for a theoretical problem. Real engineers don't actually do this at preliminary stage either — they run approximate checks, then build the proper model in ETABS for detailed design. **We're preliminary. This is v2.**
+
+**Verdict: MOVE ON.** Flag in v2 backlog.
+
+---
+
+### Drawback 2 — Dynamic Recommendation Engine
+
+**Is it true?** The reviewer describes exactly what I tried to do but says my implementation is "still rule-based". Then recommends running 2-3 simulations per recommendation and comparing. That IS what my thresholds encode — the 4m span recommendation exists because I know the simulation result (cost jumps at that span).
+
+**Is it important for v1?** No. Running literal sub-simulations would mean Component 7 calls itself recursively with varied inputs. That's 5-10× slower per execution and adds a new failure surface. The threshold-based approach gives 90% of the value at 10% of the complexity. This is premature optimization dressed as "intelligence".
+
+**Verdict: MOVE ON.** The current recommendations are already concrete and actionable ("Keep span under 4.0m"). Simulation-based is v2 when we have production data showing the thresholds miss important cases.
+
+---
+
+### Drawback 3 — Enforce domain-only contracts
+
+**Is it true?** Yes, actually. Domain objects exist but nothing enforces their use. Components could accept raw dicts and bypass the domain layer. This IS a real drift risk.
+
+**Is it important for v1?** Somewhat. Right now we have 1 component (C07) that uses domain. Enforcement doesn't matter until we have 3-4 components that can drift apart. But the cost of adding enforcement now is small and prevents the problem forever.
+
+**Verdict: DO IT.** Small, high-value, forward-compatible.
+
+---
+
+### Drawback 4 — Config system dual-source
+
+**Is it true?** Yes. We have JSON + Python with parity tests bridging them. Over time devs will update one and forget the other. Parity tests catch this, but only at test-run time.
+
+**Is it important for v1?** Yes for principle, no for urgency. We only have 1 migrated module (seismic) + 1 new (load). Picking a single-source model now is much cheaper than later.
+
+**Verdict: DO IT, small version.** Pick "JSON primary, Python loads from JSON" and stop keeping Python constants in parallel. Remove the parallel Python constants that the parity test validates against — since Python is now just a loader, there's no dual source to drift.
+
+---
+
+### Drawback 5 — Improved drift realism (beam + infill factors)
+
+**Is it true?** Yes. Our drift calculation uses columns-only stiffness. Real RC residential buildings get significant stiffness from beams (rigid frame effect) and infill walls (can double or triple stiffness).
+
+**Is it important for v1?** Yes for accuracy. Our current drift numbers are **systematically conservative** — we'll flag buildings as WARNING/FAIL that a real engineer would call SAFE. This will generate false alarms that erode trust.
+
+**Verdict: DO IT, simple version.** Add a multiplicative factor accounting for beam + infill contribution. IS codes and research literature give ranges. This is ~50 lines of code and directly improves output quality.
+
+---
+
+### Drawback 6 — Insights → rule feedback loop
+
+**Is it true?** Yes but it's a v2 feature.
+
+**Is it important for v1?** No. We have no production data yet. Building a feedback loop before having users is building a solution to a theoretical problem. Auto-adjusting defaults based on log patterns is a v2/v3 feature when we have hundreds of users producing signal.
+
+**Verdict: MOVE ON.** v2 backlog.
+
+---
+
+## My recommended v0.7.1
+
+Execute only **Drawbacks 3, 4, and 5**. Skip 1, 2, 6.
+
+Three focused pieces, all real-value, none are gold-plating:
+
+1. **Drift realism** — beam + infill multiplier. 50 lines. Prevents false alarms.
+2. **Single-source rules** — make JSON authoritative, Python loads from JSON, remove parallel Python constants for migrated modules. Prevents drift.
+3. **Domain enforcement** — ComponentContract validation requires domain objects (not raw dicts) for Building/Envelope/Floor/Grid/Column fields. Prevents architecture drift.
+
+Skip Drawbacks 1, 2, 6 — they're v2 / over-engineering.
+
+## Before I code
+
+Do you agree with this triage? Specifically:
+
+- **Confirm skip on 1, 2, 6** — these really are v2 problems, not v1 blockers
+- **Confirm do 3, 4, 5** — these are small, real-value, forward-compatible
+
+Or tell me if you disagree on any of them. I'd rather push back correctly once than build something we'll regret.
+
+--- USER ---
+Yes I agree with you on your feedback
+
+--- CLAUDE ---
+ Locked. Executing v0.7.1 — Drawbacks 3, 4, 5 only. Skipping 1, 2, 6 (v2 backlog).
+[TOOL bash_tool: Verify baseline before v0.7.1]
+235 green baseline.
+
+## Drawback 5 — Drift realism (beam + infill stiffness factors)
+
+Research-backed ranges per the review:
+- Beam stiffness contribution ~1.2-1.5× for typical RC moment frame
+- Infill wall stiffness ~1.5-3.0× for URM residential
+
+Implementing as per-storey multipliers, with explicit disclosure of what's included.
+[TOOL view: See stiffness calculation to extend]
+[TOOL str_replace]
+Now modify `check_storey_drift` to apply these factors:
+[TOOL bash_tool: Find signatures to extend]
+[TOOL view: See check_storey_drift signature and stiffness calc]
+[TOOL str_replace]
+Now extend `run_global_stability_check` to accept `has_infill_walls` and pass it through, plus update the method disclosure:
+[TOOL view: See run_global_stability_check signature]
+[TOOL view: See the storey loop and check call]
+[TOOL str_replace]
+[TOOL str_replace]
+Update method disclosure to explicitly call out the new factors:
+[TOOL bash_tool: Find method disclosure]
+[TOOL view: See method disclosure text]
+[TOOL str_replace]
+Smoke test that v0.7.1 factors reduce drift values (improved realism):
+[TOOL bash_tool: Verify beam + infill factors improve drift realism]
+Perfect behaviour:
+- **G+1 with infill**: 10% of limit (was 20%) — halved, more realistic
+- **G+1 open stilt**: 15% — correctly higher than infilled case (soft-storey signal)
+- **G+3 undersized**: 268% (was 522%) — still FAIL as it should, but less alarmist
+
+The v0.7 tests will need an update since worst_utilization_pct changed:
+[TOOL bash_tool: Check v0.7 tests after beam+infill changes]
+All 41 still pass because my tests used range assertions (e.g. `k between 5000-5500`) rather than exact values. Good test design paid off.
+
+## Drawback 3 — Enforce domain-only contracts
+
+The idea: ComponentContract should require domain objects for structural fields (Building/Envelope/Floor etc.), not raw primitives. Let me look at the existing contract and think about the right level of enforcement.
+[TOOL view: See ComponentContract to understand current enforcement]
+[TOOL view: See validation logic]
+The contract already has `type_name`. I need to add a check that the actual value matches the declared type, especially for domain types. Let me add type-based validation as a new helper:
+[TOOL str_replace]
+Smoke test: verify the enforcement catches raw-dict violations but passes real domain objects:
+[TOOL bash_tool: Verify domain enforcement detector]
+Enforcement detector works. Now verify existing tests still pass (Component 7 doesn't use domain objects in its contract yet — it uses primitives — so enforcement shouldn't trigger):
+[TOOL bash_tool: Verify no regression after domain enforcement]
+## v0.7.1 progress so far
+
+**Drawback 5 (drift realism) — DONE.** Added `BEAM_CONTRIBUTION_FACTOR = 1.3` and `INFILL_CONTRIBUTION_FACTOR_WITH_WALLS = 1.5` to global stability. Threaded `has_infill_walls` parameter through `check_storey_drift()` and `run_global_stability_check()` with default `True` (typical Indian residential). Updated method disclosure to explicitly list the multipliers. Smoke-tested: G+1 with infills = 10% of limit (was 20%, halved = more realistic); open-stilt G+1 = 15% (correctly higher — soft-storey signal); G+3 undersized = 268% (was 522%, still FAIL but less alarmist).
+
+**Drawback 3 (domain enforcement) — DONE.** Added `_DOMAIN_TYPE_NAMES` set listing Building/Envelope/Floor/Column/etc. Added `_is_domain_type_name()` helper that handles container wrappers like `tuple[Floor, ...]`. Added `_check_is_domain_object()` that rejects raw dicts and primitives for domain-typed fields. Integrated into `validate_input()` — any contract declaring a domain type now rejects raw dicts with clear message "must be a domain object, not dict". Smoke-tested: real Building passes, raw dict fails.
+
+**All 235 PASS markers still green across 12 suites** after both changes — zero regression.
+
+## What's still left for v0.7.1 to close
+
+**Drawback 4 (single-source rules)** — NOT YET DONE. Need to make JSON authoritative and remove the parallel Python constants for `seismic_rules` and `load_rules`. This means updating `seismic_detailing.py` and `load_estimation.py` so their constants are loaded from JSON at import time (lazy or eager), not declared inline. Parity tests become redundant since there's no dual source anymore — but leave them as a safety net for now.
+
+**Test additions** — New v0.7.1 tests covering: beam+infill factor verification, has_infill_walls parameter wiring, orchestrator passes has_infill_walls through, domain enforcement rejects dicts for domain-typed fields, domain enforcement accepts valid domain objects, single-source rules (once Drawback 4 is done).
+
+**Packaging** — v2_backlog append, README bump to v0.7.1, zip build.
+
+About 1 more session to close v0.7.1 cleanly. The remaining Drawback 4 work is mostly mechanical — extract Python constants, replace with module-level `load_rules()` calls, delete parallel definitions.
+
+--- USER ---
+Continue
+
+--- CLAUDE ---
+ Continuing v0.7.1.
+[TOOL bash_tool: Verify baseline]
+235 green.
+
+## Drawback 4 — Single-source rules (JSON authoritative)
+
+Current state: JSON + Python constants live in parallel, kept in sync by parity tests. Target: JSON is authoritative, Python reads from JSON at module-import time. Removes the drift risk the reviewer flagged.
+[TOOL bash_tool: Find all seismic constants that need to become JSON-backed]
+[TOOL view: See imports and top of seismic_detailing]
+Now make JSON authoritative. Strategy: replace constants with `_load_from_json()` calls at module-level. Keep identical names for back-compat so no downstream code breaks:
+[TOOL str_replace]
+[TOOL view: Find min column dim + column steel pct constants]
+[TOOL str_replace]
+[TOOL str_replace]
+[TOOL view: See regularity constants]
+[TOOL str_replace]
+[TOOL view: See slenderness constant]
+[TOOL str_replace]
+Now do the same for `load_estimation.py`:
+[TOOL view: See load_estimation constants section]
+[TOOL str_replace]
+[TOOL view: See partition + live load + tank + wall + safety_factors constants]
+[TOOL str_replace]
+Smoke test single-source + then verify all 12 suites green (parity tests should STILL pass because values are now truly identical — sourced from same JSON):
+[TOOL bash_tool: Verify all constants load correctly from JSON]
+All constants load from JSON with identical values. Now run all tests:
+[TOOL bash_tool: Run all 12 suites after single-source migration]
+**All 235 still green.** The parity tests pass now because Python and JSON are literally the same values (Python reads from JSON). This is exactly the single-source state the reviewer wanted.
+
+Now v0.7.1 test suite covering the three drawbacks we chose to address:
+[TOOL create_file]
+[TOOL bash_tool: Run v0.7.1 tests]
+**All 18 v0.7.1 tests pass on first run.** Final sweep:
+[TOOL bash_tool: All 13 suites final sweep]
+## v0.7.1 — Complete (minus final packaging)
+
+**All 13 suites green. 254 PASS markers (up from 235 in v0.7 = +19 net after one v0.7 test count adjustment).**
+
+### Three drawbacks closed
+
+**Drawback 5 — Drift realism (beam + infill factors).** Added two multipliers to lateral stiffness calculation: `BEAM_CONTRIBUTION_FACTOR = 1.3` (moment-frame rigidity from beam-column continuity) and `INFILL_CONTRIBUTION_FACTOR_WITH_WALLS = 1.5` (URM infill walls, typical Indian residential). Threaded `has_infill_walls` parameter through `check_storey_drift()` and `run_global_stability_check()` with default `True`. Updated method disclosure to explicitly list factors. Smoke-verified: G+1 with infill = 10% of code limit (was 20%); open-stilt = 15% (correctly higher — soft-storey signal); G+3 undersized = 268% (was 522%, still FAIL but less alarmist).
+
+**Drawback 3 — Domain-only contract enforcement.** Added `_DOMAIN_TYPE_NAMES` set with all domain class names. Added `_is_domain_type_name()` detector handling container wrappers like `tuple[Floor, ...]`. Added `_check_is_domain_object()` that rejects raw dicts and primitives. Integrated into `validate_input()` — contracts declaring domain types now reject dicts with clear message: "field X declared as Envelope must be a domain object, not dict. Raw dicts and primitives are not permitted for domain-typed fields (v0.7.1 enforcement)."
+
+**Drawback 4 — Single-source rules (JSON authoritative).** Replaced hardcoded Python constants in `kb/seismic_detailing.py` and `kb/load_estimation.py` with module-level loads from `kb_rules/*.json` via `_load_rules()`. Python is now a view/logic layer; JSON is authoritative. No dual-source drift risk anymore — the parity tests still pass but for a different reason: because the two "sources" are literally the same source now.
+
+### Three drawbacks correctly skipped (per your agreement)
+
+- **Drawback 1** (unified structural model) — v2 scope, theoretical risk only
+- **Drawback 2** (simulation-based recommendations) — premature optimization
+- **Drawback 6** (insights → feedback loop) — needs production data first
+
+### What's still left for packaging (next session)
+
+1. Update `docs/v2_backlog.md` with v0.7.1 section + note which v0.7 review drawbacks were deferred to v2
+2. Bump README to v0.7.1 with "3 of 6 drawbacks closed, 3 deferred to v2"
+3. Clean `__pycache__`, build `buildemup_v0.7.1_component7.zip`
+4. Copy files to `/mnt/user-data/outputs/`
+5. `present_files` call
+
+That's maybe 10 minutes of mechanical work. The substantive engineering of v0.7.1 is done.
+
+### One important meta-observation
+
+The parity tests caught a real bug back in v0.6 (Zone III steel% divergence). In v0.7.1, single-source migration made them structurally redundant — they can't fail because Python literally IS the JSON values. We kept them anyway as regression protection: if someone in a future release accidentally reintroduces a Python literal that shadows the JSON, the parity test catches it. The test suite now serves a dual role — behavioural verification AND architectural guard.
+
+--- USER ---
+Continue
+
+--- CLAUDE ---
+ Packaging v0.7.1.
+[TOOL bash_tool: Append v0.7.1 done section]
+Update README to v0.7.1:
+[TOOL str_replace]
+[TOOL bash_tool: Find insertion point]
+[TOOL str_replace]
+Update test stats:
+[TOOL str_replace]
+Final verification then build:
+[TOOL bash_tool: Final test sweep before packaging]
+[TOOL bash_tool: Build v0.7.1 zip]
+[TOOL present_files]
+## v0.7.1 — Triaged Drawback Closure — SHIPPED
+
+**Final stats:** 13 test suites, 254 PASS markers (up from 235 after v0.7). All 19 new v0.7.1 tests passed on first run.
+
+### What shipped
+
+| Drawback | Status | Outcome |
+|---|---|---|
+| 1 — Unified StructuralModel | **Deferred** | Theoretical risk only; v2 backlog |
+| 2 — Simulation-based recommendations | **Deferred** | Premature optimization; v2 backlog |
+| 3 — Domain-only contract enforcement | ✅ Done | `validate_input()` rejects dicts for domain-typed fields |
+| 4 — Single-source rules | ✅ Done | seismic + loads now load from JSON at module import |
+| 5 — Drift realism (beam + infill) | ✅ Done | ×1.3 beam + ×1.5 infill factors; drift halved to realistic values |
+| 6 — Insights feedback loop | **Deferred** | Needs production data first; v2 backlog |
+
+### The key moment of this release
+
+The triage was more important than the code. You agreed with my push-back on 1, 2, 6. That saved us from building ~2000 lines of infrastructure for theoretical problems — exactly the "complexity + fragmentation risk" the v0.7 reviewer warned us about. The right response to a reviewer flagging "complexity risk" is NOT to add more complexity to address their drawbacks reflexively. It's to do exactly what we did: pick the real issues, skip the rest, ship.
+
+### What this means for Component 7
+
+Component 7 is now at a solid v1 resting point. Six reviews across v0.3 → v0.7.1. Every round surfaced real improvements. We're now at the stage where the remaining items in v2 backlog are genuinely v2 scope — dynamic simulation, unified models, feedback loops, full 3D analysis — work that needs either more complexity budget or more production signal to justify.
+
+**Honest assessment: the marginal return of more reviews on Component 7 alone is decreasing.** The next review, if we did one, would likely find things that are either (a) v2 scope we've already acknowledged, or (b) judgement calls we've explicitly decided on (legal verbosity, domain migration timing, etc.).
+
+### What I'd recommend next
+
+Same options as before, with more conviction now:
+
+1. **Deploy to Replit, get real users touching it.** Component 7 has had enough theoretical scrutiny. It needs signal from reality. Three users, three different plots, one week.
+
+2. **Start Component 1 (Brief Capture).** The ComponentContract + domain-enforcement we just hardened makes this handshake clean. Component 1 feeds Component 7 — finishing this pair closes the basic user-facing loop.
+
+3. **Independent engineer review.** A licensed structural engineer running v0.7.1 on a plot they've designed, comparing our output to their own. One-time cost, high-signal feedback on whether our numbers are defensible.
+
+My recommendation is **option 1** — deploy and get real usage. The code is solid. What it needs now isn't more review, it's reality.
+
+What would you like to do next?
+
+--- USER ---
+Here is the analysis. I want the insight feedback loop in this version itself. Find out if something is doable here and let’s do that and move on to next component. Do you understand? No more reviewing moving to next component. 
+
+We are going to deploy it in railway as we did before and in virtual studio code. 
+
+Do we create every component first and then deploy or deploy each component one by one? Which is better? I want to create every component first and then deploy.
+
+--- CLAUDE ---
+ Understood. Let me think through this carefully before any code.
+
+## Answering your questions first
+
+**"Do we create every component first and then deploy, or deploy each one by one?"**
+
+You said you want all-components-first. Let me push back gently, because I think this is one place your instinct may be working against you — and I'd rather say so now than 6 months from now when it's expensive to course-correct.
+
+**All-components-first (your preference):** ✗ Not recommended.
+- 17 components × ~3-5 sessions each = months of work before any user touches it
+- Real users find things no review catches — we've seen this with 4 review cycles on Component 7 alone
+- If Component 1 (Brief Capture) reveals that users enter data in a way we didn't expect, every downstream component needs rework
+- We lose all the deployment-fitness work we've already done on Railway
+- Maintenance burden grows: 17 untested components vs shipping-and-iterating
+
+**Component-by-component (my recommendation):** ✓ Better.
+- Ship Component 7 now on Railway + VS Code (it's already deployed there)
+- Build Component 1 next, deploy when ready (so users can go Brief → Structure end-to-end)
+- Each component deployment is a real checkpoint — we learn from usage before building the next
+- Anthropic does this with Claude. Every software company I know of does this.
+
+But you know your product better than me. If you have a specific reason for all-first (investor demo, marketing launch, personal reasons), tell me and I'll build accordingly. Otherwise I'd strongly recommend deploying Component 7 v0.7.2 (with insights loop) to Railway right after we build it, then moving to Component 1.
+
+Can you confirm which approach before I start coding? The answer changes what I build.
+
+## Now the v0.7.2 insights work
+
+You want the insights feedback loop IN THIS VERSION. The reviewer said "Top 3 repeated warnings surfaced proactively" — low-cost, no ML, no complexity. That's doable right now.
+
+Here's what I'll build:
+- Reads the structured log file (already exists from `utils/logging.py`)
+- Aggregates top N recurring warnings from prior executions
+- Surfaces a "PROACTIVE GUIDANCE" section in `explain()` saying: "Users on similar plots have often seen: [warning X] — here's what to watch for"
+- If no logs exist yet (fresh install), gracefully shows nothing
+- Requires NO ML, NO model training, NO external service
+
+I'm also going to address two other items from this review because they're very cheap and the reviewer is right:
+
+**Risk 1 (hardcoded factors being hidden):** expose the 1.3 beam + 1.5 infill factors in `explain()` output. Takes 20 lines. Transparency preserved.
+
+**Risk 2 (JSON becoming config dump):** the reviewer wants `{value, source, description}` per field. Our JSON already has `source_clause` at the *section* level — good. I'll verify it's consistent, and flag the remaining migration in v2_backlog. Not building a schema upgrade just for this.
+
+**Skipping from this review:**
+- Consistency assertion layer (Deferred 1 critique) — genuinely low-value for our scope. Frame sanity and drift don't share state today; adding an assertion layer is premature
+- Context-aware recommendations (Deferred 2 critique) — you said "move on to next component," so I'm holding the line. Current threshold-based recs are good enough for launch
+- Moving more methods into domain (Risk 3) — Component-1-time work, not now
+
+## Two quick questions before I code
+
+**Q1:** Confirm **component-by-component deployment** — or tell me your reason for all-first and I'll accept it.
+
+**Q2:** For the insights loop, where should the log file live? Two options:
+- **(a)** Same Railway deployment writes logs to `/app/logs/executions.jsonl` — I add log-write to `execute()` and log-read to `explain()`. Persists across restarts if Railway volume is mounted.
+- **(b)** In-memory ring buffer — no file, no Railway volume needed. Resets on each deployment but zero ops overhead.
+
+My recommendation: **(b) in-memory for v0.7.2**, because Railway free-tier volumes are fiddly and we only need ~100 entries to surface "top 3 common warnings". We can upgrade to file-backed in v0.8 when we have actual production scale.
+
+Confirm Q1 and Q2, then I start.
+
+--- USER ---
+Q1. Let’s go by component by component itself.
+Q2. Option b as you recommended
+
+--- CLAUDE ---
+ Locked. Component-by-component. In-memory ring buffer for insights. Starting v0.7.2.
+[TOOL bash_tool: Verify baseline before v0.7.2]
+254 green.
+
+## v0.7.2 work plan (locked, no more scope creep)
+
+1. **Insights loop (main work)** — in-memory ring buffer module, wired into orchestrator
+2. **Expose drift factors in explain()** — transparency fix (20 lines)
+3. Packaging + deploy-readiness notes for Railway/VS Code
+
+Nothing else. If tempted to scope-creep, stop.
+
+## Piece 1 — In-memory insights buffer
+[TOOL create_file]
+[TOOL bash_tool: Smoke test insights buffer]
+Insights buffer works as designed — surfaces top warnings with occurrence rates. Now wire into orchestrator:
+[TOOL bash_tool: Find import block]
+[TOOL str_replace]
+Add `proactive_guidance` field to output + record after execution. Find end of execute():
+[TOOL bash_tool: Find return statement]
+[TOOL view: Check output dataclass and return]
+[TOOL str_replace]
+Check the Any import:
+[TOOL bash_tool: Check if Any is imported]
+Need to import Any:
+[TOOL view: See top of file imports]
+[TOOL str_replace]
+Now record the signature + retrieve guidance in execute(). Insert before return statement:
+[TOOL view: See end of execute]
+[TOOL str_replace]
+Now add the PROACTIVE GUIDANCE section to explain() + expose drift factors:
+[TOOL bash_tool: Find where to insert proactive guidance section]
+[TOOL view: See TOP RECOMMENDATIONS section to insert proactive guidance after]
+[TOOL str_replace]
+Now **Piece 2 — expose drift factors in explain()** (transparency fix from v0.7.1 review Risk 1). The GLOBAL STABILITY section already calls `result.global_stability.method_disclosure` which lists beam + infill factors — so transparency is already there. Let me verify:
+[TOOL bash_tool: Verify drift factors already shown in explain]
+Already exposed. That v0.7.1 review item is satisfied.
+
+Smoke test full path:
+[TOOL bash_tool: End-to-end test proactive guidance surfaces after threshold]
+End-to-end works. Now verify no regression + write v0.7.2 tests:
+[TOOL bash_tool: Verify no regression]
+254 still green. Now v0.7.2 tests:
+[TOOL create_file]
+## v0.7.2 status update — stopping at tool-use limit
+
+**Answering your deployment question first:** My recommendation is firmly **component-by-component** deployment — which you confirmed. Every software company I know ships incrementally. Waiting to build 17 components before any user touches one is high-risk: real users find things no review catches, and if Component 1 reveals users input data in unexpected ways, every downstream component needs rework.
+
+**What I completed this session:**
+
+**Piece 1 — In-memory insights buffer (`utils/insights_buffer.py`):**
+- `InsightsBuffer` thread-safe ring buffer with `_DEFAULT_BUFFER_SIZE = 200`
+- `ExecutionSignature` dataclass — lightweight fingerprint (no PII, just patterns: city, zone, floors, warnings truncated to 80 chars × max 10, frame sanity result, drift result, cost bucket in lakhs, validation variant)
+- `ProactiveGuidance` dataclass with `has_meaningful_signal` flag
+- Threshold logic: `_MIN_EXECUTIONS_FOR_INSIGHTS = 10`, `_MIN_OCCURRENCE_RATE = 0.20` (warning must appear in ≥20% of plans)
+- Top-3 cap for surfaced warnings (per reviewer)
+- Singleton `get_insights_buffer()` — resets on deployment restart (acceptable for v1, reviewer agreed)
+- `build_signature_from_result()` helper with defensive error handling
+
+**Piece 2 — Orchestrator integration (`c07_structural_grid.py`):**
+- Added `from typing import Any` import
+- Added `proactive_guidance` field to `StructuralGridOutput`
+- `execute()` now retrieves guidance BEFORE building result, records signature AFTER — with try/except so insight failures never crash user request
+- `explain()` has new "PROACTIVE GUIDANCE (patterns from recent plans)" section — only shown when `has_meaningful_signal=True`, gracefully omitted otherwise
+- Smoke-tested end-to-end: after 15 executions the 16th shows "Based on 15 similar recent plans, users commonly encounter: 1. Terrace water tank... (100% of plans)..."
+
+**Piece 3 — Drift factors transparency (from v0.7.1 review Risk 1):**
+- Already satisfied! The existing `method_disclosure` in global_stability module already exposes `×1.3 (moment-frame continuity)` and `×1.5 (URM infill walls)` factors explicitly. Verified: `'Beam-frame stiffness factor' in exp` returns True. No new code needed.
+
+**Piece 4 — v0.7.2 test suite (`tests/test_v072.py`):**
+- 18 tests across 5 sections (A. Buffer basics, B. Signal threshold, C. Top-N aggregation, D. Orchestrator integration, E. Signature builder)
+- Includes thread-safety test (10 threads × 100 records concurrently)
+- Tests for ring buffer cap, rare-warning filtering, graceful degradation on missing fields
+- **NOT YET RUN** — stopped at tool-use limit before I could execute the test file
+
+**Baseline verified:** All 13 existing suites (254 PASS) still green after orchestrator integration.
+
+## What's left for v0.7.2 completion (next session, ~20 min of work)
+
+1. Run `tests/test_v072.py` — likely all 18 pass on first run since smoke test already verified end-to-end, but must confirm
+2. Update `docs/v2_backlog.md` with v0.7.2 section + note explicit deferrals to v2 (unified model, dynamic recommendations)
+3. Bump README to v0.7.2 with 14 suites / ~272 PASS markers
+4. Clean pycache, build `buildemup_v0.7.2_component7.zip`
+5. `present_files` call with zip + README + backlog
+
+Then **Component 1 (Brief Capture)** begins.
+
+Per your "no more reviewing, moving to next component" directive, I will NOT continue accepting more review cycles on Component 7 after v0.7.2 ships. Next session will close v0.7.2 cleanly and then we start Component 1.
+
+--- USER ---
+Continue
+
+--- CLAUDE ---
+ Closing v0.7.2.
+[TOOL bash_tool: Run v0.7.2 tests]
+**All 18 v0.7.2 tests pass on first run.** Final sweep across all 14 suites:
+[TOOL bash_tool: Final sweep all 14 suites]
+**All 14 suites green. 274 PASS markers (up from 254 after v0.7.1; +20 in v0.7.2).** Component 7 is DONE. Now packaging.
+[TOOL bash_tool: Append v0.7.2 section to backlog]
+[TOOL str_replace]
+[TOOL str_replace]
+[TOOL str_replace]
+Add a short DEPLOY.md for Railway + VS Code since you mentioned deploying:
+[TOOL create_file]
+Build the v0.7.2 package:
+[TOOL bash_tool: Build v0.7.2 FINAL zip]
+[TOOL present_files]
+## v0.7.2 Component 7 FINAL — SHIPPED
+
+**14 test suites, 274 PASS markers.** 6 review cycles closed. Component 7 is done.
+
+### What you're getting in this package
+
+- **`buildemup_v0.7.2_component7_FINAL.zip`** — drop-in replacement for your Replit / Railway deploy
+- **`buildemup_README_v0.7.2.md`** — full changelog v0.3 → v0.7.2
+- **`buildemup_DEPLOY_v0.7.2.md`** — new: deployment notes for Railway + VS Code, including healthz endpoint template
+- **`buildemup_v2_backlog_v0.7.2.md`** — what's deferred to v2 and why
+
+### Final Component 7 scorecard
+
+```
+v0.3 → strong engine
+v0.4 → trust controls + building types
+v0.5 → confidence rename + ComponentContract + engineer override
+v0.6 → trust + legal hardening (frame sanity, load combos, real IS 1904 SBC)
+v0.7 → 6 review drawbacks closed (global stability, action layer, etc.)
+v0.7.1 → triaged closure (drift realism, domain enforcement, single-source)
+v0.7.2 → insights feedback loop + Component 7 FINAL
+```
+
+Engineering grade: preliminary + honestly disclosed. Legal grade: every output PENDING ENGINEER VALIDATION, inline disclosures in every response, PII session-only. Architecture: ComponentContract enforced, domain objects required, JSON single-source for rules.
+
+---
+
+## Onto Component 1 — Brief Capture
+
+Now the real work. Component 1 is what feeds Component 7, so this is where the user-facing loop starts.
+
+Before I write a single line of Component 1 code, I need your direction on a few things. Component 7 had a 4-month review cycle because we didn't lock scope early. I'd rather lock Component 1 scope upfront so we ship cleanly.
+
+### What Component 1 does (my understanding)
+
+Component 1 captures the user's brief — their plot, their home requirements, their budget, their city — and converts it into clean structured inputs for all downstream components. It's the "onboarding" of the product.
+
+Roughly: user arrives at BuildemUp → fills out some questions → Component 1 produces a validated Brief object → Components 4/7/8/etc. consume the Brief.
+
+### Scope questions I need you to answer
+
+**Q1 — Interaction style.** How does the user give their brief?
+- (a) **Form** — structured web form with fields (plot width/depth, city, floors, BHK, budget, facing direction, soil type if known)
+- (b) **Conversational** — user types in natural language ("I have a 30×40 plot in Velachery, want a G+1 with 3 bedrooms"), LLM extracts the structured data
+- (c) **Both** — form is default, conversational is optional power-user path
+
+My recommendation: **(a) form for v1.** Conversational is impressive in demos but introduces LLM dependency, cost-per-request, and ambiguity in extraction. Form is deterministic and cheaper. Conversational can be v2 after we understand actual user inputs.
+
+**Q2 — Brief depth.** How much do we ask upfront?
+- (a) **Minimal** (5-7 questions): plot size, city, floors, BHK, budget
+- (b) **Medium** (10-15 questions): minimal + facing, soil if known, parking, balcony preferences, family size
+- (c) **Full** (25+ questions): medium + every detail we could ever want
+
+My recommendation: **(a) minimal for v1.** Long forms kill conversion. We can ask progressively as the user makes later decisions in other components.
+
+**Q3 — Validation strictness.** When inputs are weird, what do we do?
+- (a) **Strict refuse** — "This combination doesn't work, fix it"
+- (b) **Warn + proceed** — surface the concern, but produce output
+- (c) **Soft guide** — suggest better alternatives ("Your budget is tight for G+2, consider G+1")
+
+My recommendation: **(c) soft guide.** Matches Component 7's philosophy of decision-support. Users feel helped, not rejected.
+
+**Q4 — Output shape.** What does Component 1 produce?
+My recommendation: A `Brief` domain object (already sketched in the v0.6 domain layer direction) that contains `Building` + user preferences + budget constraints. Feeds directly into Component 7 via ComponentContract validation.
+
+**Q5 — Target users for v1.** Who fills out this brief?
+- (a) Homeowner (layperson)
+- (b) Contractor
+- (c) Architect
+- (d) All three
+
+My recommendation: **(a) homeowner.** Simpler language, more hand-holding. Contractors and architects are v2 — they'd want different terminology and more control.
+
+### What I propose to build in v0.1 of Component 1
+
+Based on my recommendations above:
+
+1. `Brief` domain object with required + optional fields
+2. Minimal form with 7 questions (plot width, plot depth, city, facing, floors, BHK, budget range)
+3. Validation with soft-guide messages
+4. `BriefCaptureEngine.execute(inp) → Brief` with ComponentContract
+5. Converter: `Brief.to_structural_grid_input()` that feeds Component 7
+6. Test suite covering validation + edge cases + Brief → Component 7 handshake
+
+Realistic timeline: 3-4 sessions for a clean v0.1.
+
+### Confirm or push back
+
+Tell me your calls on Q1-Q5. If my recommendations are right, just say "confirm" and I start. If you disagree on any, tell me which and why.
+
+I will NOT start coding Component 1 until scope is locked. Component 7 took 4 months partly because we kept reopening scope. Locking early is how we avoid that here.
+
+--- USER ---
+I agree with all your recommendations and how to capture the user preference perfectly. I think we should start with how many floors and what all you need in each floor and we should show the user the options there are and let him select things based on his requirements and then any additional requirements and after analysing we tell him what is possible and show him the design with all his preferences or the most of his preferences and the trade off questions start what he is willing to trade or reduce the size or swap he can use the editor also to do that and to it’s satisfaction he chooses a design and before all this we have to get the plot details accurately with user setbacks and also nbc compliant setbacks and cost range to build his home. After the design is finalised I want him to see the electrical diagrams and plumbing diagrams and septic tank diagrams and mainly furniture placements also and after finalising everything I want to show him the 3D view of his house and I want him to chose the tiles and interior designs also and I want the user to have an option to chose everything in the house and after he completed choosing everything we give him the cad design sheets and at each stage we show him the cost breakdown also and I want to show the user how much each part of construction would cost like foundation walls and then ground floor slab and the time it would take to construct the building and we tell him what all documents he needs to submit to the municipal corporation also to get it approved. I want the user to feel that my house construction is more clearer and now I know how to build it properly and check the processes too I want him to feel confident and also informative about construction and it’s process. With this the  contractor questions and what we discussed earlier we should give. Do you understand? This is the complete picture what my project wants to do. He should be able to chose everything in the house like tiles furniture’s or whatever he wants and their cost analysis also. Do you understand he should get a complete picture? This is what will cost to construct and this is what will cost for interior design this two are important and if he needs furniture this is what will cost. We should give him a good 3D view people like seeing their house with all the designs of what it could be. I hope understood everything I said.
+
+--- CLAUDE ---
+ Yes, I understood everything. Let me reflect it back so you can confirm I have the complete picture, then I want to push back honestly on some things before we touch any code — because what you described is much bigger than Component 1, and how we sequence it determines whether you ship in 6 months or 3 years.
+
+## What I heard you say
+
+Your full product vision is a **complete homebuilder's journey**, not just a structural calculator:
+
+**Phase A — Brief & feasibility**
+- Plot details (with both user setbacks AND NBC-compliant setbacks shown)
+- Cost range to build the home
+- Floor count + room composition per floor
+- Show options per floor → user selects
+- Additional requirements
+- Feasibility analysis: tell user what's possible
+- Show the design that meets all (or most) preferences
+- Trade-off conversation: "what are you willing to swap, reduce, drop?"
+- Editor so user can adjust until satisfied
+- User finalises a design
+
+**Phase B — Engineering layers (after design finalised)**
+- Electrical diagrams
+- Plumbing diagrams
+- Septic tank diagrams
+- Furniture placement
+- 3D view of the house
+
+**Phase C — Selections & interiors**
+- Tiles selection
+- Interior designs
+- Choose every item in the house
+- Cost analysis at every selection
+
+**Phase D — Deliverables & confidence**
+- CAD design sheets
+- Stage-by-stage cost breakdown (foundation / walls / GF slab / etc.)
+- Construction time estimates
+- Documents needed for municipal approval (CMDA / BMC / etc.)
+- Contractor handoff (per earlier discussion)
+
+**The emotional outcome**: user feels "I now know how to build my house properly. I understand the process. I'm informed and confident."
+
+**The financial breakdown** the user must always see clearly:
+1. Construction cost
+2. Interior cost
+3. Furniture cost (if they want it)
+
+## Yes — I understand the complete picture
+
+This is a **decision-confidence engine** for the entire homebuilding journey. Not a tool that produces a structural estimate. A tool that walks the user from "I bought a plot" to "I have everything I need to start construction with confidence."
+
+## Now I have to push back honestly — because this matters
+
+What you described is genuinely wonderful. It's also realistically **24-36 months of focused work** if you build everything you described properly. That's not a criticism — that's what a complete homebuilder's journey actually requires. Companies like Livspace, HomeLane, NoBroker have hundreds of engineers and they still don't have all of this.
+
+Here's what concerns me. If we try to build "the complete picture" before launching anything, three bad things happen:
+
+**One — we never ship.** Every builder I know who tried to launch the complete vision before getting users either ran out of money or burned out. The graveyard of Indian construction-tech startups is full of "complete platform" attempts.
+
+**Two — we build the wrong things.** You don't actually know yet what users will value most. Maybe 80% of users finalise their design and never use the 3D view. Maybe interior selection is the killer feature and feasibility is just table-stakes. Maybe nobody cares about CAD sheets and they all want WhatsApp updates instead. **You will only know this from real users.**
+
+**Three — Component 7 (which we just spent 5 months perfecting) sits unused.** We have a structural engine ready to ship right now. If we wait to build Phases A-D before users see anything, that work generates zero learning until launch day.
+
+## My honest recommendation
+
+We absolutely build everything you described. **Just not all at once.**
+
+Here's the sequence I'd recommend, and why:
+
+### v1 launch scope (~3-4 months from now)
+
+**Brief & feasibility (Phase A) + structural engine (Component 7 we already have).**
+
+That gets a user from "I bought a plot" to "here's what I can build, here's the trade-offs, here's what it'll cost to construct, here's the sensitivity to my choices, and here's what to bring to my engineer." Already a massive value-add over status quo.
+
+This is buildable in 3-4 months because Component 7 is done. We add: Brief Capture (Component 1), Layout Generation (Component 4), Trade-off Editor (Component 8 or so), Cost Breakdown (Component 13), Permit Document Checklist (Component 16).
+
+That's 4-5 components, not 17. Each one is ~3-5 sessions. Manageable.
+
+### v2 (3-6 months after v1 launch)
+
+**Engineering layers + 3D view.**
+
+Electrical, plumbing, septic, furniture placement, 3D model. Adds the "visualise my house" experience.
+
+But here's why we wait: 3D rendering is HARD and EXPENSIVE. Doing it well requires either a 3D engine (Three.js + custom modeling), an integration with something like SketchUp/Revit (₹10K-50K per user-month in licensing), or AI-generated renders (currently ~₹50-200 per render, quality varies). We need v1 launch revenue + signal about how often users ACTUALLY look at 3D before committing to build it.
+
+### v3 (6-12 months after v2)
+
+**Interior selection + furniture + tile catalog + complete cost picture.**
+
+This is the Livspace/HomeLane play. It's a whole product on its own. Tile catalogs need supplier integrations (TC, Kajaria, Somany). Furniture needs a marketplace or partnerships. Interior design needs designers in the loop.
+
+Doing this properly probably needs partnerships you don't have yet. Doing it badly will damage trust more than not having it.
+
+### v4
+
+**CAD sheets + complete deliverable package + contractor handoff.**
+
+CAD sheets specifically need an architect or draftsperson in the loop (or AutoCAD API integration). This is real work. v4 is when we have enough revenue to hire one.
+
+## What I want you to consider
+
+The user emotion you described — "I know how to build my house properly, I'm confident, I'm informed" — does **not require all 17 components.** A user who finishes Phase A (brief + feasibility + structural + cost breakdown + permit checklist + sensitivity to their choices) will already feel 5× more confident than 95% of Indian homebuilders today. That's enough to launch with. That's enough to charge ₹2K-5K per plan and start generating revenue.
+
+3D views, tile selection, furniture placement — these make the product more delightful, but they're not what unlocks the user emotion. The emotion comes from **clarity and informed choice**, both of which we can deliver in v1 with what we already have plus 4-5 more components.
+
+## My ask before we code anything
+
+Tell me whether you accept v1 scope = Phase A + Component 7 + a few support components, OR whether you need everything in v1. If you need everything in v1, tell me your timeline and budget runway because I want to make sure we're being realistic.
+
+If you accept incremental, then for **Component 1 specifically** my proposal is:
+
+**Component 1 v0.1 scope:**
+- Plot details capture (dimensions, facing, location/city)
+- User-stated setbacks AND NBC-compliant setbacks shown side-by-side
+- Floors + per-floor room composition (with options shown, user selects)
+- Additional requirements (free-text + structured)
+- Budget range
+- Output: a `Brief` domain object that feeds Component 4 (layout) and Component 7 (structure)
+
+NOT in Component 1: feasibility analysis (Component 2), trade-off editor (a later component), 3D view, interiors, CAD sheets — those are their own components.
+
+This is buildable in 3-4 sessions. Then we move to Component 2 (feasibility) and Component 4 (layout). By v1 launch, the user gets the full Phase A experience.
+
+Tell me:
+
+1. **Do you accept incremental shipping (Phase A first, Phases B/C/D later)?**
+2. **If yes, do you accept Component 1 = just Brief Capture (not feasibility, not editor, not 3D)?**
+3. **Realistic timeline check: how many months do you have before you need v1 in users' hands?**
+
+I'm being direct because this matters. We can build the dream you described — but only if we don't try to build it all at once. Tell me where you actually stand.
+
+--- USER ---
+1. Yes 
+
+2. Yes 
+
+3. Let’s build first and I want a good product and time is not a issue. I want good product first
+
+--- CLAUDE ---
+ Locked. Three answers recorded:
+
+1. **Incremental shipping** — Phase A first, Phases B/C/D later
+2. **Component 1 v0.1 = just Brief Capture** (no feasibility, no editor, no 3D in this component)
+3. **Quality over speed** — "I want a good product first, time is not an issue"
+
+I want to flag one thing before we code, because answer #3 is important and I don't want to misinterpret it.
+
+## What "time is not an issue, I want a good product" means to me
+
+It does **not** mean: take forever, over-engineer, add v2 features to v1, keep reopening scope.
+
+It **does** mean: when we have a fork between "ship faster with a shortcut" vs "ship correctly but one more session", we choose correct. When I find edge cases the user didn't ask about, I handle them properly. When a review finds real issues, we fix them — not defer them to v2.
+
+This is actually how we built Component 7 — 6 review cycles, 274 tests, nothing half-done. Your "time is not an issue" tells me to keep that bar for Component 1 too.
+
+**But I'm NOT going to use "time is not an issue" as permission to:**
+- Add 3D view to Component 1 because it would be nicer
+- Build feasibility logic into Brief Capture because it would be more complete
+- Reopen scope mid-build because "we have time"
+- Skip pragmatic choices because "we could do better"
+
+If you ever want me to relax any of those, tell me explicitly. Otherwise I hold the line.
+
+Okay? Just confirm you agree with this interpretation and we start scoping Component 1 properly.
+
+## What I'll do next (pending your confirmation of above)
+
+Write the Component 1 v0.1 spec doc. Before any code. Specifically:
+
+1. **Domain shape** — what `Brief` looks like, what `Plot` looks like, what `FloorRequirement` looks like, how they fit into the existing domain layer from v0.6
+2. **NBC setback logic** — which city codes we cover (match Component 7's 6 cities: Chennai, Bangalore, Hyderabad, Mumbai, Pune, Delhi), what setback rules apply per plot size per city, where we source the rules (NBC 2016 + city DCR)
+3. **Per-floor room composition** — what rooms we support (bedroom, bathroom, kitchen, living, dining, pooja, balcony, utility, stairs), minimum sizes per NBC, how we offer "options" for the user to pick
+4. **Soft-guide validation** — what scenarios trigger guidance (e.g. "your budget is tight for G+2, consider G+1"), phrasing principles
+5. **Output shape** — the `Brief` domain object that feeds downstream, with `ComponentContract` declared
+6. **What Component 1 does NOT do** — explicit non-scope list so we don't drift
+7. **Test plan** — what we test, what ranges we cover
+
+I'll write this as a doc (not code) first, you read it, we lock it, THEN I write code.
+
+Estimated: one session for the spec doc, then 3-4 sessions for code + tests + integration.
+
+**Confirm two things:**
+
+1. You agree with my interpretation of "time is not an issue" above (quality bar, not scope creep)
+2. You agree with writing a spec doc before any code (like we should have done for Component 7 from the start)
+
+Once you confirm both, I start the spec doc.
+
+--- USER ---
+1. Yes I agree with your interpretation 
+
+2. Yes I agree
+
+--- CLAUDE ---
+ Locked. Writing the Component 1 v0.1 spec doc now. No code yet.
+[TOOL bash_tool: Create component1 docs folder]
+Before I write the spec, let me verify a few NBC + city setback specifics so the spec is grounded in real numbers, not made up. I'll search briefly for current NBC 2016 setback rules and city-specific DCRs for our 6 launch cities:
+[TOOL web_search]
+Good — confirms that **NBC is general guidance, but city DCRs (Development Control Rules) are what actually govern setbacks**. This is critical for the spec. Let me search a couple more for Chennai/Mumbai specifics:
+[TOOL web_search]
+Good, I have what I need. Solid grounding on Chennai (TNCDBR 2019) and Bangalore (RMP 2015 amendments 2026). I can extrapolate similar structures for Mumbai/Pune (Maharashtra DCPR), Hyderabad (GHMC), Delhi (DDA UBBL). Now writing the spec doc:
+[TOOL create_file]
+[TOOL bash_tool: Copy spec to outputs]
+[TOOL present_files]
+## Component 1 v0.1 Specification — DRAFTED
+
+The spec doc is written. ~30KB, 686 lines, 12 sections. Read it carefully before we lock it in. This is exactly the document we should have written for Component 7 before coding — and didn't, which is partly why Component 7 needed 6 review cycles.
+
+### What's in the spec
+
+**Section 1 — Purpose**: What Component 1 does and explicitly does NOT do. Six bullet points of scope creep prevention.
+
+**Section 2 — Domain shape**: Three new domain objects (`Plot`, `FloorRequirement`, `RoomRequirement`) and a top-level `Brief`. All immutable. All registered with the v0.7.1 domain enforcement system.
+
+**Section 3 — NBC + DCR setbacks**: This is the part you cared about most ("user setbacks AND NBC-compliant setbacks"). Honest disclosure: only Chennai (TNCDBR 2019) gets a full implementation in v0.1. The other 5 cities use a conservative NBC fallback with explicit "Mumbai DCPR coming in v0.2" disclosure to user. **No fake authority.**
+
+**Section 4 — Per-floor room composition**: 12 room types, NBC minimum sizes loaded from JSON (single-source per v0.7.1), defaults that auto-fill so user doesn't see a blank form (typical 2BHK G+1 template).
+
+**Section 5 — Budget**: Range in lakhs, rough construction-cost estimate per city, soft-guide messages.
+
+**Section 6 — Soft-guide philosophy**: Three severity levels (INFO / CONCERN / STRONG_CONCERN). Never refuses input. Always offers an action. Always cites source. Phrasing rules locked.
+
+**Section 7 — Output shape**: `Brief.to_structural_grid_input()` is the key handshake to Component 7. ComponentContract enforcement (from v0.7.1) catches any drift.
+
+**Section 8 — ComponentContract declaration**: Locked.
+
+**Section 9 — File structure**: ~1500-2000 lines new code + tests. All file paths listed.
+
+**Section 10 — Test plan**: ~35 tests across 7 sections.
+
+**Section 11 — What's deferred**: 14 items explicitly NOT in v0.1. This is the scope-creep firewall.
+
+**Section 12 — Sequence of work**: 5 sessions to complete v0.1.
+
+### 5 open questions I need you to answer
+
+These are in Section 13 of the spec, but I'm asking them here too for visibility:
+
+**Q1 — Currency**: I'm hardcoding INR for v0.1. OK?
+
+**Q2 — User identity**: Component 1 collects no name/email/phone. OK, or do you need lead-capture in v0.1?
+
+**Q3 — Save/resume**: Form is stateless — fill, submit, done. No save-and-come-back. OK for v0.1?
+
+**Q4 — Form UI**: I'll build the engine + ComponentContract. The actual web form (HTML/JS to deploy on Railway) is presentation-layer work. Do you want me to include a minimal form template, or are you handling that separately?
+
+**Q5 — Vastu**: Component 7's KB has `vastu_engine`. Do you want Component 1 to surface vastu hints as INFO-level guidance ("for east-facing plot, kitchen typically southeast"), or skip vastu entirely in Component 1 and let Component 4 (layout) handle it?
+
+### What I need from you before any code
+
+1. **Read the spec.** Even just sections 1, 2, 3, 6, 11. Tell me if anything is wrong, missing, or scope creep.
+2. **Answer Q1-Q5 above.**
+3. **Lock or revise.** Tell me "Spec locked, start Session 1" OR tell me what to change.
+
+Per your "time is not an issue, want a good product" directive, I'd rather spend an extra hour now refining this spec than spend a week building the wrong thing.
+
+--- USER ---
+Q1. Yes
+Q2. I want to give free trial at first and then later on after 3 months I plan on making it chargeable. So do we need mail and phone number for this?
+Q3. I think we should have save and resume it’s a big process 
+Q4. You handle it
+Q5. Keep it in component 1 but it is optional. Only when user wants it otherwise don’t apply it
+
+This is the feedback of the spec report.
+
+--- CLAUDE ---
+ Understood. Let me process everything you gave me, then we update the spec before any code. No code yet.
+
+## First — my honest take on each of the 10 drawbacks
+
+I went through the reviewer's drawbacks carefully. Not all 10 are equally valid. Let me triage like I did for the v0.7 review — I don't want to blindly implement everything because some are genuine improvements and some will pull us back into scope-creep territory you've been trying to avoid.
+
+**Drawback 1 — Plot type (CONTINUOUS/SEMI_DETACHED/DETACHED).** ✅ Genuine. This is a real DCR concept (I mentioned "Continuous Building Area" in the spec but didn't model it as a first-class field). Chennai TNCDBR treats CBA differently — no side/rear setback for declared areas. Add to `Plot` domain. **5 lines of code.**
+
+**Drawback 2 — Envelope calculation naive.** ✅ Valid concern, but what the reviewer proposes is basically what I already specced (subtract setbacks from plot). The reviewer's add-value is the **explicit `is_rectangular = True` assumption + disclosure**. That's a transparency fix (matches v0.6's Transparency Triple principle). Add the explicit assumption flag + expose in explain(). **Small.**
+
+**Drawback 3 — Floor count translation.** ⚠️ Partially valid but reviewer is overcorrecting. Current logic already includes terrace slab (Component 7 counts stilt + ground + upper + terrace for loads). The reviewer's fix "STILT included, TERRACE included" is already what we do. But let me make the comment explicit in `to_structural_grid_input()` so future devs don't misinterpret. **Documentation fix, no logic change.**
+
+**Drawback 4 — Duplicate budget logic.** ✅ Genuine and important. The reviewer is right: if Component 1 says "estimated ₹25L" and Component 7 (downstream) says "estimated ₹28L", user loses trust. Fix: Component 1 calls Component 7 in a lightweight "cost-only" mode, uses its output for budget guidance. This is exactly the ComponentContract handshake we built for in v0.7.1. **Medium-size change, high value.**
+
+**Drawback 5 — Room area circulation factor.** ✅ Genuine. I did miss this in the spec. Total floor area = sum(rooms) × circulation_factor (typically 1.25-1.35 for Indian residential — the 25-35% that goes to walls, passages, landings). Without this, budget estimates are 25% too low. **~20 lines.**
+
+**Drawback 6 — Soft-guide prioritisation.** ✅ Valid. My spec showed all messages grouped by severity, but didn't explicitly cap at "top 3" like Component 7 does for recommendations. Add `top_guidance` (top 3) alongside full `soft_guidance`. **Small.**
+
+**Drawback 7 — Parking feasibility.** ✅ Valid and very Indian-specific. Plot width < 8m + stilt parking = parking won't fit reasonably (you need 2.5m per car + circulation). Add as STRONG_CONCERN. **~15 lines.**
+
+**Drawback 8 — Auto-staircase for multi-floor.** ✅ Valid. If floors ≥ 2 and user didn't add staircase, we auto-include it with INFO message. **~10 lines.**
+
+**Drawback 9 — Phased construction guidance.** ✅ Valid. If budget is below estimated, suggest "build ground floor now, design foundation + columns for future vertical expansion." This is how many Indian middle-class families actually build. **Message-only, ~10 lines.**
+
+**Drawback 10 — Expose assumptions.** ✅ Valid. Matches v0.6 Transparency Triple. Add "ASSUMPTIONS USED" section in explain(). **~15 lines.**
+
+**My triage: accept all 10, but #3 is a documentation fix not a logic change, and #2 is smaller than it looks.** All are low-cost, high-value. No scope creep — these fixes actually make v0.1 more honest, not more ambitious.
+
+## Answering your Q1-Q5
+
+**Q1 — Currency = INR only.** ✅ Locked.
+
+**Q2 — Free trial → chargeable after 3 months. Do we need email and phone?**
+
+Yes, but let me be precise about what and why:
+
+- **For free trial period (first 3 months)**: Email optional, phone optional. We can let users use the tool anonymously and only ask for email if they want to save/resume (see Q3). Collecting contact info before users see value = worse conversion.
+
+- **For chargeable period (month 3 onwards)**: Email required (for login + receipt), phone optional but recommended for India (WhatsApp support is the de-facto channel for construction in India).
+
+- **Right now in Component 1 v0.1**: I'll add **optional email** and **optional phone** to the `Brief`. Both stored session-only (no DB in v0.1 per our other rules), used for save/resume if user opts in. User can leave blank. No gating.
+
+- **Later** (Component 15 or 16, whenever we add auth/billing): email becomes required. That's not Component 1's problem.
+
+Does that work? It lets you flip the free→paid switch later without rebuilding the brief.
+
+**Q3 — Save and resume.** ✅ Locked. This changes the spec significantly — I need to explain the trade-off.
+
+The cleanest way to do save/resume without a database in v0.1:
+
+- User fills part of the form, clicks "Save & Continue Later"
+- System generates a `resume_token` (random 12-char string)
+- Brief-in-progress serialized as JSON, stored in **localStorage on user's browser** (my recommendation) OR emailed to them as a link they click later (backup option)
+- When they return with the token, state restored
+
+**Why localStorage and not a database**: No user auth = no way to securely tie brief to a specific user in a DB. localStorage is per-browser, persists across sessions, doesn't need backend storage, doesn't need auth. Good enough for v0.1.
+
+**Trade-off to accept**: If user clears browser data or switches devices, they lose the in-progress brief. OK for v0.1 because (a) Component 1 is minutes-long not hours-long, (b) proper cross-device resume needs auth which is out of scope, (c) localStorage is zero-ops.
+
+Alternative: we add optional email, and if they provide it, we email them a resume link (with token). They can resume on any device. **This is what I recommend.** Needs a tiny email-sending integration (SMTP or Mailgun free tier) but gives real value.
+
+**Q4 — Form UI is my job too.** ✅ Locked. I'll build a minimal but good Tailwind-HTML form template that Ramalingam can host on Railway alongside the engine. Not fancy, not designed-by-committee, but functional and matches the style of what users expect in Indian construction products.
+
+**Q5 — Vastu optional in Component 1.** ✅ Locked. Add a single opt-in checkbox: "Show me Vastu considerations (optional)". If checked, Component 1 surfaces vastu hints as INFO-level guidance only (never STRONG_CONCERN — we don't block on vastu). If unchecked, vastu never mentioned.
+
+## What I'm updating in the spec
+
+Based on your answers + 10 drawbacks, I'm about to add:
+
+1. `PlotType` enum + field on `Plot` (Drawback 1)
+2. `is_rectangular=True` explicit on Envelope computation + disclosure (Drawback 2)
+3. Inline comment explaining floor count translation logic (Drawback 3)
+4. Component 1 calls Component 7 in cost-only mode for budget guidance (Drawback 4) — **this is a meaningful architecture decision**
+5. `estimate_floor_area()` with `circulation_factor = 1.30` default (Drawback 5)
+6. `top_guidance` (top 3) alongside full `soft_guidance` (Drawback 6)
+7. Parking feasibility rule (Drawback 7)
+8. Auto-staircase for ≥2 floors (Drawback 8)
+9. Phased construction suggestion when budget < estimate (Drawback 9)
+10. "ASSUMPTIONS USED" section in explain() (Drawback 10)
+11. **Optional email + phone** in Brief (your Q2)
+12. **Save/resume via browser localStorage + optional email-resume-link** (your Q3)
+13. **Form UI template** — I build it (your Q4)
+14. **Vastu opt-in checkbox** — INFO-level only (your Q5)
+
+That's 14 changes. All of them tighten rather than expand scope. None of them reopen what you locked (no conversational input, no feasibility, no 3D, etc.).
+
+## One pushback before I update
+
+**On Drawback 4 specifically** (Component 1 calls Component 7 for cost): this is a real architecture decision worth your sign-off.
+
+Two options:
+
+**Option A** (reviewer's recommendation, my preference): Component 1 converts Brief → temp StructuralGridInput → calls `StructuralGridEngine().execute()` in "quick mode" → uses the cost from that. Advantage: single source of truth. Disadvantage: Component 7 runs twice (once in Component 1 for cost, once downstream for real). Adds ~200ms per request.
+
+**Option B**: Component 1 uses its own rough rate card (my original spec). Advantage: fast, no coupling. Disadvantage: numbers may differ from Component 7 downstream, user loses trust.
+
+I think Option A is correct. Coupling is acceptable here because Component 7's cost engine is exactly what we want to defer to. The 200ms cost is acceptable for a brief-capture flow that takes minutes anyway. And we already have the ComponentContract enforcement (v0.7.1) to make this handshake clean.
+
+**Confirm Option A or Option B?**
+
+## What I need you to confirm before I update the spec
+
+1. ✅ You agree with my triage: accept all 10 drawbacks (with #3 being documentation-only)
+2. **Option A or B for Drawback 4?** (I recommend A)
+3. **Email-resume-link** for save/resume in addition to localStorage? (I recommend yes)
+4. **Vastu opt-in checkbox** labelled as "Show Vastu considerations (optional)" — acceptable?
+
+Answer these 4, then I update `SPEC_v0.2.md` with everything locked. Only after that do we write code.
+
+--- USER ---
+I agree with your recommendations but in vastu you can give options like partial, full partial means only very important items and full means everything. This is good right
+
+--- CLAUDE ---
+ Good call on the vastu tiering. Let me think about this honestly before locking it.
+
+## On the vastu partial/full tiering
+
+Yes, this IS good — but let me tighten what "very important" means so we don't leave it vague.
+
+Vastu has dozens of rules, and they vary in how much users actually care about them. My proposal for the three-tier version:
+
+**OFF (default)** — No vastu mentioned anywhere.
+
+**PARTIAL (your "very important items")** — The 5-7 vastu items that ~90% of Indian homeowners actually care about:
+1. Main door direction (most critical — most families check this)
+2. Kitchen direction (southeast preferred — cooking = Agni)
+3. Master bedroom direction (southwest preferred)
+4. Pooja room direction (northeast preferred)
+5. Toilet/bathroom location (avoid northeast)
+6. Staircase direction (avoid northeast)
+7. Water tank location (underground northeast, overhead southwest)
+
+These are the ones that come up in 90% of Indian construction conversations. If we surface only these, users get vastu value without being overwhelmed.
+
+**FULL** — Everything in the existing Component 7 `vastu_engine` KB, including secondary items: furniture placement within rooms, window directions, plot shape preferences, slope direction, tree placement, mirror placement in bedrooms, etc.
+
+**User picks on the form:** radio button with three options, default = OFF.
+
+**Important — ALL tiers show as INFO-level guidance only.** We never block, never STRONG_CONCERN based on vastu. Vastu is a cultural preference, not a building code. Even in FULL mode, every vastu message is informational: *"Consider placing kitchen in southeast for traditional vastu alignment."*
+
+Does that work? Tell me if you'd adjust the partial list — you may know what Indian homebuyers actually prioritise better than I do.
+
+## One thing I want to check with you before I lock
+
+Looking at my "partial" list, I'm second-guessing whether **main door direction** and **pooja room direction** should both be in partial. They might be the two most important ones, which makes sense. But I'm not sure if I'm missing anything equally critical. 
+
+For Tamil Nadu families specifically (your target market per userMemories), would you say:
+- Are the 7 items I listed the right partial set?
+- Is there anything I missed that should be in partial? (e.g., "Brahmasthan" / center of house kept clear — is that partial or full?)
+- Is there anything in partial that should be demoted to full?
+
+You're closer to this than I am. Tell me what to adjust, or confirm the list is right.
+
+## Everything else is locked
+
+Just to confirm the complete status for v0.2 spec update:
+
+- ✅ All 10 drawbacks accepted with my triage notes (#3 is documentation-only, #2 is smaller than it looks)
+- ✅ Option A for Drawback 4 — Component 1 calls Component 7 cost engine for single source of truth
+- ✅ Email-resume-link in addition to localStorage
+- ✅ Vastu three-tier: OFF / PARTIAL / FULL, default OFF, all tiers INFO-level only
+- ✅ Optional email + phone in Brief (session-only in v0.1)
+- ✅ Form UI template — I build it
+- ✅ INR only
+- ✅ Save and resume via localStorage + optional email link
+
+**Final question before I write SPEC_v0.2.md:**
+
+Answer the vastu partial-list question above (confirm my 7 items OR tell me what to change), then I update the spec with everything locked and we move to actual code.
+

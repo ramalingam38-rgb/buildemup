@@ -1,0 +1,53 @@
+{
+  "kb_version": "Room_Targets_2026_v1",
+  "last_updated": "2026-05-05",
+  "source": "Indian residential comfortable-size targets per architecture-v2 Component 9 worked example. C9 v1 keyed by (category, is_master).",
+  "schema_notes": [
+    "target_m2 is the comfortable size (above liveability_min, well below max).",
+    "is_master variants are listed where applicable (BEDROOM, BATHROOM); LIVING / KITCHEN / POOJA / UTILITY have only is_master=false rows.",
+    "For BATHROOM the row is keyed COMBINED-subtype only; other subtypes fall back to the COMBINED target (rationale: BATH_ONLY / WC_ONLY are reduced fixtures, so target should not exceed COMBINED's; targets KB v1 keeps lookup simple).",
+    "Q14 (open spec question): max_m2 multipliers may eventually move into this KB. v1 keeps multipliers in code (targets_kb.py PER_CATEGORY_MAX_MULTIPLIER); migration is a v0.8+ spec amendment per Rule 8."
+  ],
+  "rows": [
+    {
+      "category": "bedroom",
+      "is_master": false,
+      "target_m2": 10.2
+    },
+    {
+      "category": "bedroom",
+      "is_master": true,
+      "target_m2": 14.9
+    },
+    {
+      "category": "living",
+      "is_master": false,
+      "target_m2": 18.6
+    },
+    {
+      "category": "kitchen",
+      "is_master": false,
+      "target_m2": 9.3
+    },
+    {
+      "category": "bathroom",
+      "is_master": false,
+      "target_m2": 3.3
+    },
+    {
+      "category": "bathroom",
+      "is_master": true,
+      "target_m2": 4.2
+    },
+    {
+      "category": "pooja",
+      "is_master": false,
+      "target_m2": 3.3
+    },
+    {
+      "category": "utility",
+      "is_master": false,
+      "target_m2": 3.7
+    }
+  ]
+}

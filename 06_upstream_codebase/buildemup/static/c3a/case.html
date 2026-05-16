@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>BuildemUp — Resolve Case</title>
+    <link rel="stylesheet" href="/c3a/_shared.css">
+</head>
+<body>
+<main>
+    <h1>Resolve case</h1>
+    <p data-c3a-loading class="c3a-loading">Loading your case…</p>
+    <div id="case-container" class="c3a-hidden">
+        <div class="c3a-card">
+            <p id="case-text"></p>
+            <form id="case-form">
+                <div id="options-list"></div>
+                <input type="hidden" id="session-token">
+                <div style="margin-top: 16px;">
+                    <button type="submit" id="resolve-btn">Resolve</button>
+                    <button type="button" id="abort-btn" class="c3a-secondary">
+                        Save and exit
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="error-container"></div>
+</main>
+<script src="/c3a/_shared.js"></script>
+<script src="/c3a/case.js"></script>
+</body>
+</html>

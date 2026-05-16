@@ -1,0 +1,87 @@
+{
+  "_meta": {
+    "kb_version": "RoomMinimums_India_2026_v2",
+    "source_standards": [
+      "NBC 2016 Part 3 (General Building Requirements) — habitable rooms, kitchen, bathroom",
+      "NBC 2016 Part 4 (Fire and Life Safety) — staircase",
+      "NBC 2016 Part 9 Table 1 (Plumbing fixtures)",
+      "IS 3861-2002 (Method of Measurement) — circulation factor derivation"
+    ],
+    "last_updated": "2026-05-16",
+    "_changelog": [
+      {
+        "version": "v2",
+        "date": "2026-05-16",
+        "changes": "S54 B-150 partial verification: fixed citations for POOJA / DINING / UTILITY / STORE / BALCONY / circulation_factor — these were incorrectly attributed to NBC clauses that don't exist. Values themselves unchanged in v2; full NBC PDF verification of STAIRCASE width + BALCONY area still pending under B-150 full."
+      }
+    ],
+    "notes": [
+      "Values are NBC minimums where cited; ancillary rooms (pooja/dining/utility/store/balcony) use industry-typical values, NOT NBC mandates.",
+      "These are LOWER BOUNDS; if user's preferred_size is below, we reject.",
+      "Duplicated in domain/floor_requirement.py as NBC_MINIMUM_ROOM_SIZES_SQM.",
+      "Parity test verifies the two sources match exactly.",
+      "B-150 partial verification report: 05_integrity_check/B150_PARTIAL_NBC_VERIFICATION_S54.md."
+    ]
+  },
+
+  "room_minimums_sqm": {
+    "BEDROOM_MASTER": {
+      "value": 9.5,
+      "source_clause": "NBC 2016 Part 3 cl. 6.1.1 (master bedroom minimum)"
+    },
+    "BEDROOM_REGULAR": {
+      "value": 7.5,
+      "source_clause": "NBC 2016 Part 3 cl. 6.1.1 (habitable room min)"
+    },
+    "BATHROOM_ATTACHED": {
+      "value": 1.8,
+      "source_clause": "NBC 2016 Part 3 cl. 6.2 (WC minimum 1.1 sqm; attached bath with basin = 1.8 sqm)"
+    },
+    "BATHROOM_COMMON": {
+      "value": 2.8,
+      "source_clause": "NBC 2016 Part 3 cl. 6.2 (combined WC + bath)"
+    },
+    "KITCHEN": {
+      "value": 5.0,
+      "source_clause": "NBC 2016 Part 3 cl. 6.1.2 (kitchen minimum)"
+    },
+    "LIVING": {
+      "value": 9.5,
+      "source_clause": "NBC 2016 Part 3 cl. 6.1.1 (habitable room ≥ 9.5 sqm)"
+    },
+    "DINING": {
+      "value": 6.0,
+      "source_clause": "Industry typical (no specific NBC mandate; dining typically subsumed under habitable-room area in NBC 2016 Part 3)"
+    },
+    "POOJA": {
+      "value": 1.5,
+      "source_clause": "Industry typical (no NBC mandate; pooja rooms are cultural/optional, not regulated)"
+    },
+    "BALCONY": {
+      "value": 1.5,
+      "source_clause": "Industry typical (NBC 2016 Part 3 cl. 6.3 covers balcony as habitable extension; specific area minimum varies by state/city DCR). Verify against PDF — possible 1.62 sqm if 0.9m × 1.8m is the canonical NBC reference."
+    },
+    "UTILITY": {
+      "value": 2.0,
+      "source_clause": "Industry typical (no NBC mandate; utility/washing areas not separately regulated in NBC 2016 Part 3)"
+    },
+    "STORE": {
+      "value": 1.5,
+      "source_clause": "Industry typical (no NBC mandate; storage rooms not separately regulated in NBC 2016 Part 3)"
+    },
+    "STAIRCASE": {
+      "value": 5.5,
+      "source_clause": "NBC 2016 Part 4 cl. 4.3.3 (staircase incl. landing). PDF VERIFICATION PENDING (B-150): width minimum is canonically 1.0m for residential, not 0.9m. The 5.5 sqm area derivation may need recalculation if 1.0m is correct."
+    }
+  },
+
+  "circulation_factor": {
+    "value": 1.35,
+    "value_small_home": 1.40,
+    "value_large_home": 1.30,
+    "small_home_threshold_sqm": 30.0,
+    "large_home_threshold_sqm": 100.0,
+    "description": "Multiplier on sum(room areas) to estimate total floor area. Wall thickness + horizontal corridors + vertical circulation typically add 30-35% overhead for residential. Small homes have proportionally more circulation; large homes are more efficient.",
+    "source": "Derived from IS 3861-2002 (Method of Measurement of Plinth, Carpet and Rentable Area) definitions; multiplier values themselves are engineer's-rule-of-thumb from industry surveys, NOT directly stipulated by IS 3861-2002. Survey: small homes 1.35-1.40, large homes 1.25-1.30, typical 1.30-1.35."
+  }
+}

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuildemUp — Capture Your Brief</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="brief_form.css">
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 py-5 px-6">
+    <div class="max-w-4xl mx-auto flex items-baseline justify-between">
+      <h1 class="text-2xl font-semibold tracking-tight">BuildemUp</h1>
+      <span class="text-sm text-gray-500">Component 1 v0.1 — Brief Capture</span>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-6 py-8">
+
+    <!-- Intro -->
+    <div class="mb-8">
+      <h2 class="text-xl font-semibold mb-2">Tell us about your home project</h2>
+      <p class="text-gray-600 text-sm">
+        We'll capture your plot details, floor plans, and budget — then
+        show you what's compliant per NBC / your city's DCR, and how your
+        budget compares to the structural cost estimate.
+        <strong>Takes about 5 minutes.</strong>
+      </p>
+    </div>
+
+    <!-- Step indicator -->
+    <ol class="flex items-center justify-between mb-8 text-sm">
+      <li class="step-indicator flex items-center" data-step="1">
+        <span class="step-num w-8 h-8 flex items-center justify-center rounded-full border-2 border-blue-600 bg-blue-600 text-white font-semibold">1</span>
+        <span class="ml-2 text-gray-700">Plot</span>
+      </li>
+      <li class="flex-1 h-px bg-gray-300 mx-3"></li>
+      <li class="step-indicator flex items-center" data-step="2">
+        <span class="step-num w-8 h-8 flex items-center justify-center rounded-full border-2 border-gray-300 bg-white text-gray-500 font-semibold">2</span>
+        <span class="ml-2 text-gray-500">Floors</span>
+      </li>
+      <li class="flex-1 h-px bg-gray-300 mx-3"></li>
+      <li class="step-indicator flex items-center" data-step="3">
+        <span class="step-num w-8 h-8 flex items-center justify-center rounded-full border-2 border-gray-300 bg-white text-gray-500 font-semibold">3</span>
+        <span class="ml-2 text-gray-500">Setbacks &amp; Budget</span>
+      </li>
+      <li class="flex-1 h-px bg-gray-300 mx-3"></li>
+      <li class="step-indicator flex items-center" data-step="4">
+        <span class="step-num w-8 h-8 flex items-center justify-center rounded-full border-2 border-gray-300 bg-white text-gray-500 font-semibold">4</span>
+        <span class="ml-2 text-gray-500">Preferences</span>
+      </li>
+    </ol>
+
+    <!-- Form container -->
+    <form id="brief-form" class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+
+      <!-- ═══════════════════ STEP 1: PLOT ═══════════════════ -->
+      <section class="step-panel" data-step="1">
+        <h3 class="text-lg font-semibold mb-5">Step 1 — Your plot</h3>
+
+        <div class="grid grid-cols-2 gap-5">
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Plot width (ft) *</span>
+            <span class="block text-xs text-gray-500 mb-1">Street-facing dimension (in feet)</span>
+            <input type="number" name="plot_width_ft" step="0.5" min="10" max="200" required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="40">
+          </label>
+
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Plot depth (ft) *</span>
+            <span class="block text-xs text-gray-500 mb-1">Perpendicular to street (in feet)</span>
+            <input type="number" name="plot_depth_ft" step="0.5" min="10" max="200" required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="50">
+          </label>
+
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Plot facing *</span>
+            <span class="block text-xs text-gray-500 mb-1">Which direction does the front face?</span>
+            <select name="plot_facing" required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="N">North</option>
+              <option value="NE">Northeast</option>
+              <option value="E">East</option>
+              <option value="SE">Southeast</option>
+              <option value="S">South</option>
+              <option value="SW">Southwest</option>
+              <option value="W">West</option>
+              <option value="NW">Northwest</option>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">City *</span>
+            <span class="block text-xs text-gray-500 mb-1">6 cities supported in v0.1</span>
+            <select name="city" required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="chennai">Chennai</option>
+              <option value="bangalore">Bangalore</option>
+              <option value="hyderabad">Hyderabad</option>
+              <option value="mumbai">Mumbai</option>
+              <option value="pune">Pune</option>
+              <option value="delhi">Delhi</option>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Road width (ft) *</span>
+            <span class="block text-xs text-gray-500 mb-1">The road your plot fronts on (in feet)</span>
+            <input type="number" name="road_width_ft" step="0.5" min="5" max="100" required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="30">
+          </label>
+
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Plot type *</span>
+            <span class="block text-xs text-gray-500 mb-1">Shared walls with neighbours?</span>
+            <select name="plot_type" id="plot-type-select" required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="detached">Detached (standalone)</option>
+              <option value="semi_detached">Semi-detached (one side shared)</option>
+              <option value="continuous">Continuous (row house / CBA — both sides shared)</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- Semi-detached: shared_side picker -->
+        <div id="shared-side-container" class="mt-5 hidden">
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Which side is shared? *</span>
+            <span class="block text-xs text-gray-500 mb-1">Left/right from someone standing on the street facing the plot</span>
+            <select name="shared_side"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="left">Left side</option>
+              <option value="right">Right side</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- Corner plot -->
+        <div class="mt-5">
+          <label class="inline-flex items-center">
+            <input type="checkbox" name="corner_plot" id="corner-plot-check"
+              class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+            <span class="ml-2 text-sm">Corner plot (abuts two roads)</span>
+          </label>
+          <div id="second-road-container" class="mt-3 hidden">
+            <label class="block max-w-xs">
+              <span class="text-sm font-medium text-gray-700">Second road width (ft) *</span>
+              <input type="number" name="second_road_width_ft" step="0.5" min="5" max="100"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════ STEP 2: FLOORS ═══════════════════ -->
+      <section class="step-panel hidden" data-step="2">
+        <h3 class="text-lg font-semibold mb-5">Step 2 — What you want on each floor</h3>
+
+        <label class="block mb-5">
+          <span class="text-sm font-medium text-gray-700">How many floors? *</span>
+          <span class="block text-xs text-gray-500 mb-1">Including ground floor</span>
+          <select name="floor_count" id="floor-count-select" required
+            class="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="1">G only (1 floor)</option>
+            <option value="2" selected>G+1 (2 floors)</option>
+            <option value="3">G+2 (3 floors)</option>
+            <option value="4">G+3 (4 floors)</option>
+          </select>
+        </label>
+
+        <!-- Auto-staircase info banner -->
+        <div id="staircase-banner" class="mb-5 p-3 rounded-md bg-blue-50 border border-blue-200 text-sm text-blue-900">
+          <strong>ℹ️ Auto-staircase:</strong> For 2 or more floors, a staircase will be added
+          automatically if you don't specify one. NBC minimum 5.5 sqm.
+        </div>
+
+        <!-- Floor composition list -->
+        <div id="floor-list" class="space-y-5"></div>
+      </section>
+
+      <!-- ═══════════════════ STEP 3: SETBACKS & BUDGET ═══════════════════ -->
+      <section class="step-panel hidden" data-step="3">
+        <h3 class="text-lg font-semibold mb-5">Step 3 — Setbacks &amp; budget</h3>
+
+        <div class="mb-6 p-3 rounded-md bg-amber-50 border border-amber-200 text-sm text-amber-900">
+          <strong>ℹ️ Soft-guide:</strong> We'll compare your setbacks against NBC / your city's DCR.
+          If below compliance, we'll show warnings but won't reject your input.
+        </div>
+
+        <h4 class="text-sm font-semibold text-gray-700 mb-3">Your setbacks (in feet)</h4>
+        <div id="nbc-setback-hint" class="mb-3 p-3 rounded-md bg-blue-50 border border-blue-200 text-sm text-blue-900 hidden">
+          <strong>ℹ️ NBC requirement for your city + plot:</strong>
+          <span id="nbc-setback-hint-text">—</span>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mb-6">
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Front (ft)</span>
+            <input type="number" name="user_setback_front_ft" step="0.5" min="0" max="50"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="5">
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Rear (ft)</span>
+            <input type="number" name="user_setback_rear_ft" step="0.5" min="0" max="50"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="5">
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Left side (ft)</span>
+            <input type="number" name="user_setback_side_left_ft" step="0.5" min="0" max="50"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="5">
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Right side (ft)</span>
+            <input type="number" name="user_setback_side_right_ft" step="0.5" min="0" max="50"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="5">
+          </label>
+        </div>
+
+        <h4 class="text-sm font-semibold text-gray-700 mb-3">Your budget range (lakhs INR)</h4>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Minimum (₹ lakhs) *</span>
+            <input type="number" name="budget_min_lakhs" step="1" min="1" max="10000" required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="20">
+          </label>
+          <label class="block">
+            <span class="text-sm font-medium text-gray-700">Maximum (₹ lakhs) *</span>
+            <input type="number" name="budget_max_lakhs" step="1" min="1" max="10000" required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="30">
+          </label>
+        </div>
+        <p class="text-xs text-gray-500">
+          Budget is compared against our Component 7 cost engine — same engine that
+          powers the structural output downstream.
+        </p>
+      </section>
+
+      <!-- ═══════════════════ STEP 4: PREFERENCES ═══════════════════ -->
+      <section class="step-panel hidden" data-step="4">
+        <h3 class="text-lg font-semibold mb-5">Step 4 — Preferences (optional)</h3>
+
+        <fieldset class="mb-6">
+          <legend class="text-sm font-semibold text-gray-700 mb-3">Vastu guidance</legend>
+          <div class="space-y-3">
+            <label class="flex items-start p-3 rounded-md border border-gray-200 hover:border-blue-400 cursor-pointer">
+              <input type="radio" name="vastu_preference" value="off" checked class="mt-1 text-blue-600">
+              <div class="ml-3">
+                <div class="text-sm font-medium">Off</div>
+                <div class="text-xs text-gray-500">No vastu guidance. Default.</div>
+              </div>
+            </label>
+
+            <label class="flex items-start p-3 rounded-md border border-gray-200 hover:border-blue-400 cursor-pointer">
+              <input type="radio" name="vastu_preference" value="partial" class="mt-1 text-blue-600">
+              <div class="ml-3">
+                <div class="text-sm font-medium">Partial (7 core items)</div>
+                <div class="text-xs text-gray-500 mb-2">
+                  Info-only guidance — never blocks your design.
+                </div>
+                <ol id="vastu-partial-list" class="text-xs text-gray-600 pl-5 list-decimal space-y-0.5">
+                  <!-- Populated from /api/vastu/partial-items -->
+                  <li class="italic">Loading list...</li>
+                </ol>
+              </div>
+            </label>
+
+            <label class="flex items-start p-3 rounded-md border border-gray-200 hover:border-blue-400 cursor-pointer">
+              <input type="radio" name="vastu_preference" value="full" class="mt-1 text-blue-600">
+              <div class="ml-3">
+                <div class="text-sm font-medium">Full (15+ items)</div>
+                <div class="text-xs text-gray-500">
+                  Partial 7 + plot shape, brahmasthan, windows, dining, sleeping direction, and more.
+                </div>
+              </div>
+            </label>
+          </div>
+        </fieldset>
+
+        <label class="block mb-6">
+          <span class="text-sm font-medium text-gray-700">Additional requirements (optional)</span>
+          <span class="block text-xs text-gray-500 mb-1">Any special requests? E.g., "solar water heating," "elderly-friendly"</span>
+          <textarea name="additional_requirements" rows="3"
+            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+        </label>
+
+        <h4 class="text-sm font-semibold text-gray-700 mb-3">Contact (optional)</h4>
+        <div class="grid grid-cols-2 gap-4 mb-4">
+          <label class="block">
+            <span class="text-sm text-gray-700">Email</span>
+            <input type="email" name="user_email"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </label>
+          <label class="block">
+            <span class="text-sm text-gray-700">Phone</span>
+            <input type="tel" name="user_phone"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+          </label>
+        </div>
+        <p class="text-xs text-gray-500 mb-6">
+          In v0.1: contact info is session-only and won't send resume links.
+          Cross-device save + email resume is coming in v0.2.
+        </p>
+      </section>
+
+      <!-- Navigation -->
+      <div class="flex items-center justify-between pt-6 mt-6 border-t border-gray-200">
+        <button type="button" id="save-later-btn"
+          class="text-sm text-gray-600 underline underline-offset-2 hover:text-gray-900">
+          Save &amp; continue later
+        </button>
+        <div class="flex gap-3">
+          <button type="button" id="prev-btn"
+            class="hidden px-5 py-2 rounded-md border border-gray-300 text-sm font-medium hover:bg-gray-50">
+            Back
+          </button>
+          <button type="button" id="next-btn"
+            class="px-5 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+            Next
+          </button>
+          <button type="submit" id="submit-btn"
+            class="hidden px-5 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+            Submit Brief
+          </button>
+        </div>
+      </div>
+
+      <!-- Save-later disclosure -->
+      <p class="text-xs text-gray-400 mt-4 text-right">
+        Server save gives you a resume URL that works on any device. Briefs expire after 30 days.
+      </p>
+    </form>
+
+    <!-- ═══════════════════ RESULT PANEL ═══════════════════ -->
+    <div id="result-panel" class="hidden mt-8"></div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="max-w-4xl mx-auto px-6 py-6 text-xs text-gray-500 text-center">
+    BuildemUp Component 1 v0.1 — Preliminary planning tool. Not a substitute
+    for a licensed architect or engineer. Output is PENDING ENGINEER VALIDATION.
+  </footer>
+
+  <script src="brief_form.js"></script>
+</body>
+</html>

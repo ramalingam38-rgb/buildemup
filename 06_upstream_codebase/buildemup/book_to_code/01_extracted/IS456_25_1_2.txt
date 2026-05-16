@@ -1,0 +1,47 @@
+SOURCE: IS 456:2000 — Plain and Reinforced Concrete — Code of Practice
+SECTION: 25.1.2 (page 71)
+PUBLISHER: Bureau of Indian Standards
+EXTRACTED: 2026-04-01 (manual)
+EXTRACTED BY: Claude during BuildemUp v0.3 development
+
+---
+
+VERBATIM EXCERPT:
+
+25.1 General
+
+25.1.1 Effective Length
+The effective length of a column shall be calculated as per provisions
+of Annex E.
+
+25.1.2 Slenderness Limits for Columns
+A column may be classified as short or long depending on its
+slenderness ratio. A column is regarded as short if both the slenderness
+ratios lex/D and ley/b are less than 12 (where lex = effective length
+in respect of the major axis, D = depth in respect of the major axis,
+ley = effective length in respect of the minor axis, b = width of the
+member). It shall otherwise be considered as a slender column.
+
+25.3 Slenderness Limits for Columns
+The unsupported length between end restraints shall not exceed 60 times
+the least lateral dimension of a column.
+
+For a column where one end of the column is unrestrained, its
+unsupported length shall not exceed 100 b²/D where b = width of that
+cross-section, and D = depth of the cross-section measured in the
+plane under consideration.
+
+---
+
+NOTES (BuildemUp interpretation):
+
+For our preliminary residential design:
+  - Floor height typically 3000mm
+  - Effective length factor ~ 0.75 for braced columns (typical residential)
+  - So effective length = 3000 * 0.75 = 2250mm
+  - For 230mm column: ratio = 2250 / 230 = 9.78 → SHORT (no buckling check)
+  - For 300mm column: ratio = 2250 / 300 = 7.5 → SHORT
+
+Most residential columns are short. The slenderness check exists to
+flag the rare case where a stilt parking column is unbraced over its
+full height (no intermediate floor) — there it can become slender.
