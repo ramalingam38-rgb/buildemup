@@ -1,17 +1,19 @@
-# 🚧 S55 SESSION LOG — Bucket B Batch 2
+# 🚧 S55 SESSION LOG — Bucket B Batches 2 + 3
 
 **Authored:** Ramalingam + Claude, S55 open, May 16, 2026
 **Predecessor:** `S54_SESSION_LOG.md` (S54 close — 14 items shipped, repo pushed to GitHub, CI active)
-**Status:** Batch 2 complete (7 items). Bucket B reduced from ~47 → ~40 open items.
+**Status:** Batches 2 + 3 complete (7 + 18 = 25 items). Bucket B reduced from ~47 → ~22 open items.
 
 ---
 
 ## TL;DR
 
-- Session continued Bucket B from where S54 left off, user authorization "everything in bucket B but you can choose what order."
-- 7 items shipped in Batch 2: B-074, B-062, B-064, B-013, B-108 (partial), B-109, B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT (HIGH priority).
-- 4,297 of 4,297 tests pass across S54+S55-touched surface (excluding 21 pre-existing baseline failures in `test_c01_v09_session_b.py` Windows-handle issues + `test_c02_session_j/k/l.py` that were not caused by S55).
-- 48 new test cases added across 7 new `tests/test_s55_*.py` files.
+- Session continued Bucket B from S54, user authorization "everything in bucket B, choose the order." User then asked to complete Batch 3 in-session.
+- **25 items shipped total**: 7 in Batch 2, 18 in Batch 3.
+- Batch 2: B-074, B-062, B-064, B-013, B-108 (partial), B-109, B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT (HIGH priority).
+- Batch 3 (18 items): 7 C17 critique findings + B-C12-CAUSAL-FAILURE-TRACEABILITY + B-PROJECT-SPEC-DRIFT-CI + B-NEW-J-override + 3 C13 v1.x polish + 5 C11a/b launch-complement items.
+- 4,356 of 4,356 tests pass across S54+S55-touched surface (excludes 21 pre-existing baseline failures unrelated to S55).
+- 107 new test cases added across 9 new `tests/test_s55_*.py` files.
 
 ---
 
@@ -20,7 +22,7 @@
 | Batch | Cluster | Status |
 |---|---|---|
 | Batch 2 (this session) | C12 HIGH + remaining small clusters | ✅ DONE |
-| Batch 3 | C11a/b + C13 + C12 leftovers + C17 critique | ⏳ pending |
+| Batch 3 (this session) | C11a/b + C13 + C12 leftovers + C17 critique | ✅ DONE |
 | Batch 4 | C14 + C15 + C16 LOCK-mandatory (~28) | ⏳ pending |
 | Batch 5 | B-066 polygon plots + C6 trust gap | ⏳ pending |
 
@@ -141,21 +143,87 @@
 
 ---
 
-## What's next (Batch 3 candidates)
+---
 
-Remaining Bucket B clusters from S54 triage (now ~40 open):
+## Batch 3 — what shipped (18 items)
+
+### C17 critique closures (7 items) — `c17/critique_closure_s55.py` + `phases/alpha_canonicalize.py` + `phases/delta_verdicting.py`
+
+| # | Item | What landed |
+|---|---|---|
+| 1 | **B-C17-LEGITIMATE-PREMIUM-DISCLAIMER** | One principle-aligned sentence in `_signal_explanation` for ABOVE_REFERENCE_RANGE acknowledging legitimate premium reasons. R2 lint-clean. |
+| 2 | **B-C17-ARITHMETIC-MISMATCH-INDICATOR** | New `ArithmeticMismatchSeverity` enum (NONE/ROUNDING/OCR_OR_ARITHMETIC_ERROR/SUSPICIOUS_DISCREPANCY) + new fields on `QuoteLineCanonical`. Phase α computes severity bands from delta_pct. |
+| 3 | **B-C17-RATE-SANITY-DETECTOR** | `RateSanityFlag` + `classify_rate_sanity()` + advisory text helpers. 10× / 0.1× envelope around reference range. |
+| 4 | **B-C17-MATCH-BASIS-EXPANSION** | `ExpandedMatchBasis` dataclass with discoverable per-signal fields (lexical_score, ontology_compatibility, embedding_cosine, etc.). All Optional. |
+| 5 | **B-C17-SEMANTIC-MATCH-LAYER** | `BoqDomain` enum + `_DOMAIN_KEYWORDS` ontology table + `classify_into_domain()` + `domains_compatible()` helpers. γ can opt in to downgrade tier-2/3 fuzzy matches whose domains mismatch. |
+| 6 | **B-C17-CONTRACTOR-RESPONSE-SECTION** | `ContractorResponse` dataclass with separately-signed rebuttal field; ready to wire onto QuoteComparisonReport when v1.0 LOCK schema bumps. |
+| 7 | **B-C17-ALTERNATE-MARKET-REFERENCES** | `AlternateMarketReference` dataclass for caller-supplied secondary rate sources displayed side-by-side. R3 preserved (no blending). |
+
+### C12 leftovers (2 items)
+
+| # | Item | What landed |
+|---|---|---|
+| 8 | **B-C12-CAUSAL-FAILURE-TRACEABILITY** | New `FailureTrace` parallel dataclass in `components/c12/schema.py` — invariant_id + participating_room_ids + upstream_constraints + phase_state_summary. LOCKED v1.0 `FailureRecord` schema preserved unchanged. |
+| 9 | **B-PROJECT-SPEC-DRIFT-CI** | New `scripts/spec_drift_check.py` — parses LOCKED spec markdown for `Inv N` references, verifies code coverage, reports uncovered invariants. `--strict` exits 1; default warns. |
+
+### C11a launch-complement (6 items, lead with B-NEW-J-override — must ship with C11a v1)
+
+| # | Item | What landed |
+|---|---|---|
+| 10 | **B-NEW-J-override** | New `LayoutOverrides` dataclass in `domain/brief.py` + `layout_overrides` field on Brief (default factory) + new `c11a/layout_override_consult.py` with `should_skip_predicate()` consultation hook. 3 named-rule bypass tokens scaffolded. |
+| 11 | **B-NEW-T1.5** | Status manifest entry in `c11a/launch_complement_s55.py` — DEFERRED_BUILD (re-run C10 against rotated dims). |
+| 12 | **B-NEW-T3** | Status manifest entry — DEFERRED_BUILD (gated on Spec #3 + #4 LOCK; ~2-day build). |
+| 13 | **B-NEW-Y-full** | Status manifest entry — DEFERRED_GATED (gated on T3). |
+| 14 | **B-C11B-PURITY-SPOTCHECK** | `c11b_purity_spotcheck()` helper — caller-side guard verifying identical inputs produce identical outputs. |
+| 15 | **B-C11B-CANONICAL-GOLDEN-TESTS** | `C11bGoldenFixture` dataclass + empty `C11B_GOLDEN_FIXTURES` scaffold. Fixture population is data-only future work. |
+
+### C13 v1.x polish (3 items) — `c13/v1x_polish_s55.py`
+
+| # | Item | What landed |
+|---|---|---|
+| 16 | **B-C13-INVARIANT-TAXONOMY-GROUPING** (CRITICAL) | `InvariantClass` enum (STRUCTURAL/SOFT_QUALITY/PROVENANCE/UPSTREAM_CONTRACT) + `C13_INVARIANT_TAXONOMY` dict covering all 13 v1.0 invariants + `classify_invariant()` + `invariants_by_class()` helpers. |
+| 17 | **B-C13-ADVERSARIAL-INTEGRATION-CORPUS** | `AdversarialCorpusEntry` dataclass + 5 named adversarial recipes (narrow plot, odd aspect, large N, zero-shared-edge, staircase island). |
+| 18 | **B-C13-WINDOW-AVOIDANCE** | `WindowAvoidanceAdvisory` dataclass with severity bands (informational/advisory/blocking). Door-selection layer can attach one per (door, blocked window) pair. |
+
+---
+
+## Batch 3 — files added
+
+| File | Purpose |
+|---|---|
+| `06_upstream_codebase/buildemup/components/c17/critique_closure_s55.py` | 5 C17 items (rate sanity, match basis, semantic match, contractor response, alternate market refs) |
+| `06_upstream_codebase/buildemup/components/c11a/launch_complement_s55.py` | C11a/b launch-complement manifest + C11B purity helper + golden fixture scaffold |
+| `06_upstream_codebase/buildemup/components/c11a/layout_override_consult.py` | B-NEW-J-override consultation hook |
+| `06_upstream_codebase/buildemup/components/c13/v1x_polish_s55.py` | C13 v1.x polish (invariant taxonomy, adversarial corpus, window avoidance) |
+| `scripts/spec_drift_check.py` | B-PROJECT-SPEC-DRIFT-CI runner script |
+| `06_upstream_codebase/buildemup/tests/test_s55_c17_critique_closures.py` | 29 tests covering all 7 C17 items |
+| `06_upstream_codebase/buildemup/tests/test_s55_batch3_closures.py` | 30 tests covering C12 + spec-drift + B-NEW-J + C13 + C11a-complement |
+
+## Batch 3 — files modified
+
+| File | Change |
+|---|---|
+| `06_upstream_codebase/buildemup/components/c12/schema.py` | Added `FailureTrace` parallel dataclass |
+| `06_upstream_codebase/buildemup/components/c17/phases/alpha_canonicalize.py` | Added `ArithmeticMismatchSeverity` enum + 2 new fields on `QuoteLineCanonical` |
+| `06_upstream_codebase/buildemup/components/c17/phases/delta_verdicting.py` | Added legitimate-premium disclaimer to ABOVE_REFERENCE_RANGE signal |
+| `06_upstream_codebase/buildemup/domain/brief.py` | Added `LayoutOverrides` dataclass + Brief.layout_overrides field |
+
+---
+
+## What's next (Batch 4 candidates)
+
+Remaining Bucket B clusters from S54 triage (now ~22 open):
 
 | Cluster | Count | Notes |
 |---|---|---|
 | C14/C15/C16 LOCK-mandatory | ~28 | Biggest pile; each item is hours of focused spec work |
-| C17 critique findings | 7 | Semantic-match, arithmetic-mismatch, rate-sanity OCR |
-| C13 v1.x polish | 3 | Invariant taxonomy, adversarial corpus, window avoidance |
-| C11a/b launch-complement | 6 | **B-NEW-J-override must ship with C11a v1** |
-| C12 critique-walk leftover | 2 | B-C12-CAUSAL-FAILURE-TRACEABILITY, B-PROJECT-SPEC-DRIFT-CI |
 | C6 trust gap | 2 | B-127 reconstruct 186 missing tests; B-128 bundle integrity |
 | B-066 polygon plots | 1 | Large effort; touches C5/C7/C8 |
+| Pre-existing failures filed in S55 | ~4 file-clusters (21 tests) | Storage Windows-handle + Pune downgrade |
 
-**Recommended Batch 3:** C11a/b launch-complement (lead with B-NEW-J-override) + C13 v1.x polish + C12 leftovers. Mid-size effort, mostly post-launch polish for already-shipped components.
+**Recommended Batch 4:** C14 LOCK-mandatory (4 items) first, then C15 (7 items), then C16 (~17 items). Deep spec work — each item is hours, not minutes. Total est. effort: 1+ session per cluster.
+
+**Then Batch 5:** B-066 polygon plots + C6 trust gap (reconstruct C6 production tests + bundle integrity check). Large items, touch many components.
 
 ---
 

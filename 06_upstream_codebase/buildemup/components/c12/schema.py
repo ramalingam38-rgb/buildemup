@@ -340,6 +340,62 @@ class FailureRecord:
     phase: Literal["phase0", "phase0b", "phase1", "phase1b", "phase2", "phase3"]
 
 
+# =============================================================================
+# § 2.2.6b (v1.1) — FailureTrace (B-C12-CAUSAL-FAILURE-TRACEABILITY, S55)
+# =============================================================================
+
+@dataclass(frozen=True)
+class FailureTrace:
+    """B-C12-CAUSAL-FAILURE-TRACEABILITY (S55 Batch 3).
+
+    Parallel structure to `FailureRecord` that captures the causal
+    chain — which invariant raised, which rooms participated, which
+    upstream constraints triggered the cascade. The LOCKED v1.0
+    `FailureRecord` schema stays immutable; orchestrators that need
+    deeper traceability emit a `FailureTrace` alongside the original
+    `FailureRecord` instead of amending it.
+
+    Per backlog: parallel structure preferred over FailureRecord
+    amendment to preserve the v1.0 LOCKED schema (replay determinism).
+
+    Fields:
+      candidate_signature: links back to the failed candidate.
+      invariant_id: which spec invariant raised (e.g., "Inv 3",
+                    "Inv 11"); empty if failure was not invariant-
+                    bound (e.g., resource exhaustion).
+      participating_room_ids: rooms involved in the cascade (canonical
+                              lex-ASC).
+      upstream_constraints: which upstream constraint identifiers
+                            triggered the cascade (e.g., "C7-grid-fix-X42",
+                            "C11a-vacancy-row-3"). Canonical lex-ASC.
+      phase_state_summary: short text snapshot of placement state when
+                           the failure fired.
+    """
+    candidate_signature: str
+    invariant_id: str
+    participating_room_ids: tuple[str, ...]
+    upstream_constraints: tuple[str, ...]
+    phase_state_summary: str
+
+    def __post_init__(self) -> None:
+        if not self.candidate_signature:
+            raise ValueError(
+                "FailureTrace.candidate_signature must be non-empty."
+            )
+        ids = list(self.participating_room_ids)
+        if ids != sorted(ids):
+            raise ValueError(
+                f"FailureTrace.participating_room_ids must be sorted "
+                f"lex-ASC; got {ids}."
+            )
+        constraints = list(self.upstream_constraints)
+        if constraints != sorted(constraints):
+            raise ValueError(
+                f"FailureTrace.upstream_constraints must be sorted "
+                f"lex-ASC; got {constraints}."
+            )
+
+
 @dataclass(frozen=True)
 class PlacementBatchResult:
     """Orchestrator batch output: successes + failures.

@@ -437,11 +437,22 @@ def _signal_explanation(
         if is_bundle_quote else ""
     )
 
+    # B-C17-LEGITIMATE-PREMIUM-DISCLAIMER (S55 Batch 3): one principle-
+    # aligned sentence acknowledging that above-reference rates can have
+    # legitimate sources. Stays advisory-tone-clean (R2 lint passes); we
+    # explicitly do NOT model premium-spec / site-difficulty / urgency.
+    _LEGITIMATE_PREMIUM_NOTE = (
+        " Higher rates can reflect premium specifications, complex site "
+        "conditions, or specialised workmanship — worth asking the "
+        "contractor what's included."
+    )
+
     if signal == PriceSignal.ABOVE_REFERENCE_RANGE:
         return (
             f"This rate is above our reference range for {boq_label} "
             f"in Chennai 2026 (delta {sign_str}). Worth asking the "
-            f"contractor about the specification.{bundle_note}"
+            f"contractor about the specification."
+            f"{_LEGITIMATE_PREMIUM_NOTE}{bundle_note}"
         )
     if signal == PriceSignal.ABOVE_TYPICAL:
         return (

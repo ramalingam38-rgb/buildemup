@@ -232,6 +232,55 @@ class ComplianceSummary:
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# LayoutOverrides (B-NEW-J-override, S55 Batch 3)
+# ─────────────────────────────────────────────────────────────────────────
+@dataclass(frozen=True)
+class LayoutOverrides:
+    """B-NEW-J-override (must ship with C11a v1 production, S55 closure).
+
+    Named-rule bypass tokens that C11a's predicate registry consults
+    before firing a predicate. Without these, B-NEW-J's road-facing /
+    private-band rule biases the search against legitimate luxury or
+    view typologies — sea-facing bedrooms, premium frontage homes, etc.
+
+    Each field is a discrete boolean — NOT an opaque rule-id string.
+    Per the B-meta-rule-taxonomy framework: bypass tokens are surfaced
+    as named, audited fields, not stringly-typed escape hatches.
+
+    Adding a new override here requires extending C11a's predicate
+    registry to consult it; the two must ship in lockstep.
+
+    All defaults preserve the LOCKED v1.0 behavior (every predicate
+    fires), so existing Brief construction is unaffected.
+    """
+    accept_road_facing_private_band: bool = False
+    """When True, C11a does NOT bias against road-facing PRIVATE band
+    layouts. Use for view-typology homes (sea-facing master bedroom,
+    valley-facing private wing) where the road-facing-private rule
+    would reject the user's intentional design."""
+
+    accept_kitchen_adjacent_to_bedroom: bool = False
+    """When True, C11a does NOT bias against kitchen-to-bedroom
+    adjacency. Use for compact urban plots where acoustic isolation
+    can be handled via wall construction rather than spatial layout."""
+
+    accept_vastu_violation_for_view: bool = False
+    """When True, C11a does NOT enforce the vastu-preferred orientation
+    when it would block a documented view direction. Caller must set
+    vastu_preference=PARTIAL or OFF in tandem; this override only
+    affects FULL tier enforcement."""
+
+    def any_active(self) -> bool:
+        """True if at least one bypass token is set; used by
+        provenance to flag candidates that consumed an override."""
+        return any((
+            self.accept_road_facing_private_band,
+            self.accept_kitchen_adjacent_to_bedroom,
+            self.accept_vastu_violation_for_view,
+        ))
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # Brief (top-level)
 # ─────────────────────────────────────────────────────────────────────────
 @dataclass(frozen=True)
@@ -256,6 +305,10 @@ class Brief:
     assumptions_used: tuple[str, ...] = ()
     trace_id: str = ""
     kb_versions: dict = field(default_factory=dict)
+    # B-NEW-J-override (S55 Batch 3): named-rule bypass tokens for
+    # C11a predicate registry consultation. Defaults preserve v1.0
+    # behavior (no overrides active).
+    layout_overrides: LayoutOverrides = field(default_factory=LayoutOverrides)
 
     def __post_init__(self) -> None:
         if len(self.floors) < 1:

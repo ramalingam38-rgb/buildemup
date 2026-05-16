@@ -1,35 +1,65 @@
 # 🚨 NEXT CLAUDE — START HERE — S56 OPEN
 
 **Authored:** Ramalingam + Claude, S55 close, May 16, 2026
-**Session state:** 14 backlog items closed in S54 + 7 more in S55 = 21 total Bucket A/B items shipped. C12 reached v1.1 via the EXTERNAL-EDGE-TYPE-AMENDMENT (HIGH priority). 4,297-test sweep clean (21 pre-existing baseline failures separately tracked).
-**Latest LOCK:** C12 v1.1 schema amendment (additive default; no contract break). All other S55 changes are non-LOCK-touching fixes.
+**Session state:** 14 backlog items closed in S54 + 25 more in S55 = 39 total Bucket A/B items shipped. C12 reached v1.1 via EXTERNAL-EDGE-TYPE-AMENDMENT (HIGH priority); also added FailureTrace v1.1 (B-C12-CAUSAL-FAILURE-TRACEABILITY). 4,356-test sweep clean (21 pre-existing baseline failures separately tracked).
+**Latest LOCK:** C12 v1.1 schema amendments (additive defaults; no contract breaks). All other S55 changes are non-LOCK-touching fixes.
 **Your task:** Read this file. Then read `S55_SESSION_LOG.md` (chronological detail for S55) and `04_backlog/S54_BACKLOG_TRIAGE.md` (the 4-bucket plan). Then await Ramalingam's S56 direction.
 
 ---
 
 ## 🎯 What S55 accomplished
 
-S55 was a **single-session continuation of Bucket B**. The user authorized "everything in bucket B" with Claude choosing the order. 7 items shipped (Batch 2 of a planned 4-batch sequence). Full chronological log is in `S55_SESSION_LOG.md`. Headline numbers:
+S55 was a **single-session continuation of Bucket B**. The user authorized "everything in bucket B" with Claude choosing the order, then asked to complete Batch 3 in-session as well. **25 items shipped** across 2 batches. Full chronological log is in `S55_SESSION_LOG.md`. Headline numbers:
 
 | Metric | At S55 open | At S55 close |
 |---|---|---|
 | Bucket A (deploy-blockers) | 2 open (calendar-bound) | 2 open (unchanged — calendar-bound) |
-| Bucket B (product-blockers) | ~47 open | ~40 open |
-| Tests passing (S54+S55-touched surface) | n/a | 4,297 of 4,297 (+48 new test cases) |
+| Bucket B (product-blockers) | ~47 open | ~22 open |
+| Tests passing (S54+S55-touched surface) | n/a | 4,356 of 4,356 (+107 new test cases) |
 | New typed exception layer | none | `domain/exceptions.py` with 5 typed errors |
-| C12 schema version | v1.0 LOCKED | v1.1 (additive edge_type amendment) |
+| New Brief field | none | `LayoutOverrides` (B-NEW-J-override) |
+| C12 schema version | v1.0 LOCKED | v1.1 (additive: edge_type + FailureTrace) |
+| C13 polish layer | n/a | `c13/v1x_polish_s55.py` (invariant taxonomy + adversarial corpus + window avoidance) |
+| C17 critique closures | none | 7 items via `c17/critique_closure_s55.py` + α/δ edits |
+| CI tooling | none | `scripts/spec_drift_check.py` (B-PROJECT-SPEC-DRIFT-CI) |
 | KB versions bumped | n/a | kb.soil_classification v1→v2; kb.soil_city_defaults v1.0→v1.1 |
 
-### Specific items closed in S55 (7 total)
+### Specific items closed in S55 (25 total)
 
-**Batch 2 — code-only, all DONE:**
-1. **B-074** — MEDIUM_ROCK as first-class kb.SoilClass with IS 6403 typical 1250 kPa (was approximated to SOFT_ROCK 660)
+**Batch 2 — code-only, all DONE (7):**
+1. **B-074** — MEDIUM_ROCK as first-class kb.SoilClass with IS 6403 typical 1250 kPa
 2. **B-062** — Startup cross-check: BUILDEMUP_ENV=prod + C3A_TEST_MODE=1 → sys.exit(1)
-3. **B-064** — CSP + Cache-Control + nosniff headers on static assets via `_serve_static`
-4. **B-013** — Typed exception migration: BriefDomainError + 5 subclasses; C3a `_classify_error` dispatches on type first
-5. **B-108 partial** — NBC corridor minimum citation breadcrumb + verification report at `05_integrity_check/B108_PARTIAL_NBC_VERIFICATION_S55.md`
-6. **B-109** — `design_corridors_safe()` wrapper + `NarrowPlotRecommendation` — per-candidate graceful fallback for CorridorTooNarrowError
-7. **B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT** (HIGH priority) — C12 v1.1: SharedEdge gains `edge_type: EdgeType = EdgeType.INTERNAL`; EdgeType moved from c13.contracts to c12.schema as canonical source
+3. **B-064** — CSP + Cache-Control + nosniff headers on static assets
+4. **B-013** — Typed exception migration: BriefDomainError + 5 subclasses
+5. **B-108 partial** — NBC corridor minimum citation breadcrumb + verification report
+6. **B-109** — `design_corridors_safe()` + `NarrowPlotRecommendation` graceful fallback
+7. **B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT** (HIGH) — C12 v1.1 SharedEdge.edge_type
+
+**Batch 3 — closures, all DONE (18):**
+
+C17 critique findings (7):
+- 8. **B-C17-LEGITIMATE-PREMIUM-DISCLAIMER** — principle-aligned premium sentence in δ
+- 9. **B-C17-ARITHMETIC-MISMATCH-INDICATOR** — severity bands on QuoteLineCanonical
+- 10. **B-C17-RATE-SANITY-DETECTOR** — 10×/0.1× envelope outlier detector
+- 11. **B-C17-MATCH-BASIS-EXPANSION** — `ExpandedMatchBasis` discoverable fields
+- 12. **B-C17-SEMANTIC-MATCH-LAYER** — `BoqDomain` ontology + classifier + compat check
+- 13. **B-C17-CONTRACTOR-RESPONSE-SECTION** — `ContractorResponse` dataclass
+- 14. **B-C17-ALTERNATE-MARKET-REFERENCES** — `AlternateMarketReference` dataclass
+
+C12 leftovers (2):
+- 15. **B-C12-CAUSAL-FAILURE-TRACEABILITY** — parallel `FailureTrace` dataclass (LOCKED FailureRecord preserved)
+- 16. **B-PROJECT-SPEC-DRIFT-CI** — `scripts/spec_drift_check.py` runner with `--strict`
+
+C11a/b launch-complement (6):
+- 17. **B-NEW-J-override** (must ship with C11a v1) — `LayoutOverrides` + consultation hook
+- 18-20. **B-NEW-T1.5/T3/Y-full** — manifest entries (DEFERRED_BUILD / DEFERRED_GATED)
+- 21. **B-C11B-PURITY-SPOTCHECK** — `c11b_purity_spotcheck()` helper
+- 22. **B-C11B-CANONICAL-GOLDEN-TESTS** — `C11bGoldenFixture` + scaffold
+
+C13 v1.x polish (3):
+- 23. **B-C13-INVARIANT-TAXONOMY-GROUPING** (CRITICAL) — `InvariantClass` + taxonomy covering all 13 v1.0 invariants
+- 24. **B-C13-ADVERSARIAL-INTEGRATION-CORPUS** — 5 named adversarial test recipes
+- 25. **B-C13-WINDOW-AVOIDANCE** — `WindowAvoidanceAdvisory` dataclass
 
 ### S54 accomplishments (carried forward for context)
 
@@ -188,18 +218,19 @@ BuildemUp† (placeholder name; future "BuildEase") is a decision-support engine
 
 ---
 
-## 🛣️ Recommended Batch 3 directions for S56
+## 🛣️ Recommended Batch 4 directions for S56
 
-Per the multi-session plan locked at S55 open, Batch 3 covers C11a/b launch-complement + C13 v1.x polish + C12 leftovers + C17 critique findings (mid-size items, post-launch polish for already-shipped components). Specifically:
+Batches 2 + 3 closed everything in Bucket B *except* the LOCK-mandatory pile and the two large items. S56 should pick from:
 
-- **B-NEW-J-override** (must ship with C11a v1 production)
-- **B-C12-CAUSAL-FAILURE-TRACEABILITY** + **B-PROJECT-SPEC-DRIFT-CI** (C12 leftovers)
-- **B-C13-INVARIANT-TAXONOMY-GROUPING** (CRITICAL per S44 rollup — cognitive overload flagged 3 walks deep)
-- **B-C13-ADVERSARIAL-INTEGRATION-CORPUS** + **B-C13-WINDOW-AVOIDANCE**
-- 6 more C11a/b launch-complement items
-- 7 C17 critique findings
+- **C14 LOCK-mandatory** (4 items) — lock betweenness/privacy/transit/edge formulas before C14 v1.0 ships. Each item is hours of focused spec work; recommended start.
+- **C15 LOCK-mandatory** (7 items) — severity-rule-table, check-registry, cultural-profile, measurement-formulas, moat-lint.
+- **C16 LOCK-mandatory** (~17 items) — envelope schema, section-cut rules, RWH overlay, compliance provenance, parking schema, PBT coverage, regression snapshots, dual-frame coordinate audit.
+- **B-066 polygon plots** (1 item, large) — promoted from v2-deferred to product-blocker by user decision; touches C5/C7/C8.
+- **C6 trust gap** (2 items) — B-127 reconstruct 186 missing tests; B-128 bundle integrity check.
 
-After Batch 3: Batch 4 starts on C14/C15/C16 LOCK-mandatory (~28 items, biggest pile). Then Batch 5: B-066 polygon plots + C6 trust gap.
+**My recommendation:** start with C14 LOCK-mandatory because each subsequent component depends on C14's locked formulas. Then C15 → C16 → B-066 → C6 trust gap.
+
+Also worth picking up: the **21 pre-existing failures** that the S55 sweep surfaced (`test_c01_v09_session_b.py` Windows storage-handle races + `test_c02_session_j/k/l.py` Pune downgrade) — file as new Bucket B items in Batch 4 and fix early; they're likely small once root cause is found.
 
 ## 🚩 Pre-existing failures filed in S55 (file as Bucket B in Batch 3)
 

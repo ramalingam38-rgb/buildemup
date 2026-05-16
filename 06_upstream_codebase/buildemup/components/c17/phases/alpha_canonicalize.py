@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional, Tuple
 
 from buildemup.components.c17.advisory_lint import lint_advisory_text
@@ -60,6 +61,26 @@ from buildemup.components.c17.versioning import (
 # § 1 — CANONICAL LINE TYPE (intermediate, not user-facing)
 # ============================================================
 
+
+class ArithmeticMismatchSeverity(str, Enum):
+    """B-C17-ARITHMETIC-MISMATCH-INDICATOR (S55 Batch 3).
+
+    Classifies a `qty × rate ≠ stated_total` discrepancy. Surfaces in
+    phase ζ as a structured indicator instead of an opaque raw_notes
+    string.
+
+    Bands (per backlog spec):
+      NONE: no quantity/rate, or the delta is below EPSILON_AMOUNT_INR.
+      ROUNDING: Δ < 1% of stated total — banker's-rounding; silent.
+      OCR_OR_ARITHMETIC_ERROR: 1% ≤ Δ < 10% — informational indicator.
+      SUSPICIOUS_DISCREPANCY: Δ ≥ 10% — advisory surfaced to user.
+    """
+    NONE = "none"
+    ROUNDING = "rounding"
+    OCR_OR_ARITHMETIC_ERROR = "ocr_or_arithmetic_error"
+    SUSPICIOUS_DISCREPANCY = "suspicious_discrepancy"
+
+
 @dataclass(frozen=True)
 class QuoteLineCanonical:
     """Phase α output. NOT in QuoteComparisonReport schema — purely
@@ -75,6 +96,11 @@ class QuoteLineCanonical:
     is_lump_sum:       bool       # phase α classification (definitive)
     parser_hint_used:  bool       # provenance — was hint authoritative?
     raw_notes:         str = ""
+    # B-C17-ARITHMETIC-MISMATCH-INDICATOR (S55 Batch 3)
+    arithmetic_mismatch_severity: ArithmeticMismatchSeverity = (
+        ArithmeticMismatchSeverity.NONE
+    )
+    arithmetic_mismatch_delta_pct: Optional[float] = None
 
 
 # ============================================================
@@ -209,8 +235,26 @@ def _canon_line(
     unit_norm = _normalise_unit(li.unit)
 
     # Compute / cross-check total
+    mismatch_severity = ArithmeticMismatchSeverity.NONE
+    mismatch_delta_pct: Optional[float] = None
     if li.quantity is not None and li.rate is not None:
         computed = li.quantity * li.rate
+        delta = abs(computed - li.total)
+        if delta > EPSILON_AMOUNT_INR and li.total != 0.0:
+            # B-C17-ARITHMETIC-MISMATCH-INDICATOR severity bands.
+            delta_pct = (delta / abs(li.total)) * 100.0
+            mismatch_delta_pct = delta_pct
+            if delta_pct < 1.0:
+                mismatch_severity = ArithmeticMismatchSeverity.ROUNDING
+            elif delta_pct < 10.0:
+                mismatch_severity = (
+                    ArithmeticMismatchSeverity.OCR_OR_ARITHMETIC_ERROR
+                )
+            else:
+                mismatch_severity = (
+                    ArithmeticMismatchSeverity.SUSPICIOUS_DISCREPANCY
+                )
+
         if abs(computed - li.total) > max(EPSILON_AMOUNT_INR, 0.01 * li.total):
             # Significant mismatch — record but don't fail.
             # The CONTRACTOR's total is authoritative for R3 (we don't
@@ -251,6 +295,8 @@ def _canon_line(
         is_lump_sum=is_lump,
         parser_hint_used=parser_hint_authoritative,
         raw_notes=new_notes,
+        arithmetic_mismatch_severity=mismatch_severity,
+        arithmetic_mismatch_delta_pct=mismatch_delta_pct,
     )
 
 
