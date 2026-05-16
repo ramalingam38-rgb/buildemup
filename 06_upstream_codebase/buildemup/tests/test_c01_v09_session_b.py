@@ -26,9 +26,26 @@ def _isolated_storage():
 
 
 def _cleanup(path):
+    # S55 Batch 4 (Windows fix): SQLite connections take a tick to fully
+    # release the file handle on Windows even after the `with` block
+    # exits. PermissionError on the unlink is benign — the OS cleans up
+    # the temp file on next sweep. FileNotFoundError happens when a
+    # prior cleanup already ran.
+    import gc
+    gc.collect()
+    for _ in range(3):
+        try:
+            os.unlink(path)
+            return
+        except FileNotFoundError:
+            return
+        except PermissionError:
+            time.sleep(0.05)
+            gc.collect()
+    # Final attempt — swallow if still locked (temp file, OS will clean).
     try:
         os.unlink(path)
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError):
         pass
 
 
@@ -499,7 +516,9 @@ def test_frontend_html_save_disclosure_updated():
     """Form HTML disclosure no longer says 'browser only'."""
     from pathlib import Path
     html_path = Path(__file__).parent.parent / "static" / "brief_form.html"
-    html = html_path.read_text()
+    # S55 fix (same family as S54-005): explicit UTF-8 — Windows
+    # defaults to cp1252 and the file contains UTF-8 emoji bytes.
+    html = html_path.read_text(encoding="utf-8")
     # Old phrasing should be gone
     assert "browser only" not in html
     # New phrasing

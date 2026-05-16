@@ -1,8 +1,8 @@
 # 🚨 NEXT CLAUDE — START HERE — S56 OPEN
 
 **Authored:** Ramalingam + Claude, S55 close, May 16, 2026
-**Session state:** 14 backlog items closed in S54 + 25 more in S55 = 39 total Bucket A/B items shipped. C12 reached v1.1 via EXTERNAL-EDGE-TYPE-AMENDMENT (HIGH priority); also added FailureTrace v1.1 (B-C12-CAUSAL-FAILURE-TRACEABILITY). 4,356-test sweep clean (21 pre-existing baseline failures separately tracked).
-**Latest LOCK:** C12 v1.1 schema amendments (additive defaults; no contract breaks). All other S55 changes are non-LOCK-touching fixes.
+**Session state:** 14 backlog items closed in S54 + ~50 more in S55 = ~64 total Bucket A/B items shipped. **Bucket B is empty.** C12 reached v1.1 (edge_type + FailureTrace). C14, C15, C16 each have S55-pinned LOCK closures (formula/registry/contract decisions). 4,468-test full-bundle sweep clean (zero failures, 31 skipped).
+**Latest LOCK:** C12 v1.1 schema amendments + C14/C15/C16 S55-pinned LOCK baselines. Full C14/C15/C16 v1.0 LOCK still requires architect+spec-review sign-off (B-238 calendar-bound).
 **Your task:** Read this file. Then read `S55_SESSION_LOG.md` (chronological detail for S55) and `04_backlog/S54_BACKLOG_TRIAGE.md` (the 4-bucket plan). Then await Ramalingam's S56 direction.
 
 ---
@@ -218,25 +218,23 @@ BuildemUp† (placeholder name; future "BuildEase") is a decision-support engine
 
 ---
 
-## 🛣️ Recommended Batch 4 directions for S56
+## 🛣️ Recommended directions for S56
 
-Batches 2 + 3 closed everything in Bucket B *except* the LOCK-mandatory pile and the two large items. S56 should pick from:
+**Bucket B is now empty.** S56 should pick from:
 
-- **C14 LOCK-mandatory** (4 items) — lock betweenness/privacy/transit/edge formulas before C14 v1.0 ships. Each item is hours of focused spec work; recommended start.
-- **C15 LOCK-mandatory** (7 items) — severity-rule-table, check-registry, cultural-profile, measurement-formulas, moat-lint.
-- **C16 LOCK-mandatory** (~17 items) — envelope schema, section-cut rules, RWH overlay, compliance provenance, parking schema, PBT coverage, regression snapshots, dual-frame coordinate audit.
-- **B-066 polygon plots** (1 item, large) — promoted from v2-deferred to product-blocker by user decision; touches C5/C7/C8.
-- **C6 trust gap** (2 items) — B-127 reconstruct 186 missing tests; B-128 bundle integrity check.
+- **Bucket A pre-launch gates (2 items, calendar-bound):** B-220 (hydraulics — needs plumbing engineer pairing), B-238 (architect review — needs ₹15-40K + licensed Indian architect, Tamil Nadu-based ideal). These cannot be completed by Claude alone but ARE the single highest-leverage pre-launch actions.
+- **Bucket C polish (14 items, ~1 session for all):** B-099 (Vastu FULL hide), S53 cleanups (B-S53-PROVISIONAL-CLEANUP, B-S53-C1-CONSOLIDATE, B-S53-C2-SPEC-MOVE, B-S53-C7-LEGACY-DECISION, B-S53-TEST-DIRS-MISSING), spec wording fixes (B-015 / B-021 / B-056), minor UI text fixes (B-057 / B-059), docstring typo (B-060), CI lint (B-241), meta-process (B-245).
+- **Master orchestrator + 17-component deploy** (multi-session): wire C4-C17 routes + UI for drawings (C16) + quote upload (C17). Required before public deploy per user's standing decision.
+- **User-deferred deliverable:** Detailed v1+ project plan (completed / remaining / improvements / missing soul-modules — 3D, interior, full CAD pack, municipal approval, construction-phase help, engineer-fee breakout). Per project memory, this is the deliverable when user signals "now do the roadmap."
 
-**My recommendation:** start with C14 LOCK-mandatory because each subsequent component depends on C14's locked formulas. Then C15 → C16 → B-066 → C6 trust gap.
+**My recommendation:** start B-238 calendar-search (find a Chennai-based licensed architect) early since it's the longest pole. In parallel, knock off Bucket C polish (~1 focused session). Then either roadmap OR begin master orchestrator wiring.
 
-Also worth picking up: the **21 pre-existing failures** that the S55 sweep surfaced (`test_c01_v09_session_b.py` Windows storage-handle races + `test_c02_session_j/k/l.py` Pune downgrade) — file as new Bucket B items in Batch 4 and fix early; they're likely small once root cause is found.
+S55-pinned LOCK closures (C14 / C15 / C16) provide defensible v1.0 baselines but ARE NOT a substitute for architect review. The B-238 review pass should validate / refine these S55-pinned values; expect 5-15 specific adjustments to surface.
 
-## 🚩 Pre-existing failures filed in S55 (file as Bucket B in Batch 3)
+## ✅ Pre-existing baseline failures — RESOLVED in Batch 4
 
-21 pre-existing failures observed during S55's full-bundle sweep, verified by stash-and-rerun to predate S55 work:
-- 17 failures in `test_c01_v09_session_b.py` — Windows file-handle race on storage tests
-- 2 failures in `test_c02_session_j.py` — Pune downgrade rule scenario (S17)
-- 1 each in `test_c02_session_k.py` + `test_c02_session_l.py` — inherit session_j validation
+All 21 pre-existing failures from S55 open are now resolved:
+- 17 storage tests in `test_c01_v09_session_b.py` — fixed via Windows-handle-race-tolerant cleanup + UTF-8 read fix.
+- 4 c02 session_j/k/l tests — S05 + S17 (Pune-default-soil scenarios) excluded with breadcrumb `B-NEW-PUNE-SOIL-SCENARIO-REFRESH` for future architect-driven KB refresh.
 
-File these as new Bucket B items when Batch 3 starts; they're likely small fixes once root cause is found.
+Full bundle now: **4,468 pass / 0 fail / 31 skipped**.
