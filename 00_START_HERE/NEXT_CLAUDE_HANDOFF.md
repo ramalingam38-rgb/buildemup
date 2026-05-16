@@ -1,163 +1,136 @@
-# 🚨 NEXT CLAUDE — START HERE — S54 OPEN
+# 🚨 NEXT CLAUDE — START HERE — S55 OPEN
 
-**Authored:** Ramalingam + Claude, S53 close, May 16, 2026
-**Session state:** Track 3 canonical 17-component architecture **STRUCTURALLY COMPLETE**
-**Latest LOCK:** C3b v0.7 (S52); no new LOCKs in S53 (reconciliation pass only)
-**Your task:** Read this. Then read `COMPONENT_STATUS_S53.md` in this same directory. Then await Ramalingam's S54 direction.
-
----
-
-## 🎯 The single most important thing to know
-
-**All 17 components are LOCKED and physically present at canonical paths
-in `06_upstream_codebase/buildemup/components/`.**
-
-This was not true at S52 close. The S52 handoff said "all 17 components
-are shipped," and at the session-level it was true — but the upstream
-working tree had bundle drift: 5 components (C3a, C4, C10, C12, C13)
-had stub `contracts.py` files at canonical paths but the real LOCKED
-code was missing. C7 had a single 951-LOC pre-amendment monolith and a
-stub folder.
-
-S53 closed every gap. All real LOCKED code is now at canonical paths.
-**Test count: 750 (S53 start) → 4,268 (S53 close).**
+**Authored:** Ramalingam + Claude, S54 close, May 16, 2026
+**Session state:** 14 backlog items closed in S54; project pushed to private GitHub repo `ramalingam38-rgb/buildemup`; CI matrix active.
+**Latest LOCK:** No new LOCKs in S54 (Bucket A + B fixes only — no contract changes).
+**Your task:** Read this file. Then read `S54_SESSION_LOG.md` (chronological detail) and `04_backlog/S54_BACKLOG_TRIAGE.md` (the 4-bucket plan). Then await Ramalingam's S55 direction.
 
 ---
 
-## 📊 What S53 actually did
+## 🎯 What S54 accomplished
 
-Reconciliation pass — no new specs, no new LOCKs, no contract changes.
+S54 was a **single-day execution session** that closed 14 backlog items, set up CI, and pushed the project to GitHub for the first time. The full chronological log is in `S54_SESSION_LOG.md`. Headline numbers:
 
-| # | Action | Source |
+| Metric | At S54 open | At S54 close |
 |---|---|---|
-| 1 | Restored C3a (9 modules + 23 tests + 5 API + 11 UI files) | `buildemup_c3a_complete.zip` upload |
-| 2 | Restored C4 (7 modules) | `03_code_chronological/C4_final_shipped_files/` |
-| 3 | Restored C10 (11 modules + 5 KB JSONs + 7 tests) | `c10_c12_c13_c14_components.zip` upload |
-| 4 | Restored C12 (17 modules + `slicing_kd_tree/` + 8 tests) | Same upload |
-| 5 | Restored C13 (16 modules + 7 tests) | Same upload + `S45_C13_v1_0_SHIPPED.zip` |
-| 6 | Restored C7 (8 LOCKED modules) | `c7_complete_bundle.zip` upload + S38 `grid_generator.py` |
-| 7 | Codified stub-shim pattern across all 6 restored components | S52-introduced pattern |
-| 8 | Installed `hypothesis` library | `pip install --break-system-packages` |
-| 9 | Filed all S53 spec docs in `02_specs_chronological/` | Move from working tree |
-| 10 | Wrote `COMPONENT_STATUS_S53.md` and `components/README.md` | New authoring |
-| 11 | Wrote S53 GAP/AUDIT/INTEGRITY checks | Rule 10.6 |
-| 12 | Wrote `MASTER_DOC_v3_16_TO_v3_17_DELTA.md` | This delta |
+| Bucket A (deploy-blockers) | 8 open | 2 open (B-220, B-238 — calendar-bound, need humans) |
+| Bucket B (product-blockers) | ~55 open | ~47 open |
+| Tests passing | 4,268 | 4,312 (+44 new test cases) |
+| GitHub state | not a repo | private repo `ramalingam38-rgb/buildemup` + 2 commits + CI active |
+| Live verification | C1 brief surface only | C1 + C2 + C3a chain working live + verified twice by user |
+| Memory files | none | 3 files at `~/.claude/projects/.../memory/` |
+
+### Specific items closed (14 total)
+
+**Bucket A — code-only (6 items, ALL DONE):**
+1. **S54-001+002** — `/api/brief/capture` chains C1 → C2 → C3a-detect (closes silent-override soul violation)
+2. **S54-003** — BIGGEST ISSUE decimal-truncation fix (sentence splitter)
+3. **S54-004** — Chennai detached small-plot side_right_m fix (KB v3→v4)
+4. **S54-005** — Windows cp1252 encoding test bug
+5. **B-237** — Cross-platform CI workflow at `.github/workflows/test.yml`
+6. **B-150 partial** — NBC citation cleanup in `room_minimums.json` (KB v1→v2) + verification report at `05_integrity_check/B150_PARTIAL_NBC_VERIFICATION_S54.md`
+
+**Bucket A — calendar-bound (2 items, NOT TOUCHED — need humans):**
+7. **B-220** — Hydraulics depth in C10 (needs plumbing engineer pairing, calendar)
+8. **B-238** — Independent licensed Indian architect review (needs ₹15-40K budget, Tamil Nadu-based ideal, calendar)
+
+**Bucket B — product-blockers (8 items shipped):**
+9. **S54-006** — Suppress contradictory "budget generous" INFO when C2 reports envelope-insufficient
+10. **B-003** — Mumbai + Pune stilt mandate thresholds added
+11. **B-002** — line_type canonicalized to HT/LT/UNKNOWN
+12. **B-010** — far_compliance HARD_FAIL now populates excess_sqft
+13. **B-014** — SETBACK_INVALID classification + template added
+14. **B-004** — C3a CIRCULATION_FACTOR aligned 1.30 → 1.35
+15. **B-050** — `PRAGMA foreign_keys = ON` in BriefStorage
+16. **B-051** — `BUILDEMUP_DATABASE_PATH` fallback in gate_state_storage
 
 ---
 
 ## ⚠️ Critical landmines for the next Claude
 
-### Landmine 1 — Do NOT trust handoff doc claims of "shipped" without verification
+### Landmine 1 — `NEXT_CLAUDE_HANDOFF.md` was rewritten in S54
+This file (the one you're reading) was created at S54 close. The previous version (telling Claude how to OPEN S54) is archived as `S54_OPEN_HANDOFF_FROM_S53_archive.md` in this same folder. **Do not be confused** — this is the canonical S55 entry point.
 
-This is exactly the trap S53 fell into. The S52 handoff said all 17
-were shipped; the truth was 5 stubs + 1 monolith. If a future session
-says "C19 is shipped," **verify it physically lives at the canonical
-path** by running:
+### Landmine 2 — Run from `06_upstream_codebase/`, not bundle root
+The Python package `buildemup` lives at `06_upstream_codebase/buildemup/`. The venv lives at `06_upstream_codebase/venv/`. Any `python -m buildemup.api.server` or `python -m pytest` command must be run from `06_upstream_codebase/` after activating venv:
 
-```bash
-ls 06_upstream_codebase/buildemup/components/cNN/
+```powershell
+cd "C:\Buildemup Full 17 components complete\06_upstream_codebase"
+.\venv\Scripts\Activate.ps1
+python -m buildemup.api.server  # OR
+python -m pytest buildemup/tests -q
 ```
 
-Empty folder or just `contracts.py` + `__init__.py` = stub. The
-**multiple-module count + non-trivial LOC + tests in `tests/test_cNN/`**
-is the actual proof of presence.
+### Landmine 3 — Server caches Python modules + JSON
+After editing any KB rule, Python module, or component code, **the user must restart the server** for changes to take effect. Browser hard-refresh (`Ctrl+Shift+R`) alone isn't enough. The user already hit this in S54 — flag it proactively.
 
-### Landmine 2 — `grid_generator.py` has TWO LOCKED versions
+### Landmine 4 — `rendered_explain` vs `combined_rendered_explain`
+In `/api/brief/capture` responses, `rendered_explain` is C1-only (backwards-compat). `combined_rendered_explain` is the chained C1+C2+C3a view (frontend uses this). When debugging "why doesn't my fix show up," check WHICH field the user is reading.
 
-The c7_complete_bundle.zip shipped `grid_generator.py` at 301 LOC
-(S36 v0.8 LOCKED). The live LOCKED contract is **501 LOC** (S38 with
-B-NEW-K W9 staircase amendment baked in). The 501-LOC version lives at
-`03_code_chronological/S38_code/components/c07/grid_generator.py` and is
-what's currently installed at `c07/grid_generator.py`.
+### Landmine 5 — GitHub repo is PRIVATE
+`https://github.com/ramalingam38-rgb/buildemup` is private. CI runs on Ubuntu + Windows + macOS × Python 3.12 on every push. If CI finds new platform bugs, file them as Bucket B items immediately.
 
-**Do not "revert" to the bundle version** — the project has been using
-the staircase amendment continuously since S38.
-
-### Landmine 3 — Stub-shim pattern is real architecture, not legacy
-
-`_c3b_shim.py` files in c03a, c04, c07, c10, c12, c13 are **canonical**
-per the stub-shim pattern established at S52. They are not leftover
-stubs to be deleted. C3b imports from them. Renaming or removing them
-will break C3b's 464-test suite.
-
-The pattern is documented in `06_upstream_codebase/buildemup/components/README.md`.
-
-### Landmine 4 — `c10/__init__.PROVISIONAL_S53.py` is audit trail, not active code
-
-S53 briefly used a provisional `__init__.py` for C10 while waiting for
-C7's `wall_segment.py`. Once C7 arrived, the LOCKED `__init__.py` was
-restored. The provisional is preserved at `__init__.PROVISIONAL_S53.py`
-for the audit trail and can be deleted at S54 (B-S53-PROVISIONAL-CLEANUP).
-
-### Landmine 5 — `c07_structural_grid.py` at top level is the LEGACY pre-amendment version
-
-The 951-LOC monolithic `components/c07_structural_grid.py` is the
-pre-S36 monolithic version. The canonical post-amendment version lives
-in `components/c07/` as 8 modular files. **No production code imports
-from the top-level file.** Disposition decision pending
-(B-S53-C7-LEGACY-DECISION).
+### Landmine 6 — The user is non-engineer
+Ramalingam built this entire 17-component system in collaboration with Claude. He's smart and clear-eyed but doesn't know Python/UNIX internals deeply. Explain commands; offer to walk through unfamiliar things; don't assume terminal fluency.
 
 ---
 
-## ✅ How to verify the project state yourself
+## ✅ How to verify project state on your own machine
 
-Run this from the bundle root after unzipping:
+(Assumes user has venv set up — done in S54.)
 
-```bash
-cd 06_upstream_codebase/buildemup/tests
-PYTHONPATH=$(pwd)/..:$(pwd)/../.. python3 -m pytest -q --no-header --tb=no
+**Smoke test (~3 sec):**
+```powershell
+cd "C:\Buildemup Full 17 components complete\06_upstream_codebase"
+.\venv\Scripts\Activate.ps1
+python -m pytest buildemup\tests\test_s54_brief_chain.py buildemup\tests\test_s54_006_budget_suppression.py -q
 ```
+Expected: 10 passed.
 
-Expected: **4,268 passed, 6 skipped, 0 failed** in ~90 seconds.
+**Full suite (~90 sec):** runs ~4,312 tests; see `04_backlog/S54_BACKLOG_TRIAGE.md` Phase 17 for the canonical invocation pattern.
 
-If you see anything different, **stop**. Either:
-- The Python version is wrong (use 3.12+)
-- `hypothesis` isn't installed (run `pip install hypothesis --break-system-packages`)
-- Bundle was modified after S53 close
-
-Quick smoke (~2 seconds):
-```bash
-python3 -m pytest test_c03b/ test_c03a_*.py -q --no-header
-# Expected: 750 passed, 3 skipped
+**Live server:**
+```powershell
+python -m buildemup.api.server
 ```
+Visit `http://localhost:8000/brief_form.html` and submit a brief. Output should include C1 sections + `FEASIBILITY CHECK — Component 2` section + (if applicable) `⚠ EXTREME CASE(S) DETECTED` section.
 
 ---
 
-## 🛣️ Recommended directions for S54
+## 🛣️ Recommended directions for S55
 
-Ramalingam has not directed S54 yet. These are options ranked by my read:
+Pick one based on Ramalingam's signal:
 
-### Option A — Pre-launch hard gates (recommended, blocks deployment)
-Four backlog items have been marked as pre-launch hard gates:
-- **B-220 (hydraulics):** Plumbing engineering depth — extend C10 with real hydraulic calculation, not just chase routing.
-- **B-237 (cross-platform CI):** Verify the project runs on Mac/Windows/Linux reliably (currently Linux only).
-- **B-238 (architect review):** Get a licensed Indian architect to review BuildEase output against real residential design practice. Cannot be done by Claude alone.
-- **B-150-equiv (NBC primary verification):** Verify code citations against actual NBC 2016 text, not paraphrased KB modules.
+### Option A — Continue Bucket B (still ~47 items)
+Biggest sub-cluster: **C14/C15/C16 LOCK-mandatory items (~28 items)**. These were filed at component v1.0 LOCK time as v1-launch-blockers. Each one is hours of work — reading specs, locking formulas, writing tests.
 
-### Option B — End-to-end orchestrator wiring
-The 17 components each pass their tests individually, but there's no single
-runnable pipeline `brief → feasibility → topology → grid → rooms → drawings → quote`.
-This is integration work, not new design. ~2-4 sessions.
+Other Bucket B groupings:
+- C17 critique findings (7 items — semantic-match, arithmetic-mismatch, rate-sanity OCR, etc.)
+- C13 v1.x polish top 3 (invariant taxonomy, adversarial corpus, window avoidance)
+- C11a/b launch-complement (6 items, B-NEW-J-override must ship with C11a v1)
+- C12 critique-walk findings (3 items; B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT is HIGH priority)
+- C6 trust gap (2 items: reconstruct missing C6 production tests; bundle integrity check)
+- B-066 (polygon plots — promoted to B in S54 per user; Large effort)
 
-### Option C — User-facing surface
-Design Principles v3.1 (locked, in `07_design_documents/`) spells out the
-UX — Transparency Triple, advisory tone, confidence indicators, emotional
-reassurance. The principles exist; the screens don't. ~3-6 sessions.
+### Option B — Address calendar-bound Bucket A items
+- **B-238 architect review:** Find a licensed Indian architect, ideally Chennai-based (TNCDBR familiarity), and brief them. Budget ₹15-40K for 6-10 hours. This is the single highest-leverage pre-launch action — they will surface 5-15 new items you can't catch yourself.
+- **B-220 hydraulics:** Find a plumbing engineer to pair with on C10's hydraulic depth.
 
-### Option D — Routed amendments
-- **B-C12-EXTERNAL-EDGE-TYPE-AMENDMENT (HIGH priority)** routes to C12 v1.1.
-- **B-NEW-J-override** must ship same release as C11a production.
-- These are real LOCKED-spec amendment work, not new components.
+### Option C — User-requested deferred deliverable (DETAILED V1+ ROADMAP)
+**REMEMBER THIS.** Saved in memory at `project_buildease_state_and_deferred_tasks.md`:
+> User wants a detailed v1+ project plan covering: (a) what's completed, (b) what's still to be completed, (c) what improvements are needed, (d) what additional design modules are needed to make the project soul-complete (3D, interior design, full CAD pack for construction, municipal-approval submission, construction-phase help, engineer-fee + labour-cost breakout, etc.).
+>
+> User flagged this explicitly: "I want you to keep in mind about this." Do NOT begin this plan until the user signals that backlogs + deploy are complete.
 
-### Option E — Cosmetic cleanup
-- **B-S53-C1-CONSOLIDATE:** Fold `c01_brief_capture.py` into `c01/`.
-- **B-S53-C2-SPEC-MOVE:** Move C2 spec from `docs/` to canonical archive.
-- **B-S53-C7-LEGACY-DECISION:** Disposition of `c07_structural_grid.py`.
-- **B-S53-PROVISIONAL-CLEANUP:** Delete `c10/__init__.PROVISIONAL_S53.py`.
+If user says "let's do the roadmap now," this is the deliverable.
 
-My recommendation: **Option A or B**. The structural reconciliation is
-done; the project needs ground-truth contact with real users (Option A
-via architect review especially) and end-to-end runnability (Option B).
+### Option D — Deploy with all 17 components
+User's standing decision: when we deploy publicly, all 17 components must be live, not the current C1+C2+C3a-only surface. This requires the **master orchestrator** (wires C1 → C2 → C3a/C3b → C4 → ... → C17 as one pipeline) + HTTP routes for C4-C17 + UI for drawings (C16) and quote upload (C17). Multi-session work.
+
+### Option E — Cosmetic Bucket C (14 items)
+Quick wins; ~1 session for all 14. Includes B-099 (hide Vastu FULL from UI per user decision), B-S53-PROVISIONAL-CLEANUP, B-S53-C1-CONSOLIDATE, B-S53-C2-SPEC-MOVE, etc.
+
+**My recommendation:** A or B. B is calendar-bound so start it early. A is the gate to "v1 done."
 
 ---
 
@@ -165,71 +138,35 @@ via architect review especially) and end-to-end runnability (Option B).
 
 | What | Where |
 |---|---|
-| This document | `00_START_HERE/NEXT_CLAUDE_HANDOFF.md` (you're reading it) |
-| Comprehensive component index | `00_START_HERE/COMPONENT_STATUS_S53.md` (read it second) |
-| Project rules | `00_START_HERE/RULES_RAMALINGAM_FORMALIZED.md` |
-| Three obligations + 5 anti-patterns | `00_START_HERE/THREE_OBLIGATIONS_AND_PATTERNS.md` |
-| Master doc latest delta | `01_master_doc/MASTER_DOC_v3_16_TO_v3_17_DELTA.md` |
-| All spec docs | `02_specs_chronological/` (flat numbered + per-component folders + per-session folders) |
-| Code archive per session | `03_code_chronological/` |
-| Backlog | `04_backlog/` (most recent: `S48_critique_walk_backlog_delta.md` + S53 entries in COMPONENT_STATUS) |
-| S53 three-checks | `05_integrity_check/S53_GAP_CHECK.md`, `S53_AUDIT_CHECK.md`, `S53_INTEGRITY_CHECK.md` |
+| This document | `00_START_HERE/NEXT_CLAUDE_HANDOFF.md` (you're reading) |
+| S54 session log (full chronological detail) | `00_START_HERE/S54_SESSION_LOG.md` |
+| Prior S53→S54 handoff (now stale, archived) | `00_START_HERE/S54_OPEN_HANDOFF_FROM_S53_archive.md` |
+| Backlog triage with 4 buckets | `04_backlog/S54_BACKLOG_TRIAGE.md` |
+| NBC verification partial report | `05_integrity_check/B150_PARTIAL_NBC_VERIFICATION_S54.md` |
+| Master doc latest | `01_master_doc/MASTER_DOC_v3_16_TO_v3_17_DELTA.md` |
 | Runnable code | `06_upstream_codebase/buildemup/` |
 | Components README | `06_upstream_codebase/buildemup/components/README.md` |
-| C1 spec + design docs | `07_design_documents/` (includes Design Principles v3.1) |
-| Raw session transcripts | `08_session_transcripts/` |
-| Conversation artifacts | `09_conversation_artifacts/` |
+| GitHub remote | `https://github.com/ramalingam38-rgb/buildemup` (PRIVATE) |
+| Memory (auto-loaded) | `~\.claude\projects\C--Buildemup-Full-17-components-complete\memory\` |
 
 ---
 
-## ✅ Prerequisites for S54
+## 🧠 Memory state at S54 close
 
-All carryforward from S50/S52, plus S53 reinforcement:
+Three memory files exist; new Claude reads them automatically:
 
-1. **Rule 7** (critique handling): web search mandatory on every critique walk.
-2. **Rule 8** (LOCK authority = Ramalingam alone): never self-declare LOCK; always present as PROPOSED, await explicit "lock it."
-3. **Rule 9.2** (always-file-backlog): when critique surfaces VALID-BUT-BACKLOG items, file them as B-NNN entries in `04_backlog/v0_2_backlog.md` immediately, no permission needed.
-4. **Rule 10** (handoff bundle structure): 10-directory canonical layout; never invent new top-level directories.
-5. **Rule 10.6** (three-check protocol): GAP + AUDIT + INTEGRITY checks mandatory before every handoff.
-6. **Rule 10.6.1** (pre-touch inventory): before claiming credit for created/modified files, inventory the working tree at session start.
-7. **Rule 10.7** (handoff timing): "hand off" → first response is status block + three-check **plan**; NO bundle assembly until Ramalingam confirms/corrects.
-8. **Single-zip rule:** Every handoff is one zip file. No loose files alongside.
-9. **Cumulative-handoff rule:** Every handoff is cumulative, not delta. Clone prior session's bundle, then layer this session's additions.
-10. **Rule 11** (vigorous self-analysis + web research): on every spec/code creation, amendment, and critique walk.
+1. `user_ramalingam.md` — who Ramalingam is, working style, origin story
+2. `project_buildease_state_and_deferred_tasks.md` — S54 state + deferred v1+ roadmap task
+3. `feedback_session_handoff_log.md` — preference: maintain session log + finalize as handoff at end
+
+If memory shows different content than this handoff, **trust the handoff** (it's more recent) and update memory with `update`.
 
 ---
 
-## 🎓 Project context (for fresh sessions)
+## 🎓 Project context (one paragraph for fresh sessions)
 
-BuildEase† (placeholder name) is a decision-support engine for Indian
-families building their own home. Mission: close information asymmetry
-between homeowners and contractors in the Indian residential construction
-market.
+BuildemUp† (placeholder name; future "BuildEase") is a decision-support engine for Indian families building their own home. The product exists to close information asymmetry between homeowners and contractors/architects/engineers, in particular making material cost, engineer fees, labour, contractor margin, and timeline all visible separately (the user built his own home and was given a single bundled cost with no breakdown — that experience is the origin story). 17 components: C1 brief → C2 feasibility → C3a/C3b negotiation → C4 plot analysis → C5 topology → C6 orientation → C7 structural grid → C8 corridor → C9 room sizer → C10 wet zones → C11a/b topology mutation + NSGA-II → C12 vertical alignment → C13 doors → C14 connection graph → C15 problem finder → C16 dual drawings → C17 quote comparison. Soul-complete v1 requires master orchestrator, 3D, interior design, full CAD pack for construction, municipal submission, construction-phase help — NONE of which exist yet. Current deploy surface is C1+C2+C3a only.
 
-- **Solo founder:** Ramalingam, Tamil Nadu, India.
-- **Live deployment:** buildease-production.up.railway.app
-- **GitHub:** ramalingam38-rgb/buildease
-- **17-component canonical architecture** (Track 3) is definitive.
-- **Domain depth:** NBC 2016, IS 456/962/11268/13920, TNCDBR, city DCRs
-  (Tamil Nadu, Mumbai, Delhi, Bangalore, Maharashtra, Hyderabad), BHK
-  conventions, FAR, stilt mandates, plot rules, CBA verification, Vastu
-  (excluded from logic but understood for users), BOQ, IFC.
+†= placeholder name marker. Final product name TBD ("BuildEase" preferred; "Archimind" is taken).
 
-The four phases of the pipeline:
-
-1. **Understanding (C1–C4):** Brief capture, feasibility check, trade-off
-   negotiation if infeasible, plot analysis.
-2. **Generation (C5–C13):** Topology, orientation, structural grid,
-   corridor, room size, wet zones, placement, vertical alignment, doors.
-3. **Evaluation (C14–C16):** Connection graph, problem finder, dual drawings.
-4. **Cost Transparency (C17):** Quote comparison.
-
-C11a (Topology Mutation) and C11b (NSGA-II Refinement) sit between
-generation and evaluation as iteration layers.
-
----
-
-†= placeholder name marker. Final product name to be set later
-("BuildEase" is the working name; "Archimind" is taken).
-
-**Welcome to S54. Read `COMPONENT_STATUS_S53.md` next.**
+**Welcome to S55. Read `S54_SESSION_LOG.md` next for chronological detail, then `S54_BACKLOG_TRIAGE.md` for the work plan.**
