@@ -1,174 +1,139 @@
-# S57 — Master Orchestrator Follow-Ups (MUST do next session)
+# S57 — Master Orchestrator Follow-Ups
 
 **Authored:** S56, May 16, 2026, Ramalingam + Claude
-**Context:** S56 shipped the **MVP MasterOrchestrator** (`06_upstream_codebase/buildemup/orchestration/`) that walks all 17 components. C4-C11a run as a real chain; C11b runs the real orchestrator but uses C11b's built-in `StubEvaluator` (BatchAllTopologiesFailedError is caught and converted to STUB status). C12-C17 ship as STUB-status phases pending adapter glue.
+**S57 update (May 17, 2026):** Items #4/#5/#6 ✅ CLOSED (C12 + C13 + C14 OK). Items #1/#2/#3 ✅ CLOSED (C7 full engine, C11a M1-M9, real C11b evaluator). **C11b now ships OK with the real MultiObjectiveEvaluator + brief shim — C12 activates the documented PRIMARY adapter path.** 8 follow-ups remain.
 
-**This document is the explicit punch list of what S57 must close so the orchestrator advances from MVP → production-quality.** Items are ordered by leverage. Each item lists exact file paths and contracts.
+**Context:** S56 shipped the **MVP MasterOrchestrator** (`06_upstream_codebase/buildemup/orchestration/`) that walks all 17 components. S57 closed 6 follow-ups in one session: C7 runs the full StructuralGridEngine (grid + structure + foundation + cost); C11a supports the full M0-M9 operator suite; C11b uses a real EvaluatorProtocol (MultiObjectiveEvaluator + per-room brief shim) and now flips to OK; C12 activates the primary RefinedCandidate adapter path when C11b OK; C13/C14 ship OK. C15-C17 still STUB pending #7/#8/#9.
+
+**This document is the explicit punch list.** Items are ordered by leverage. Each item lists exact file paths and contracts.
 
 ---
 
-## Status of phases at S56 close
+## Status of phases at S57 close
 
-| Phase | S56 status | What's needed to upgrade to OK |
+| Phase | Status | What's needed to upgrade to OK |
 |---|---|---|
 | `c01_brief` | SKIPPED (no full Brief provided) or OK (if Brief passed) | None — works as designed; SKIP is correct default |
 | `c02_feasibility` | SKIPPED or OK | None — works as designed |
 | `c04_plot_analysis` | OK | None |
 | `c05_topology` | OK | None |
 | `c06_orientation` | OK | None |
-| `c07_structural_grid` | OK (GridGenerator only) | Upgrade to full `StructuralGridEngine().execute()` for sizing + foundation + cost (see Follow-up #1) |
+| `c07_structural_grid` | **OK with full engine (S57)** | ✅ #1 closed. `enable_full_structural_engine=True` (default) runs StructuralGridEngine → StructuralGridOutput. MVP-compat path still available |
 | `c08_corridor` | OK | None |
 | `c09_room_sizer` | OK | None |
 | `c10_wet_zones` | OK | None |
-| `c11a_topology_mutation` | OK (M0_BASE only) | Enable M1-M9 operators (see Follow-up #2) |
-| `c11b_nsga_refinement` | STUB | Real EvaluatorProtocol implementation (see Follow-up #3) |
-| `c12_vertical_placement` | STUB | C11b→C12 adapter (see Follow-up #4) |
-| `c13_doors` | STUB | C12→C13 adapter + DoorPlacementConfig (see Follow-up #5) |
-| `c14_connection_graph` | STUB | room_metadata_by_signature builder (see Follow-up #6) |
+| `c11a_topology_mutation` | **OK with M0-M9 (S57, opt-in)** | ✅ #2 closed. `enable_full_mutation_operators=True` enables M0 + M1-M9 |
+| `c11b_nsga_refinement` | **OK with real evaluator (S57, opt-in)** | ✅ #3 closed. `use_real_c11b_evaluator=True` flips to OK via MultiObjectiveEvaluator + brief shim. Default `False` preserves StubEvaluator → STUB path for deterministic smoke tests |
+| `c12_vertical_placement` | **OK (S57)** | ✅ #4 closed. Primary RefinedCandidate adapter activates when C11b OK; C11a fallback used when C11b STUB |
+| `c13_doors` | **OK (S57)** | ✅ #5 closed. C12 PlacedCandidates → place_doors with WARN-mode config |
+| `c14_connection_graph` | **OK (S57)** | ✅ #6 closed. room_metadata_by_signature builder ships in `orchestration/adapters/c12_c13_to_c14.py` |
 | `c15_problem_finder` | STUB | (C12,C13,C14) triples + ProblemAnalysisMetadata (see Follow-up #7) |
 | `c16_dual_drawings` | STUB | UpstreamInputBundle assembly (see Follow-up #8) |
 | `c17_quote_comparison` | STUB | Separate user-uploaded-quote flow (see Follow-up #9) |
 
 ---
 
-## Follow-up #1 — C7 full StructuralGridEngine wiring
+## Follow-up #1 — C7 full StructuralGridEngine wiring ✅ CLOSED (S57)
 
-**Current state:** `_run_c07_structural_grid` calls only `GridGenerator().generate(...)` which produces column positions. The full `StructuralGridEngine().execute(...)` adds structural sizing (beams, slabs, columns dimensions), foundation engineering, and cost estimation.
+**Closed:** S57 (2026-05-17). `_run_c07_structural_grid` switched from `GridGenerator().generate(...)` to `StructuralGridEngine().execute(StructuralGridInput(...))` (in `06_upstream_codebase/buildemup/components/c07_structural_grid.py`). Payload is now `StructuralGridOutput` with `grid + structure + foundation + cost + sensitivity` populated.
 
-**Effort:** ~1-2 hours.
+**Orchestrator change:** new `_extract_grid(c07_result)` helper pulls the Grid object out of either the full-engine StructuralGridOutput (default) or the MVP-compat Grid payload (when `enable_full_structural_engine=False`). Downstream C8/C9/C10/C11a are unchanged.
 
-**Action:**
-1. Construct a `StructuralGridInput` from upstream `PlotAnalysis` + `FloorRoomBrief`. Fields:
-   - `envelope_width_m` / `envelope_depth_m` (from plot analysis)
-   - `floors_above_ground` (from floor_brief or default 2)
-   - `city`, `seismic_zone`, `has_stilt_parking`, `has_terrace_access`, `has_water_tank`, `plot_facing` (defaults or from plot/brief)
-   - `building_type=BuildingType.RESIDENTIAL_SINGLE_FAMILY`
-2. Call `StructuralGridEngine().execute(input)` → `SizedStructure` + `FoundationDesign` + cost estimate
-3. Update `_run_c07_structural_grid` payload to include both grid + structure + foundation + cost
-4. Update smoke test to verify the upgraded payload
+**MVP-compat path:** `MasterOrchestratorConfig(enable_full_structural_engine=False)` reverts to S56-MVP behavior (Grid-only payload) for tests that pin that shape.
 
-**File:** `06_upstream_codebase/buildemup/orchestration/master_orchestrator.py` — `_run_c07_structural_grid` method
-**Test:** `06_upstream_codebase/buildemup/tests/test_orchestration/test_master_orchestrator_smoke.py` — `test_c4_c11a_phases_produce_real_outputs`
+**Defaults used:** `floors_above_ground=2`, `seismic_zone="II"`, `building_type=RESIDENTIAL_SINGLE_FAMILY`. City is auto-detected from `plot_analysis.plot.city` (falls back to "chennai" for unsupported cities — the cost estimator handles this gracefully).
+
+**Tests added:** 2 smoke tests (full-engine payload shape + MVP-compat path).
+
+**Effort actual:** ~45 min (under the 1-2h estimate; mostly debugging field names).
 
 ---
 
-## Follow-up #2 — C11a enable M1-M9 mutation operators
+## Follow-up #2 — C11a enable M1-M9 mutation operators ✅ CLOSED (S57)
 
-**Current state:** MVP uses `enabled_operators=(MutationOperator.M0_BASE,)` for fast smoke tests. Production wants the full operator suite.
+**Closed:** S57 (2026-05-17). `MasterOrchestratorConfig.enable_full_mutation_operators: bool = False` added; when True, `_run_c11a_topology_mutation` enables M0_BASE + M1-M9 (full 16-operator suite). Default False keeps the smoke-test surface small.
 
-**Effort:** ~30 min (config-only change + adjusted test expectations).
+**Doc-vs-reality note:** Follow-up doc listed `M9A_ENTRY_NE_CENTER` / `M9B_ENTRY_NE_CORNER_W` etc. but the actual enum names are `M9A_ENTRY_CTR` / `M9B_ENTRY_W` / `M9C_ENTRY_E` / `M9D_ENTRY_OFF` (per `c11a/schema.py`). The implementation uses the real names.
 
-**Action:**
-1. In `MasterOrchestratorConfig`, add `enable_full_mutation_operators: bool = False` field.
-2. In `_run_c11a_topology_mutation`, if `enable_full_mutation_operators=True`, use:
-   ```python
-   enabled_operators=(
-       MutationOperator.M0_BASE,
-       MutationOperator.M1_HORIZ_FLIP,
-       MutationOperator.M2_VERT_FLIP,
-       MutationOperator.M3A_STAIR_EAST,
-       MutationOperator.M3B_STAIR_WEST,
-       MutationOperator.M3C_STAIR_NE,
-       MutationOperator.M4_CORRIDOR_INV,
-       MutationOperator.M5_ZONE_SWAP,
-       MutationOperator.M6_WET_ROTATE,
-       MutationOperator.M7A_GRID_3_3,
-       MutationOperator.M7B_GRID_2_7,
-       MutationOperator.M8_VERT_REARR,
-       MutationOperator.M9A_ENTRY_NE_CENTER,
-       MutationOperator.M9B_ENTRY_NE_CORNER_W,
-       MutationOperator.M9C_ENTRY_NE_CORNER_E,
-       MutationOperator.M9D_ENTRY_OFFSET_NE,
-   )
-   ```
-3. Add a new smoke test that runs with `enable_full_mutation_operators=True` and verifies multiple variants are produced.
+**Tests added:** 1 smoke test (`test_c11a_full_operator_suite_produces_more_variants`) — asserts full suite produces ≥ default-suite variant count and that notes record the active mode.
 
-**File:** `master_orchestrator.py` — `MasterOrchestratorConfig` + `_run_c11a_topology_mutation`
-**Test:** new `test_c11a_full_operator_suite_produces_multiple_variants` in `test_master_orchestrator_smoke.py`
+**Effort actual:** ~20 min (under the 30 min estimate).
 
 ---
 
-## Follow-up #3 — Real EvaluatorProtocol for C11b
+## Follow-up #3 — Real EvaluatorProtocol for C11b ✅ CLOSED (S57)
 
-**Current state:** C11b uses `StubEvaluator(StubEvaluatorConfig())`. The stub's heuristic scoring doesn't satisfy NSGA convergence — every batch fails under WARN mode and we catch the `BatchAllTopologiesFailedError` to convert to STUB status.
+**Closed:** S57 (2026-05-17). New module `06_upstream_codebase/buildemup/orchestration/evaluators.py` ships:
 
-**Effort:** ~half-session to one full session. This is the largest follow-up.
+- `MultiObjectiveEvaluator` (implements `EvaluatorProtocol`) with three NSGA-friendly objectives derived from upstream context + candidate dimensions:
+  1. `area_undersizing` — quadratic penalty on (target_area - actual_area) when room is under-sized
+  2. `aspect_penalty` — sum of (aspect_ratio - 1)² across rooms
+  3. `envelope_waste` — under-utilization of the plot envelope
+- `build_real_evaluator_from_upstream(*, c11a_payload, plot_analysis)` — constructor helper that walks C11a → C10 → C9 to extract per-room context.
+- `C11bBriefShim` + `build_c11b_brief_shim_from_upstream(c11a_payload)` — required because C11b's `_extract_requirements_and_envelope` looks for per-room `min_width_m` / `min_depth_m` attributes that the canonical `FloorRoomBrief` doesn't carry. The shim re-packages C9's `RoomSizeTable` rows in the shape C11b expects.
 
-**Action:**
-1. Define what "real" evaluator means: NSGA-II requires objective vectors per candidate. Objectives likely include:
-   - `accessibility_score` (from C14 graph metrics)
-   - `wet_zone_economy` (from C10 risk)
-   - `corridor_efficiency` (from C8 area accounting)
-   - `programmatic_match` (from C9 room sizing satisfaction)
-2. Build `MultiObjectiveEvaluator(EvaluatorProtocol)` in `buildemup/orchestration/evaluators.py` (new file).
-3. Wire `_run_c11b_refinement` to use the new evaluator when `config.use_real_evaluator=True`.
-4. Add tests asserting C11b phase produces OK status with real evaluator.
+**Orchestrator wiring:** `MasterOrchestratorConfig.use_real_c11b_evaluator: bool = False`. When True, `_run_c11b_refinement` builds the real evaluator + brief shim from upstream and passes BOTH to `run_local_refinement`. NSGA converges on the smoke fixture (~60 RefinedCandidates produced; verified). C11b ships OK.
 
-**File:** new `06_upstream_codebase/buildemup/orchestration/evaluators.py` + update `_run_c11b_refinement`
-**Test:** new `test_c11b_with_real_evaluator_produces_refined_candidates`
+**Cascade effect:** When C11b ships OK with refined candidates, the C12 dispatcher (`build_single_floor_inputs_from_upstream`) auto-routes to the PRIMARY `adapt_refined_to_single_floor` path instead of the C11a fallback. The S57 #4 primary path activates without any orchestrator code change.
 
-**Reference:** `06_upstream_codebase/buildemup/components/c11b/evaluator.py` — see `EvaluatorProtocol` shape + `StubEvaluator` for what the contract requires.
+**Critical fix beyond the doc's spec:** The follow-up doc described an evaluator-only change, but C11b's brief-extraction logic was broken on the canonical `FloorRoomBrief` (zero requirements extracted → NSGA produced zero candidates regardless of evaluator). The shim bridges this. Without the shim, the real evaluator alone doesn't flip C11b to OK.
 
----
+**Tests added:** `tests/test_orchestration/test_c11b_real_evaluator.py` (13 tests covering evaluator behavior, signature stability, construction guards) + 2 new smoke tests (C11b OK assertion + C12 primary-path activation).
 
-## Follow-up #4 — C12 adapter: C11b RefinedCandidate → SingleFloorPlacementInput
-
-**Current state:** STUB. C12's `place_and_align` requires `single_floor_inputs: tuple[SingleFloorPlacementInput, ...]` with specific fields: `candidate_signature`, `capability_mode`, `placement_safe`, `geometry_materialized`, `rooms: tuple[RoomSpec, ...]`, `envelope_width_m`, `envelope_depth_m`, `adjacency_hints`.
-
-**Effort:** ~2-3 hours. The adapter is the bulk of C12 integration.
-
-**Action:**
-1. Add `adapters/c11b_to_c12.py` in `buildemup/orchestration/`:
-   ```python
-   def adapt_refined_to_single_floor(
-       refined: RefinedCandidate,
-       plot_analysis: PlotAnalysis,
-   ) -> SingleFloorPlacementInput:
-       # Build RoomSpec tuple from refined.rooms (RefinedParameters)
-       # Compute candidate_signature, set placement_safe=True, etc.
-       ...
-   ```
-2. Compute `c11b_env_fingerprint_hash` via `capture_environment_fingerprint(...)`.
-3. Build `PlacementConfig()` with MVP defaults.
-4. Update `_run_c12_vertical_placement` (currently `_stub_phase`) to call `place_and_align(single_floor_inputs=adapted, config=config, c11b_env_fingerprint_hash=fp)`.
-5. Replace STUB status with OK status when adapter succeeds.
-
-**File:** new `06_upstream_codebase/buildemup/orchestration/adapters/__init__.py` + `adapters/c11b_to_c12.py` + update `master_orchestrator.py`
-**Test:** new `test_c12_vertical_placement_runs_with_c11b_adapter`
+**Effort actual:** ~3h (within the 4-6h estimate; the brief-shim diagnosis ate ~1h).
 
 ---
 
-## Follow-up #5 — C13 adapter: C12 PlacedCandidate → place_doors batch
+## Follow-up #4 — C12 adapter: C11b RefinedCandidate → SingleFloorPlacementInput ✅ CLOSED (S57)
 
-**Current state:** STUB. C13's `place_doors` requires `placed_candidates: Iterable` (the successful_placements from C12's PlacementBatchResult) + `config: DoorPlacementConfig` + `c12_cache_key: str`.
+**Closed:** S57 (2026-05-17). New package `06_upstream_codebase/buildemup/orchestration/adapters/` ships two adapter functions:
 
-**Effort:** ~1 hour. Much simpler than #4 since C12's output is closer to C13's input.
+- `adapt_refined_to_single_floor(refined, plot_analysis, *, room_categories_by_id)` — the documented primary path. Builds `SingleFloorPlacementInput` from `RefinedCandidate` + a category lookup (C11b RefinedCandidate doesn't carry categories itself). Activates once #3 ships a real EvaluatorProtocol; until then this path is exercised only by unit tests.
+- `adapt_mutated_to_single_floor(mutated, plot_analysis)` — the STUB-fallback. Sources room dimensions from the C9 `RoomSizeTable` embedded in the C10 wet-zoned candidate via `mutated.source_candidate.room_sized_candidate.room_size_table.rooms`. Used by the master orchestrator while C11b ships STUB. Drops C11b's optimization (acceptable trade for end-to-end aliveness at S57).
+- `build_single_floor_inputs_from_upstream(*, c11a_payload, c11b_payload, plot_analysis)` — orchestrator-facing dispatcher. Prefers `RefinedCandidate` path if C11b shipped OK; falls back to the C11a path otherwise; returns empty tuple if both upstream payloads are missing.
 
-**Action:**
-1. In `_run_c13_doors` (currently stub), iterate `c12_result.payload.successful_placements`.
-2. Construct `DoorPlacementConfig()` with v1 defaults.
-3. Compute `c12_cache_key` (likely from `c12_result.payload.cache_key` field or via `derive_c12_cache_keys`).
-4. Call `place_doors(placed_candidates=placements, config=config, c12_cache_key=cache_key)` → `DoorPlacementBatchResult`.
-5. Mark status OK; thread payload to C14.
+**Orchestrator wiring:** `_run_c12_vertical_placement` calls `place_and_align(single_floor_inputs=..., config=PlacementConfig(strict_mode=False), c11b_env_fingerprint_hash="orch:s57:c12_fallback")`. Phase ships OK when the call returns a `PlacementBatchResult` — per-candidate failures captured inside the batch are not phase-level failures.
 
-**File:** `master_orchestrator.py` — replace `_stub_phase("c13_doors", ...)` with real method
-**Test:** new `test_c13_doors_runs_after_c12`
+**Tests added:** `tests/test_orchestration/test_c12_adapter.py` (7 tests covering both adapter paths + dispatcher routing) + 2 new smoke tests in `test_master_orchestrator_smoke.py` and `test_orchestrate_endpoint.py`.
+
+**Effort actual:** ~2.5h (within the 2-3h estimate). Counts toward the orchestrator-advance hour budget.
 
 ---
 
-## Follow-up #6 — C14 room_metadata_by_signature builder
+## Follow-up #5 — C13 adapter: C12 PlacedCandidate → place_doors batch ✅ CLOSED (S57)
 
-**Current state:** STUB. C14's `analyze_circulation_batch` requires `room_metadata_by_signature: dict[str, tuple[RoomMetadata, ...]]`. RoomMetadata holds room category, function, etc. — built from upstream room data.
+**Closed:** S57 (2026-05-17). `_run_c13_doors(c12_payload)` in `master_orchestrator.py` calls:
+```python
+place_doors(
+    placed_candidates=c12_payload.placed_candidates,
+    config=DoorPlacementConfig(strict_mode=False),
+    c12_cache_key=c12_payload.cache_key,
+)
+```
+Pattern matches `_pipe_c12_to_c13` in the C13 adversarial integration corpus exactly.
 
-**Effort:** ~1-1.5 hours.
+Phase ships OK when call returns a `DoorPlacementBatchResult`. Per-candidate `DoorPositionInfeasibleError` failures (the documented sparse-edge problem from C13's adversarial corpus — filed as B-C12-EDGE-DENSITY) are captured inside `batch.failed` and are working-as-designed, not phase-level failures.
 
-**Action:**
-1. Build `_build_room_metadata_by_signature(c12_placement_batch)` helper.
-2. For each `PlacedCandidate`, extract room categories from `c10_result.payload` + `c12_result.payload`, build a `RoomMetadata` tuple, key by `candidate_signature`.
-3. Call `analyze_circulation_batch(batch=c13_result.payload, room_metadata_by_signature=metadata)`.
+**Tests added:** 2 new tests (`test_c13_phase_flips_to_ok_via_place_doors` in smoke + endpoint OK assertion update).
 
-**File:** `master_orchestrator.py` — replace `_stub_phase("c14_connection_graph", ...)` with real method
-**Test:** new `test_c14_connection_graph_runs_after_c13`
+**Effort actual:** ~30 min (came in under the 1h estimate because adapter is trivial — just a function call).
+
+---
+
+## Follow-up #6 — C14 room_metadata_by_signature builder ✅ CLOSED (S57)
+
+**Closed:** S57 (2026-05-17). New module `orchestration/adapters/c12_c13_to_c14.py` ships `build_room_metadata_by_signature(*, c12_payload, c13_payload)`:
+
+- Indexes C12 placed candidates by `source_refined_candidate_signature` for O(1) lookup.
+- For each C13 `SuccessfulDoorPlacement`, derives the main-entry room from the door with `is_main_entry=True` (handles `EXTERNAL_ENVELOPE_PLACEHOLDER_ROOM_ID` on either endpoint; falls back to `room_a` for degenerate internal-to-internal main entries per Inv E7 deterministic tiebreak).
+- Builds `RoomMetadata(room_id, category, is_main_entry_room)` per placed room, sourcing categories from `PlacedRoom.category` (which passes through from C12's category-passthrough of C9 sizing).
+- Skips C13 signatures missing from C12 — C14 then surfaces those as `GraphInconsistencyError` under STRICT (intentional error surface).
+
+**Orchestrator wiring:** `_run_c14_connection_graph(c12_payload, c13_payload)` calls `analyze_circulation_batch(batch=c13_payload, room_metadata_by_signature=metadata, config=CirculationConfig(), strict_mode=False)`. Phase ships OK when the call returns a `CirculationAnalysisBatchResult`.
+
+**Tests added:** `tests/test_orchestration/test_c14_metadata_builder.py` (8 unit tests covering main-entry derivation edge cases + builder routing) + 2 new smoke tests.
+
+**Effort actual:** ~1h (within the 1-1.5h estimate).
 
 ---
 
@@ -337,13 +302,14 @@
 
 **Total: ~25-30 hours, or 6-8 focused sessions.** This is the path from MVP → production-quality orchestrator.
 
-**Priority order for S57 (if budget is one session):**
-1. #5 C13 adapter (1h — easy win, demonstrates C12+C13 chained)
-2. #6 C14 metadata (1.5h — easy win, demonstrates graph metrics)
-3. #4 C12 adapter (2-3h — unblocks #5 + #6)
-4. Skip #3 real evaluator until #4-#7 are wired (the chain works with StubEvaluator → STUB downstream; that's fine).
+**Priority order for S58+ (recommendation):**
+1. #8 C16 UpstreamInputBundle (3-4h) — produces actual drawings the architect can review. Highest visibility, gates B-238 feedback loop.
+2. #7 C15 (C12, C13, C14) triples (1-1.5h) — easy win now that all three upstream phases ship OK.
+3. #9 C17 separate flow (3-4h) — depends on UI work for quote upload.
+4. #10 C3a/C3b integration (2-3h) — design decision needed.
+5. #11 / #12 / #13 / #14 — input contract + serialization + corpus + UI work.
 
-**Critical path:** B-238 architect feedback may reshape priorities — the architect may want to see drawings (Follow-up #8) before refinement quality (#3). Defer prioritization decisions until architect feedback lands.
+**Critical path:** B-238 architect feedback may reshape priorities — the architect may want to see drawings (#8) before refinement quality (#3). Defer prioritization decisions until architect feedback lands.
 
 ---
 
@@ -355,10 +321,16 @@
 | 22 orchestration tests passing | ✅ S56 |
 | Full test sweep: 4,350 / 0 / 31 | ✅ S56 |
 | Follow-ups doc | ✅ S56 (this file) |
-| Real C11b evaluator | ⏸ S57+ |
-| C12-C17 adapter glue | ⏸ S57+ |
-| C3a/C3b integration | ⏸ S57+ |
-| Free-form input contract | ⏸ S57+ |
-| Phase-payload serialization | ⏸ S57+ |
-| Scenario corpus | ⏸ S57+ |
-| UI surface | ⏸ S57+ |
+| **#4 C12 adapter (C11b RefinedCandidate + C11a fallback)** | **✅ S57 (2026-05-17)** |
+| **#5 C13 adapter (place_doors wiring)** | **✅ S57 (2026-05-17)** |
+| **#6 C14 metadata builder (room_metadata_by_signature)** | **✅ S57 (2026-05-17)** |
+| **#1 C7 full StructuralGridEngine wiring** | **✅ S57 (2026-05-17, extended)** |
+| **#2 C11a M0-M9 full operator suite (opt-in)** | **✅ S57 (2026-05-17, extended)** |
+| **#3 Real C11b EvaluatorProtocol + brief shim (opt-in)** | **✅ S57 (2026-05-17, extended)** |
+| **Full test sweep: 4,386 / 0 / 31** | **✅ S57 extended** |
+| C15 / C16 / C17 adapter glue (#7/#8/#9) | ⏸ S58+ |
+| C3a/C3b integration (#10) | ⏸ S58+ |
+| Free-form input contract (#11) | ⏸ S58+ |
+| Phase-payload serialization (#12) | ⏸ S58+ |
+| Scenario corpus (#13) | ⏸ S58+ |
+| UI surface (#14) | ⏸ S58+ |

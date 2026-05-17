@@ -96,13 +96,24 @@ def test_orchestrate_endpoint_rejects_unknown_brief_fixture():
 
 
 def test_endpoint_reports_stub_phases_with_reason():
-    """C12-C17 should report status=stub with non-empty stub_reason."""
+    """C15-C17 should report status=stub with non-empty stub_reason.
+
+    C12 + C13 + C14 flipped to OK in S57 (follow-ups #4/#5/#6).
+    """
     status, response = handle_orchestrate(b"")
     stub_ids = {
-        "c12_vertical_placement", "c13_doors", "c14_connection_graph",
         "c15_problem_finder", "c16_dual_drawings", "c17_quote_comparison",
     }
     for p in response["phases"]:
         if p["phase_id"] in stub_ids:
             assert p["status"] == "stub"
             assert p["stub_reason"], f"empty stub_reason for {p['phase_id']}"
+
+
+def test_endpoint_reports_c12_c13_c14_ok_via_adapters():
+    """C12 + C13 + C14 now ship OK via the S57 #4/#5/#6 adapters."""
+    status, response = handle_orchestrate(b"")
+    by_id = {p["phase_id"]: p for p in response["phases"]}
+    assert by_id["c12_vertical_placement"]["status"] == "ok"
+    assert by_id["c13_doors"]["status"] == "ok"
+    assert by_id["c14_connection_graph"]["status"] == "ok"

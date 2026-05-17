@@ -176,16 +176,18 @@ def test_c11b_marked_stub_with_stub_evaluator(smoke_inputs):
                for n in c11b.notes)
 
 
-def test_c12_through_c17_phases_marked_stub(smoke_inputs):
-    """C12-C17 should produce STUB status with explicit stub_reason
-    and a notes line pointing at the follow-ups doc."""
+def test_c15_through_c17_phases_marked_stub(smoke_inputs):
+    """C15-C17 should produce STUB status with explicit stub_reason
+    and a notes line pointing at the follow-ups doc.
+
+    C12 + C13 + C14 flipped to OK in S57 (follow-ups #4/#5/#6).
+    """
     plot, brief_for_c4, floor_brief = smoke_inputs
     orch = MasterOrchestrator()
     result = orch.run(
         plot=plot, brief_for_c4=brief_for_c4, floor_brief=floor_brief,
     )
     stub_phases = [
-        "c12_vertical_placement", "c13_doors", "c14_connection_graph",
         "c15_problem_finder", "c16_dual_drawings", "c17_quote_comparison",
     ]
     for phase_id in stub_phases:
@@ -197,6 +199,171 @@ def test_c12_through_c17_phases_marked_stub(smoke_inputs):
             "S57_MASTER_ORCHESTRATOR_FOLLOWUPS" in note
             for note in phase.notes
         ), f"phase {phase_id} missing follow-ups breadcrumb in notes"
+
+
+def test_c12_phase_flips_to_ok_via_fallback_adapter(smoke_inputs):
+    """C12 phase ships OK via the C11a→C12 fallback adapter (S57 #4).
+
+    C11b ships STUB (no real EvaluatorProtocol yet — #3 deferred), so
+    the orchestrator uses the MutatedTopologyCandidate adapter path.
+    The phase is OK because the call to C12's place_and_align returned
+    a PlacementBatchResult; per-candidate placement failures inside
+    the batch are not phase-level failures.
+    """
+    plot, brief_for_c4, floor_brief = smoke_inputs
+    orch = MasterOrchestrator()
+    result = orch.run(
+        plot=plot, brief_for_c4=brief_for_c4, floor_brief=floor_brief,
+    )
+    c12 = result.phase("c12_vertical_placement")
+    assert c12 is not None
+    assert c12.status == PhaseStatus.OK, (
+        f"C12 phase expected OK; got {c12.status} "
+        f"({c12.error_class}: {c12.error_message})"
+    )
+    assert c12.payload is not None
+    # Adapter path note must explain which path ran.
+    note_text = " ".join(c12.notes)
+    assert "Adapter path" in note_text
+    # While C11b is STUB the fallback is the active path.
+    assert "fallback" in note_text or "RefinedCandidate" in note_text
+
+
+def test_c13_phase_flips_to_ok_via_place_doors(smoke_inputs):
+    """C13 phase ships OK by piping C12's PlacedCandidates through
+    place_doors (S57 #5). Per-candidate door-placement failures (the
+    documented sparse-edge problem from C13's adversarial corpus) are
+    captured inside the DoorPlacementBatchResult and don't fail the
+    phase — that's working-as-designed."""
+    plot, brief_for_c4, floor_brief = smoke_inputs
+    orch = MasterOrchestrator()
+    result = orch.run(
+        plot=plot, brief_for_c4=brief_for_c4, floor_brief=floor_brief,
+    )
+    c13 = result.phase("c13_doors")
+    assert c13 is not None
+    assert c13.status == PhaseStatus.OK, (
+        f"C13 phase expected OK; got {c13.status} "
+        f"({c13.error_class}: {c13.error_message})"
+    )
+    assert c13.payload is not None
+    # The payload is a DoorPlacementBatchResult with successful + failed
+    # tuples. Either may be empty depending on C12's edge density —
+    # that's not a phase-level concern.
+    assert hasattr(c13.payload, "successful")
+    assert hasattr(c13.payload, "failed")
+
+
+def test_c14_phase_flips_to_ok_via_circulation_batch(smoke_inputs):
+    """C14 phase ships OK by analyzing C13's door placements with
+    metadata built from C12 placed rooms (S57 #6).
+
+    The metadata builder produces empty dict if there are no
+    successful door placements upstream (the sparse-edge case); C14
+    then returns an empty CirculationAnalysisBatchResult — still OK
+    at the phase level because the call succeeded.
+    """
+    plot, brief_for_c4, floor_brief = smoke_inputs
+    orch = MasterOrchestrator()
+    result = orch.run(
+        plot=plot, brief_for_c4=brief_for_c4, floor_brief=floor_brief,
+    )
+    c14 = result.phase("c14_connection_graph")
+    assert c14 is not None
+    assert c14.status == PhaseStatus.OK, (
+        f"C14 phase expected OK; got {c14.status} "
+        f"({c14.error_class}: {c14.error_message})"
+    )
+    assert c14.payload is not None
+    assert hasattr(c14.payload, "successful")
+    assert hasattr(c14.payload, "failed")
+
+
+def test_c7_full_engine_payload_carries_structure_and_cost(smoke_inputs):
+    """C7 phase ships OK with the full StructuralGridEngine payload
+    (grid + structure + foundation + cost) — S57 follow-up #1.
+
+    Default config has enable_full_structural_engine=True at S57 close;
+    payload is StructuralGridOutput with all four sub-outputs populated.
+    """
+    plot, brief_for_c4, floor_brief = smoke_inputs
+    orch = MasterOrchestrator()  # defaults — full engine on
+    result = orch.run(
+        plot=plot, brief_for_c4=brief_for_c4, floor_brief=floor_brief,
+    )
+    c07 = result.phase("c07_structural_grid")
+    assert c07 is not None
+    assert c07.status == PhaseStatus.OK
+    payload = c07.payload
+    # Full-engine path has nested sub-outputs.
+    assert hasattr(payload, "grid")
+    assert hasattr(payload, "structure")
+    assert hasattr(payload, "foundation")
+    assert hasattr(payload, "cost")
+    # Structure has sizing fields.
+    assert payload.structure.column_size_mm > 0
+    assert payload.structure.beam_depth_mm > 0
+    assert payload.structure.total_concrete_cum > 0
+    # Foundation has a type + design.
+    assert payload.foundation.type
+    assert payload.foundation.total_concrete_cum >= 0
+    # Cost carries a TransparencyTriple.
+    assert payload.cost.exact_value > 0
+
+
+def test_c7_mvp_compat_path_returns_grid_directly(smoke_inputs):
+    """Setting enable_full_structural_engine=False reverts C7 to the
+    S56-MVP GridGenerator-only path; payload is the Grid object."""
+    plot, brief_for_c4, floor_brief = smoke_inputs
+    config = MasterOrchestratorConfig(enable_full_structural_engine=False)
+    orch = MasterOrchestrator(config)
+    result = orch.run(
+        plot=plot, brief_for_c4=brief_for_c4, floor_brief=floor_brief,
+    )
+    c07 = result.phase("c07_structural_grid")
+    assert c07.status == PhaseStatus.OK
+    # MVP-path payload IS the Grid (no .structure attribute).
+    assert hasattr(c07.payload, "columns") or hasattr(c07.payload, "max_span_m")
+    assert not hasattr(c07.payload, "structure")
+
+
+def test_c11a_full_operator_suite_produces_more_variants(smoke_inputs):
+    """With enable_full_mutation_operators=True, C11a runs M0 + M1-M9.
+
+    The default M0_BASE-only run produces 1 variant per upstream
+    wet-zoned candidate. Enabling the full suite should produce
+    strictly more variants (M0 + applicable mutations, deduplicated).
+    """
+    plot, brief_for_c4, floor_brief = smoke_inputs
+
+    default_orch = MasterOrchestrator()
+    default_result = default_orch.run(
+        plot=plot, brief_for_c4=brief_for_c4, floor_brief=floor_brief,
+    )
+    default_c11a = default_result.phase("c11a_topology_mutation")
+    default_variants = len(default_c11a.payload)
+
+    full_config = MasterOrchestratorConfig(enable_full_mutation_operators=True)
+    full_orch = MasterOrchestrator(full_config)
+    full_result = full_orch.run(
+        plot=plot, brief_for_c4=brief_for_c4, floor_brief=floor_brief,
+    )
+    full_c11a = full_result.phase("c11a_topology_mutation")
+    assert full_c11a.status == PhaseStatus.OK
+    full_variants = len(full_c11a.payload)
+
+    # Full operator suite must produce ≥ default. We don't pin an exact
+    # count because some operators may be rejected for the smoke
+    # fixture's geometry (M3*/M9* depend on staircase + entry positions
+    # that may not apply).
+    assert full_variants >= default_variants, (
+        f"Full operator suite produced fewer variants ({full_variants}) "
+        f"than M0_BASE-only ({default_variants}); operators must be "
+        f"additive."
+    )
+    # The notes line should say which mode ran.
+    notes_text = " ".join(full_c11a.notes)
+    assert "full M0-M9" in notes_text
 
 
 def test_overall_status_ok_when_all_real_phases_pass(smoke_inputs):
