@@ -56,6 +56,12 @@
         } else if (status.terminal_state === "MAX_ITERATIONS_REACHED") {
             successLine.textContent =
                 "Limits reached. Please review your brief and resubmit.";
+        } else if (status.terminal_state === "PER_CASE_LIMIT_REACHED") {
+            // B-059: same case raised repeatedly — user needs to rethink the
+            // brief, not just retry. Distinct from MAX_ITERATIONS_REACHED.
+            successLine.textContent =
+                "The same issue has come up several times. Please adjust "
+                + "your brief at a more fundamental level before resubmitting.";
         } else {
             successLine.textContent = "Your case has been resolved.";
         }

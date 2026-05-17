@@ -265,6 +265,12 @@
               </div>
             </label>
 
+            <!--
+              B-099 — Vastu FULL tier hidden from v1 UI per S54 user decision.
+              The vastu_engine FULL-tier KB is unpopulated; backend correctly
+              raises NotImplementedError. Restore this <label> block in v1.1
+              after a Vastu-expert reviewer validates the FULL-tier rule set.
+              Backend still accepts "full" as a value — only the picker UI hides.
             <label class="flex items-start p-3 rounded-md border border-gray-200 hover:border-blue-400 cursor-pointer">
               <input type="radio" name="vastu_preference" value="full" class="mt-1 text-blue-600">
               <div class="ml-3">
@@ -274,6 +280,7 @@
                 </div>
               </div>
             </label>
+            -->
           </div>
         </fieldset>
 

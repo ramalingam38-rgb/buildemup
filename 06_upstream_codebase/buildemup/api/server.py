@@ -18,6 +18,7 @@ ROUTES:
   POST /api/brief/capture                      → C1 capture
   POST /api/brief/save                         → C1 save (returns resume URL)
   POST /api/feasibility/run                    → C2 feasibility
+  POST /api/orchestrate                        → S56 MVP master orchestrator (C4-C11a real, C12-C17 STUB)
   POST /api/setback/preview                    → setback preview
   POST /api/extreme-case/check                 → C3a § 5.1
   POST /api/extreme-case/resolve               → C3a § 5.2
@@ -56,6 +57,9 @@ from buildemup.api.brief_endpoint import (
 )
 from buildemup.api.feasibility_endpoint import (
     handle_feasibility_run,
+)
+from buildemup.api.orchestrate_endpoint import (
+    handle_orchestrate,
 )
 from buildemup.api.setback_preview_endpoint import (
     handle_setback_preview,
@@ -423,6 +427,16 @@ class BriefCaptureHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length > 0 else b""
             status, response = handle_feasibility_run(body)
+            self._send_json(status, response)
+            return
+
+        if path == "/api/orchestrate":
+            # S56 MVP — runs the full 17-component master orchestrator
+            # pipeline (C4-C11a real, C11b STUB on StubEvaluator,
+            # C12-C17 STUB pending adapter glue).
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length > 0 else b""
+            status, response = handle_orchestrate(body)
             self._send_json(status, response)
             return
 

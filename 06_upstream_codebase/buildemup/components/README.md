@@ -98,14 +98,6 @@ where the shim has `DoorPlacement` but the real spec has
 
 ---
 
-## Audit-trail files (S53 reconciliation provisional)
-
-- `c10/__init__.PROVISIONAL_S53.py` — provisional `__init__.py` used while
-  C7's `wall_segment.py` was missing. The current `c10/__init__.py` is the
-  LOCKED version. Safe to delete at S54 after rollback period (B-S53-PROVISIONAL-CLEANUP).
-
----
-
 ## Where the LOCKED specs live
 
 All LOCKED + PROPOSED spec docs for the architectural components are in

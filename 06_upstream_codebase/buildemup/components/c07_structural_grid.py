@@ -11,6 +11,16 @@ Thin coordinator for the 4 split responsibilities:
 This file is now small and simple. Each sub-module is independently
 testable and has a single responsibility.
 
+B-S53-C7-LEGACY-DECISION resolution (S56, 2026-05-16): KEEP.
+The S53 backlog filed this as a "951-LOC pre-amendment monolithic file"
+and asked whether to delete or deprecate. On audit in S56 the file is
+NOT a legacy monolith — it is the canonical top-level Component-7
+orchestrator. The modular `c07/` sub-package contains data types
+(grid_generator, wall_segment, foundation_engine, cost_estimator, etc.)
+that this orchestrator composes; the two are complementary, not
+duplicative. 9+ importers across api/, examples/, and tests/ correctly
+use this entry point. No action required.
+
 †= placeholder name marker.
 """
 from __future__ import annotations

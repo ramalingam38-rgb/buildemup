@@ -7,6 +7,19 @@ equivalent programmatic input) and produces a validated Brief
 domain object that downstream components (Component 4 layout,
 Component 7 structural) consume via the ComponentContract system.
 
+B-S53-C1-CONSOLIDATE resolution (S56, 2026-05-16): KEEP.
+The S53 backlog filed this as "fold c01_brief_capture.py into c01/."
+On audit in S56 the layout mirrors C7's: this top-level file is the
+canonical Component-1 orchestrator; the `c01/` sub-package contains
+modular sub-components (budget_bridge, parking_feasibility,
+phased_construction, room_composer, setback_calculator,
+assumptions_log, vastu_filter, soft_guide_engine) that this
+orchestrator composes. The two are complementary, not duplicative.
+36+ importers across api/, domain/, examples/, and tests/ correctly
+use `buildemup.components.c01_brief_capture` as the entry point.
+Same KEEP decision as B-S53-C7-LEGACY-DECISION for the parallel
+C7 layout. No action required.
+
 PIPELINE (per SPEC_v0.2 Section 10):
   1. Parse + validate user form input  → domain objects
   2. Compute NBC/DCR-compliant setbacks (plot-type branched)

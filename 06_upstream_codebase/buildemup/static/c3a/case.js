@@ -81,6 +81,13 @@
             optionsList.appendChild(label);
         });
 
+        // B-057: visible trace_id on success render for support reference
+        var caseTrace = document.getElementById("case-trace");
+        if (caseTrace) {
+            caseTrace.textContent = "Trace ID: "
+                + (resp.trace_id || window.traceId());
+        }
+
         caseContainer.classList.remove("c3a-hidden");
     } catch (err) {
         loadingEl.classList.add("c3a-hidden");
