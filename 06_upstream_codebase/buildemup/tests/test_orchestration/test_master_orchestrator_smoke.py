@@ -67,11 +67,13 @@ def test_orchestrator_instantiates_with_custom_config():
 
 
 def test_pipeline_phases_canonical_order():
-    """PIPELINE_PHASES should have exactly 17 phases in canonical order."""
-    assert len(PIPELINE_PHASES) == 17
+    """PIPELINE_PHASES carries the 17 C1-C17 phases plus the S59
+    addition of `c03a_extreme_case_detection` (async-flags mode) = 18."""
+    assert len(PIPELINE_PHASES) == 18
     assert PIPELINE_PHASES[0] == "c01_brief"
     assert PIPELINE_PHASES[1] == "c02_feasibility"
-    assert PIPELINE_PHASES[2] == "c04_plot_analysis"  # C3a/C3b skipped
+    assert PIPELINE_PHASES[2] == "c03a_extreme_case_detection"  # S59 #10
+    assert PIPELINE_PHASES[3] == "c04_plot_analysis"
     assert PIPELINE_PHASES[-1] == "c17_quote_comparison"
 
 
@@ -90,7 +92,7 @@ def test_orchestrator_runs_end_to_end_without_crashing(smoke_inputs):
         floor_brief=floor_brief,
     )
     assert isinstance(result, MasterOrchestratorResult)
-    assert len(result.phases) == 17
+    assert len(result.phases) == 18
     assert result.total_elapsed_ms > 0
 
 
@@ -176,29 +178,44 @@ def test_c11b_marked_stub_with_stub_evaluator(smoke_inputs):
                for n in c11b.notes)
 
 
-def test_c15_through_c17_phases_marked_stub(smoke_inputs):
-    """C15-C17 should produce STUB status with explicit stub_reason
-    and a notes line pointing at the follow-ups doc.
+def test_c15_through_c17_phases_terminal_state(smoke_inputs):
+    """C15-C17 reach a terminal state (not ERROR) after S59 wiring.
 
-    C12 + C13 + C14 flipped to OK in S57 (follow-ups #4/#5/#6).
+    Post-S59:
+      - c15_problem_finder: OK (S59 follow-up #7 closed the triples
+        adapter; ships OK with possibly-empty batch on sparse C13 input).
+      - c16_dual_drawings: OK or STUB. OK when bundles render; STUB
+        when no candidates survive the C13 join (C12 sparse-edge case).
+      - c17_quote_comparison: SKIPPED — runs as a separate
+        /api/quote/compare flow, not inside the master pipeline.
     """
     plot, brief_for_c4, floor_brief = smoke_inputs
     orch = MasterOrchestrator()
     result = orch.run(
         plot=plot, brief_for_c4=brief_for_c4, floor_brief=floor_brief,
     )
-    stub_phases = [
-        "c15_problem_finder", "c16_dual_drawings", "c17_quote_comparison",
-    ]
-    for phase_id in stub_phases:
-        phase = result.phase(phase_id)
-        assert phase is not None
-        assert phase.status == PhaseStatus.STUB
-        assert phase.stub_reason  # non-empty
-        assert any(
-            "S57_MASTER_ORCHESTRATOR_FOLLOWUPS" in note
-            for note in phase.notes
-        ), f"phase {phase_id} missing follow-ups breadcrumb in notes"
+
+    c15 = result.phase("c15_problem_finder")
+    assert c15 is not None
+    assert c15.status == PhaseStatus.OK, (
+        f"C15 expected OK after S59 #7; got {c15.status} "
+        f"({c15.error_class}: {c15.error_message})"
+    )
+
+    c16 = result.phase("c16_dual_drawings")
+    assert c16 is not None
+    assert c16.status in (PhaseStatus.OK, PhaseStatus.STUB), (
+        f"C16 expected OK or STUB after S59 #8; got {c16.status} "
+        f"({c16.error_class}: {c16.error_message})"
+    )
+
+    c17 = result.phase("c17_quote_comparison")
+    assert c17 is not None
+    assert c17.status == PhaseStatus.SKIPPED, (
+        f"C17 expected SKIPPED after S59 #9 (separate quote endpoint); "
+        f"got {c17.status}"
+    )
+    assert "quote/compare" in c17.skip_reason
 
 
 def test_c12_phase_flips_to_ok_via_fallback_adapter(smoke_inputs):

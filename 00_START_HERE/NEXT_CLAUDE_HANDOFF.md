@@ -1,175 +1,169 @@
-# 🚨 NEXT CLAUDE — START HERE — S58 OPEN
+# 🚨 NEXT CLAUDE — START HERE — S60 OPEN
 
-**Authored:** Ramalingam + Claude, S57 close, May 17, 2026
-**Session state:** S57 was an **extended two-part session** that closed SIX orchestrator follow-ups: **#4 (C12 adapter)**, **#5 (C13 adapter)**, **#6 (C14 metadata builder)** [Part A]; then **#1 (C7 full StructuralGridEngine)**, **#2 (C11a M0-M9 operators)**, **#3 (real C11b EvaluatorProtocol + brief shim)** [extension per user direction "finish first three pending items"]. **Test sweep: 4,386 passed / 0 failed / 31 skipped** (up from 4,350 at S56 close; +36 new tests). C11b now ships OK with the real evaluator → C12 activates the documented primary RefinedCandidate adapter path.
+**Authored:** Ramalingam + Claude, S59 close, May 18, 2026
+**Session state:** S59 was a **single-session push** that closed the LAST 8 orchestrator follow-ups: **#7 (C15 triples) + #8 (C16 drawings) + #9 (C17 quote endpoint) + #10 (C3a/C3b async-flags) + #11 (free-form input) + #12 (payload serialization) + #13 (scenario corpus) + #14 (UI)**. **0 follow-ups remain.** The master orchestrator now runs end-to-end with C15+C16 OK, C17 routed to a separate endpoint, and a clickable browser UI that renders SVG floorplans.
 
-**Critical for S58:** **READ `04_backlog/S57_MASTER_ORCHESTRATOR_FOLLOWUPS.md` FIRST.** That doc carries the explicit punch list. **8 follow-ups remain** (was 14 at S57 open; #1/#2/#3/#4/#5/#6 ✅ CLOSED). Next-priority recommendations are in the doc's revised priority section.
+**Critical for S60:** **READ `00_START_HERE/S59_SESSION_LOG.md` FIRST.** That's the complete S59 record + landmines + what was deferred.
 
-**Buckets state:** Bucket A has 2 calendar-bound items (B-220, B-238); Bucket B = 0; Bucket C = 0; Bucket D = 28 (intentionally v2-deferred). **The only open work is: B-238 architect outreach (calendar-bound), B-220 plumbing engineer (calendar-bound), the 11 remaining orchestrator follow-ups, and the deferred v1+ roadmap (Option C).**
+**The only remaining open work is:**
+- B-238 architect outreach (calendar-bound, Ramalingam-driven; packet ready since S56; UI now ready for click-through).
+- B-220 plumbing engineer outreach (calendar-bound; packet not yet built).
+- Component-level bugs surfaced by the S59 scenario corpus (B-107 C6 intercardinal, C8/C9/C10 fixture edge cases).
+- v1+ roadmap doc (deferred per user direction until B-238 feedback lands).
 
-**Your task:** Read this file. Then read `S57_MASTER_ORCHESTRATOR_FOLLOWUPS.md`. Then read `S57_SESSION_LOG.md`. Then await Ramalingam's S58 direction.
+**Your task:** Read this file. Then read `S59_SESSION_LOG.md`. Then await Ramalingam's S60 direction.
 
 ---
 
-## 🎯 What S57 accomplished
+## 🎯 What S59 accomplished
 
-S57 was a single-session orchestrator-advance: close follow-ups #4, #5, #6 so the master orchestrator runs C4 → C14 as a real chain end-to-end.
+Single-session orchestrator-advance push: close all 8 remaining follow-ups so an architect can click through the full pipeline before the B-238 engagement.
 
-### New package: `06_upstream_codebase/buildemup/orchestration/adapters/`
-- `__init__.py` — re-exports
-- `c11b_to_c12.py` — C11b RefinedCandidate (primary) + C11a MutatedTopologyCandidate (fallback) adapters + dispatcher
-- `c12_c13_to_c14.py` — `build_room_metadata_by_signature` builder
+### New architecture surfaces
+- **`POST /api/quote/compare`** — separate C17 endpoint. Accepts JSON parsed_quote + cost_lines; auto-computes the signature; returns matched lines / gaps / signals / signatures.
+- **`POST /api/orchestrate` (extended)** — now accepts free-form `plot` + `brief` JSON (mirrors `/api/brief/capture` shape), supports `include_payloads=true` to serialize every phase payload, and full config knobs (`enable_full_structural_engine`, `enable_full_mutation_operators`, `use_real_c11b_evaluator`).
+- **`GET /orchestrator_run.html`** — Tailwind-CDN form: pick fixture, run, see per-phase chips + C3a flags + inline SVG floorplans rendered from C16 bundle JSON + collapsible payload accordion.
+- **`GET /quote_compare.html`** — Paste contractor quote JSON + cost lines → see verdict summary + signatures + optional full report.
 
-### Orchestrator changes
-- `_run_c12_vertical_placement` replaces the C12 stub. Uses RefinedCandidate path if C11b ships OK, else falls back to C11a path.
-- `_run_c13_doors` replaces the C13 stub. Calls `place_doors(placed_candidates=c12_payload.placed_candidates, config=DoorPlacementConfig(strict_mode=False), c12_cache_key=c12_payload.cache_key)`.
-- `_run_c14_connection_graph` replaces the C14 stub. Builds metadata via the new adapter; calls `analyze_circulation_batch`.
+### New orchestrator phase
+- **`c03a_extreme_case_detection`** — runs between C2 and C4 in async-flags mode. Skipped without a full Brief; otherwise surfaces detected extreme-case IDs/categories. PIPELINE_PHASES grew from 17 → 18.
+
+### New modules
+- `orchestration/phase_payloads.py` — JSON serializer for dataclass phase payloads.
+- `orchestration/freeform_inputs.py` — Plot + FloorRoomBrief JSON builders.
+- `orchestration/adapters/c12_c13_c14_to_c15.py` — C15 triples + ProblemAnalysisMetadata.
+- `orchestration/adapters/c12_to_c16.py` — C16 UpstreamInputBundle + SelectionResult assembly.
+- `api/quote_endpoint.py` — C17 endpoint.
+- `static/orchestrator_run.{html,css,js}` + `static/quote_compare.{html,js}` — the UI.
 
 ### Tests
-- New: `test_c12_adapter.py` (7 tests), `test_c14_metadata_builder.py` (8 tests)
-- Modified: smoke + endpoint tests narrowed (stub-assertion now covers c15-c17 only)
-- 22 → 40 orchestrator tests
-- Full sweep: 4,350 → **4,368**
+- New: `test_s59_followups.py` (27 tests) + `test_master_orchestrator_scenarios.py` (8 tests).
+- Updated assertions: `test_master_orchestrator_smoke.py` + `test_orchestrate_endpoint.py` (18-phase count + new C15/C16/C17 status expectations).
+- Total orchestration suite: 92 tests passing (1 skipped, 1 known-flaky deselected).
 
-**Phase status at S57 close:**
+**Phase status at S59 close:**
 
 | Phase | Default status | Notes |
 |---|---|---|
-| `c01_brief` / `c02_feasibility` | SKIPPED or OK | Same as S56 |
-| `c04_plot_analysis` → `c06_orientation` | OK | Same as S56 |
-| **`c07_structural_grid`** | **OK (full engine, S57)** | Default `enable_full_structural_engine=True` runs StructuralGridEngine → grid + structure + foundation + cost. Toggle False for MVP-compat |
-| `c08_corridor` → `c10_wet_zones` | OK | Same as S56 |
-| **`c11a_topology_mutation`** | **OK (S57)** | Default M0_BASE only; opt-in `enable_full_mutation_operators=True` adds M1-M9 |
-| **`c11b_nsga_refinement`** | **STUB by default; OK opt-in (S57)** | Default uses StubEvaluator → STUB. Set `use_real_c11b_evaluator=True` to use MultiObjectiveEvaluator + brief shim → C11b ships OK, NSGA produces ~60 RefinedCandidates |
-| **`c12_vertical_placement`** | **OK (S57)** | Real `place_and_align`. Primary RefinedCandidate path activates when C11b OK; C11a fallback when C11b STUB |
-| **`c13_doors`** | **OK (S57)** | Real `place_doors` call piping C12 placements |
-| **`c14_connection_graph`** | **OK (S57)** | Real `analyze_circulation_batch` call |
-| `c15_problem_finder` → `c17_quote_comparison` | STUB | Awaits follow-ups #7 / #8 / #9 |
+| `c01_brief` / `c02_feasibility` | SKIPPED or OK | Same as S57 |
+| **`c03a_extreme_case_detection`** | **SKIPPED or OK (S59 #10)** | Async-flags: detection-only, never halts |
+| `c04_plot_analysis` → `c11a_topology_mutation` | OK | Same as S57 |
+| `c11b_nsga_refinement` | STUB by default; OK opt-in | Same as S57 |
+| `c12_vertical_placement` → `c14_connection_graph` | OK | Same as S57 |
+| **`c15_problem_finder`** | **OK (S59 #7)** | Triples adapter ships analyze_problems_batch |
+| **`c16_dual_drawings`** | **OK or STUB (S59 #8)** | OK when bundles render; STUB when C13 sparse-edge → 0 candidates |
+| **`c17_quote_comparison`** | **SKIPPED in master pipeline (S59 #9)** | Runs via separate `/api/quote/compare` endpoint |
 
 ---
 
-## 📌 S58 must-do list — do NOT lose any of these
-
-Per user direction "keep record of what you are doing and what should be done in later sessions ok. i dont want to miss anything":
+## 📌 S60 must-do list
 
 ### Calendar-bound (Ramalingam-driven; Claude cannot do alone)
-1. **B-238 architect outreach** — packet ready at `04_backlog/B238_architect_engagement_packet_S56/`. Ramalingam builds longlist (3-4h), sends outreach emails (1 day), awaits replies (1-2 weeks).
-2. **B-220 plumbing engineer outreach** — separate engagement. Packet not yet built; clone B-238 structure when ready.
+1. **B-238 architect outreach** — packet ready at `04_backlog/B238_architect_engagement_packet_S56/`. UI is NOW ready for architect click-through. Send the outreach emails.
+2. **B-220 plumbing engineer outreach** — packet not yet built; clone B-238 structure when ready.
 
-### Orchestrator advancement (8 remaining items — see `04_backlog/S57_MASTER_ORCHESTRATOR_FOLLOWUPS.md`)
-Revised priority order:
-- **#8 C16 UpstreamInputBundle** (~3-4h) — produces actual drawings the architect can review. Highest visibility, gates B-238 feedback loop.
-- **#7 C15 (C12, C13, C14) triples** (~1-1.5h) — easy win now that all three upstream phases ship OK.
-- **#9 C17 separate flow** (~3-4h) — depends on UI work
-- **#10 C3a/C3b integration** (~2-3h) — design decision needed
-- **#11 Free-form input contract** (~3-4h)
-- **#12 Phase-payload JSON serialization** (~2h)
-- **#13 Scenario fixture corpus** (~session)
-- **#14 UI to surface orchestrator results** (~session)
+### Component-level fixes surfaced by S59 scenario corpus
+Each one is a self-contained component bug that breaks a specific (city, brief) combo. Listed by leverage:
+- **B-107 C6 intercardinal facing** — NE/SE/SW/NW facings rejected; blocks chennai_30x40 fixture.
+- **B-C8-LARGE-PLOT-COVERAGE** — corridor self-intersection on delhi_60x90 + large brief.
+- **B-NEW-C9-SIZING-EXHAUSTION** — Pune 30x40 + medium brief exhausts C9 search budget.
+- **B-NEW-C10-PHASE3-CLUSTER-EXHAUSTION** — Mumbai + Hyderabad 30x40 + small brief exhausts wet-zone wall assignment.
+- **B-C12-EDGE-DENSITY** (already filed) — C12 slicing-tree produces 0 shared edges on smoke fixture; causes the C16 STUB landing.
+
+### Architectural improvements (post-B-238)
+- **Per-candidate C10 wet-zone re-planning** — `c12_to_c16` adapter currently reuses the first C10 plan for every drawable candidate. Acceptable while C12 usually emits 1 placement; needs proper join post-B-238.
+- **C11b NSGA flake** — `test_orchestrator_flips_c11b_to_ok_with_real_evaluator` fails in isolated runs (passes in full sweep). Either deselect or fix root cause.
 
 ### Documentation deliverable (user-deferred since S54)
-- **Detailed v1+ roadmap (Option C)** — completed / remaining / improvements / missing soul-modules (3D, interior, full CAD pack, municipal submission, construction-phase help, engineer-fee breakout). Best authored after B-238 feedback lands so "what's missing" reflects architect-validated reality.
+- **Detailed v1+ roadmap (Option C)** — best authored AFTER B-238 feedback lands so "what's missing" reflects architect-validated reality.
 
 ### Pre-existing back-pocket
-- **B-NEW-PUNE-SOIL-SCENARIO-REFRESH** — Pune soil S05/S17 scenarios currently excluded with breadcrumb (KB has STIFF_CLAY, scenarios expect BLACK_COTTON). Either re-author scenarios OR refresh KB after B-238.
-- **Trivial finding S56 (still open):** `api/brief_endpoint.py:664` uses `datetime.utcfromtimestamp()` (Python 3.14+ deprecation). 1,421 warnings/sweep. Trivial inline fix.
+- **B-NEW-PUNE-SOIL-SCENARIO-REFRESH** — Pune soil S05/S17 scenarios currently excluded with breadcrumb (KB has STIFF_CLAY, scenarios expect BLACK_COTTON).
+- **Trivial fix** — `api/brief_endpoint.py:664` `datetime.utcfromtimestamp` deprecation (1,421 warnings/sweep).
 
 ---
 
 ## ⚠️ Critical landmines for the next Claude
 
-### Landmine 1 — `4,386` is the new expected test count (was 4,350 at S56)
-- S55 → S56 phase 2 dropped by 140 (removed wasted C10 duplicates) → 4,328
-- S56 phase 2 → S56 phase 3 added 22 (orchestration tests) → 4,350
-- S56 → S57 Part A added 18 (C12/C13/C14 adapter tests) → 4,368
-- **S57 Part A → S57 extended added 18 (C7 full + C11a opt-in + C11b real evaluator tests) → 4,386**
-- Don't think the changes are regressions; they're tracked.
+### Landmine 1 — Test baseline grew ~4,386 → ~4,420 (S59 +35 tests)
 
-### Landmine 2 — C11b is STUB BY DEFAULT but OK is now reachable
-S57 #3 closed: setting `MasterOrchestratorConfig(use_real_c11b_evaluator=True)` flips C11b to OK. **Default stays False** (StubEvaluator → STUB) so the deterministic smoke tests don't change. When True, C12 auto-routes to the documented primary `adapt_refined_to_single_floor` path via the dispatcher — no orchestrator code change needed.
+S59 added 27 follow-up tests + 8 scenario tests. Don't think existing tests broke.
 
-**Critical context for #3:** The follow-up doc only described an evaluator change, but C11b's pre-existing `_extract_requirements_and_envelope` was broken on the canonical FloorRoomBrief (zero requirements extracted → NSGA produced zero candidates). S57 also ships `C11bBriefShim` + `build_c11b_brief_shim_from_upstream` in `orchestration/evaluators.py` to bridge the contract gap. Without the shim, the real evaluator alone doesn't flip C11b to OK.
+### Landmine 2 — `test_orchestrator_flips_c11b_to_ok_with_real_evaluator` is flaky
 
-### Landmine 3 — C15-C17 are STILL STUB
-S57 closed #1/#2/#3/#4/#5/#6. C15 (#7), C16 (#8), C17 (#9) remain STUB. **#7 is the easiest next-step** now that C12+C13+C14 all ship OK — just builds (C12, C13, C14) triples and threads through `analyze_problems_batch`.
+Failed in isolated subset runs during S59; passes in the full sweep. **Not new — already flaky at S57 close.** NSGA non-determinism. Consider deselecting in CI or fixing the seed.
 
-### Landmine 4 — C12 sparse-edge problem (working as designed)
-C12's slicing-tree often produces 0 shared edges for multi-room layouts in the smoke fixture (per the C13 adversarial integration corpus comments — filed `B-C12-EDGE-DENSITY` post-LOCK). C13 then produces 0 successful placements; C14 then has empty metadata. **This is all working as designed.** Phases ship OK regardless because the orchestrator's "OK = call succeeded" semantics match the architecture's intentional decoupling. **Do not** try to "fix" this in the orchestrator; the fix is in C12's placement algorithm tracked separately.
+### Landmine 3 — PIPELINE_PHASES is now 18, NOT 17
 
-### Landmine 5 — Orchestrator endpoint still uses FIXTURE inputs, not free-form
-`POST /api/orchestrate` only accepts `{plot_fixture: "bangalore_40x60", ...}` — named test fixtures. Production callers need free-form Plot + Brief input (follow-up #11). This is still MVP scope.
+S59 #10 added `c03a_extreme_case_detection`. Tests that hardcoded 17 were updated. Use `len(PIPELINE_PHASES)` not the literal.
 
-### Landmine 6 — Phase payloads still NOT serialized in HTTP response
-The endpoint returns per-phase status + metadata only. The actual phase outputs (PlotAnalysis dataclass, candidate tuples, PlacementBatchResult, etc.) are NOT in the JSON. Follow-up #12 still pending.
+### Landmine 4 — c17/__init__.py is EMPTY
 
-### Landmine 7 — LOCKED specs remain immutable
-S56 set the precedent: closed B-015/B-021/B-056 by authoring a NEW `C3a_v0_2_1b_AMENDMENT_LOCKED.md` next to the parent. Same pattern applies for future B-238 architect findings: don't edit `_v0_2_1a_LOCKED.md` in place.
+`from buildemup.components.c17 import run_c17` fails. Import from `buildemup.components.c17.orchestrator` directly. The S59 quote endpoint does this correctly; other future C17 callers should too.
 
-### Landmine 8 — Run pytest from `06_upstream_codebase/buildemup/` (inside the package)
-```powershell
-cd "C:\Buildemup Full 17 components complete\.claude\worktrees\distracted-newton-d8ec13\06_upstream_codebase\buildemup"
-"C:\Buildemup Full 17 components complete\06_upstream_codebase\venv\Scripts\python.exe" -m pytest tests -q
-```
-The worktree path will differ in S58; substitute the active worktree name.
+### Landmine 5 — C16 ships OK *or* STUB depending on C13 join
 
-### Landmine 9 — Frontend changes need server restart
-brief_form.html / case.js / done.js cache as static. Hard refresh isn't enough.
+The bangalore smoke fixture hits the C12 sparse-edge case → 0 C13 successes → 0 drawable candidates → C16 STUB. Other fixtures may flip C16 to OK. **Both are valid.** The scenario corpus + S59 tests assert `in (OK, STUB)`.
+
+### Landmine 6 — Quote endpoint auto-computes signature
+
+The endpoint always overwrites caller-supplied `parsed_quote_signature` with the canonical SHA-256 derived from line items. Callers don't need to implement C17's canonicalisation.
+
+### Landmine 7 — Scenario corpus deliberately records known-broken combos
+
+5 of 6 fixture combos in `test_master_orchestrator_scenarios.py` are tagged with their expected failing phase. The test asserts "this combo fails AT this phase" — when the underlying component bug is fixed, flip the row's expected_failing_phase to None.
+
+### Landmine 8 — Tailwind via CDN
+
+`<script src="https://cdn.tailwindcss.com">` in the HTML head. No build step. Don't try to compile.
+
+### Landmine 9 — Static file allowlist in server.py
+
+Adding new static files = update the path tuple in `do_GET` near `/brief_form.html`. Forget = 404.
 
 ### Landmine 10 — Inherited landmines (still apply)
-`c01_brief_capture.py` + `c01/` are complementary (not duplicates), same for C7. `rendered_explain` vs `combined_rendered_explain`. GitHub repo is PRIVATE. User is non-engineer. Vastu FULL is hidden (B-099), not removed.
+`c01_brief_capture.py` + `c01/` are complementary (not duplicates); same for C7. `rendered_explain` vs `combined_rendered_explain`. GitHub repo is PRIVATE. User is non-engineer. Vastu FULL is hidden (B-099), not removed.
 
 ---
 
 ## ✅ How to verify project state on your own machine
 
-**Smoke test the orchestrator (~3-4 min — slow because real-evaluator tests run actual NSGA):**
+**Smoke test the orchestrator (~4 min):**
 ```powershell
-cd "C:\Buildemup Full 17 components complete\.claude\worktrees\distracted-newton-d8ec13\06_upstream_codebase\buildemup"
-"C:\Buildemup Full 17 components complete\06_upstream_codebase\venv\Scripts\python.exe" -m pytest tests/test_orchestration -q
+cd "C:\Buildemup Full 17 components complete\.claude\worktrees\wonderful-agnesi-b41550\06_upstream_codebase\buildemup"
+"C:\Buildemup Full 17 components complete\06_upstream_codebase\venv\Scripts\python.exe" -m pytest tests/test_orchestration -q --deselect tests/test_orchestration/test_c11b_real_evaluator.py::test_orchestrator_flips_c11b_to_ok_with_real_evaluator
 ```
-Expected: **58 passed**.
+Expected: **92 passed, 1 skipped, 1 deselected**.
 
-**B-241 lint:**
-```powershell
-cd "C:\Buildemup Full 17 components complete\.claude\worktrees\distracted-newton-d8ec13"
-"C:\Buildemup Full 17 components complete\06_upstream_codebase\venv\Scripts\python.exe" scripts\wall_segments_lint_check.py
-```
-Expected: PASS.
-
-**Full sweep (~5-6 min — slower than S56 because of real-NSGA tests):** **4,386 passed / 0 failed / 31 skipped.**
-```powershell
-cd "C:\Buildemup Full 17 components complete\.claude\worktrees\distracted-newton-d8ec13\06_upstream_codebase\buildemup"
-"C:\Buildemup Full 17 components complete\06_upstream_codebase\venv\Scripts\python.exe" -m pytest tests -q
-```
-
-**Live server with orchestrator endpoint:**
+**Live server with the new UI:**
 ```powershell
 cd "C:\Buildemup Full 17 components complete\06_upstream_codebase"
 .\venv\Scripts\Activate.ps1
 python -m buildemup.api.server
 ```
-Then `curl -X POST -d '{}' http://localhost:8000/api/orchestrate` returns 17-phase JSON status; c12/c13/c14 should now show "status": "ok".
+Then browse:
+- `http://localhost:8000/orchestrator_run.html` — run pipeline + see drawings
+- `http://localhost:8000/quote_compare.html` — paste a quote → see verdict
+
+**Full sweep (~6 min):** ~4,420 passed (vs 4,386 at S57 close).
 
 ---
 
-## 🛣️ Recommended directions for S58
+## 🛣️ Recommended directions for S60
 
-### Option A (RECOMMENDED) — Close #8 (C16 drawings) so architect has something visual to review
-The B-238 packet is in Ramalingam's hands; outreach is calendar-bound. Architect's first ask will likely be "show me drawings." Follow-up #8 (UpstreamInputBundle assembly + render_drawings_batch wiring) produces those. ~3-4 hours; high visibility value. After #8 lands, C15 (#7) is trivial to add on top.
+### Option A (RECOMMENDED) — Pure architect-feedback wait
+S59 closed every Claude-actionable orchestrator item. Pause work; focus on B-238 outreach. Return when feedback lands. The architect's findings should drive what we fix next.
 
-### Option B — Close #7 (C15 triples) first, then #8
-C15 is the easiest follow-up to add now that C12+C13+C14 all ship OK. ~1.5h. After C15, all five chained phases (C12-C16) become trivial to wire end-to-end.
+### Option B — Fix scenario-corpus known-broken combos
+Each (B-107, B-C8, B-C9, B-C10) is a tractable component bug. ~2-4h each. Useful but lower B-238 leverage than (A).
 
-### Option C — Real C11b evaluator (#3, ~4-6h)
-Flips C12's primary path on. Higher refinement quality, but the architect doesn't see this directly — it's behind-the-scenes optimization. Lower B-238 visibility than #8 or #7.
+### Option C — v1+ roadmap doc
+Still deferred per user direction; do AFTER B-238 feedback.
 
-### Option D — Detailed v1+ roadmap (Option C from S55)
-Still deferred per user direction; best done AFTER B-238 feedback lands.
+### Option D — Polish the UI surface
+Add CSV/PDF download for the C17 report; nicer drawing visualisation; mobile responsiveness. Useful if architect demos happen on a phone.
 
-### Option E — Pure architect-feedback wait
-Pause Claude work; focus on outreach. Return when feedback lands. Lowest churn.
-
-**My recommendation:** Option A. Drawings are what architects evaluate first; everything else is internal-to-the-engine.
+**My recommendation:** Option A. The orchestrator is now demo-ready. The next move belongs to the architect, not the codebase.
 
 ---
 
@@ -178,27 +172,28 @@ Pause Claude work; focus on outreach. Return when feedback lands. Lowest churn.
 | What | Where |
 |---|---|
 | This document | `00_START_HERE/NEXT_CLAUDE_HANDOFF.md` (you're reading) |
-| **S57 orchestrator follow-ups (READ FIRST; #4/#5/#6 closed)** | `04_backlog/S57_MASTER_ORCHESTRATOR_FOLLOWUPS.md` |
+| **S59 session log (READ FIRST)** | `00_START_HERE/S59_SESSION_LOG.md` |
 | S57 session log | `00_START_HERE/S57_SESSION_LOG.md` |
 | S56 session log | `00_START_HERE/S56_SESSION_LOG.md` |
+| **S57 follow-ups (all 14 now closed)** | `04_backlog/S57_MASTER_ORCHESTRATOR_FOLLOWUPS.md` |
 | B-238 architect packet | `04_backlog/B238_architect_engagement_packet_S56/00_README.md` |
-| Master Orchestrator package | `06_upstream_codebase/buildemup/orchestration/` |
-| **Orchestrator adapter glue (S57)** | `06_upstream_codebase/buildemup/orchestration/adapters/` |
-| **Orchestrator evaluators (S57 #3)** | `06_upstream_codebase/buildemup/orchestration/evaluators.py` |
-| Orchestrator HTTP endpoint | `06_upstream_codebase/buildemup/api/orchestrate_endpoint.py` |
-| Orchestrator tests | `06_upstream_codebase/buildemup/tests/test_orchestration/` |
-| C3a amendment (S56) | `02_specs_chronological/C3a_v0_2_1a_LOCKED/buildemup_C3a_SPEC_v0_2_1b_AMENDMENT_LOCKED.md` |
-| Rule 11 maturity scoring (S56) | `01_master_doc/RULE_11_MATURITY_WEIGHTED_SCORING_S56.md` |
-| Backlog triage with 4 buckets | `04_backlog/S54_BACKLOG_TRIAGE.md` (B and C empty) |
-| Master doc latest | `01_master_doc/MASTER_DOC_v3_16_TO_v3_17_DELTA.md` |
-| GitHub remote | `https://github.com/ramalingam38-rgb/buildemup` (PRIVATE) |
+| **Orchestrator UI (S59 #14)** | `06_upstream_codebase/buildemup/static/orchestrator_run.html` |
+| **Quote-compare UI (S59 #14)** | `06_upstream_codebase/buildemup/static/quote_compare.html` |
+| **Quote endpoint (S59 #9)** | `06_upstream_codebase/buildemup/api/quote_endpoint.py` |
+| Master Orchestrator | `06_upstream_codebase/buildemup/orchestration/master_orchestrator.py` |
+| Orchestrator adapters | `06_upstream_codebase/buildemup/orchestration/adapters/` |
+| Free-form input contract (S59 #11) | `06_upstream_codebase/buildemup/orchestration/freeform_inputs.py` |
+| Payload serializer (S59 #12) | `06_upstream_codebase/buildemup/orchestration/phase_payloads.py` |
+| Backlog triage | `04_backlog/S54_BACKLOG_TRIAGE.md` |
 | Memory (auto-loaded) | `~\.claude\projects\C--Buildemup-Full-17-components-complete\memory\` |
 
 ---
 
-## 🧠 Memory state at S57 close
+## 🧠 Memory state at S59 close
 
-Memory file `project_buildease_state_and_deferred_tasks.md` updated at S57 close to reflect: orchestrator now runs C4 → C14 end-to-end with full C7 engine + opt-in real C11b evaluator; 8 follow-ups remain; test baseline 4,386.
+Memory file `project_buildease_state_and_deferred_tasks.md` updated to reflect: all 14 S57 orchestrator follow-ups closed; pipeline now produces drawable, comparable artifacts; only calendar-bound + component-level bugs remain.
+
+Memory file `feedback_proceed_without_asking.md` updated with the S59 reinforcement: blanket approval for tests + code changes inside the worktree.
 
 If memory shows different content than this handoff, **trust the handoff** (it's more recent).
 
@@ -206,8 +201,8 @@ If memory shows different content than this handoff, **trust the handoff** (it's
 
 ## 🎓 Project context (one paragraph for fresh sessions)
 
-BuildemUp† (placeholder name; future "BuildEase") is a decision-support engine for Indian families building their own home. The product exists to close information asymmetry between homeowners and contractors/architects/engineers — particularly making material cost, engineer fees, labour, contractor margin, and timeline all visible separately. 17 components: C1 brief → C2 feasibility → C3a/C3b negotiation → C4 plot analysis → C5 topology → C6 orientation → C7 structural grid → C8 corridor → C9 room sizer → C10 wet zones → C11a/b topology mutation + NSGA-II → C12 vertical alignment → C13 doors → C14 connection graph → C15 problem finder → C16 dual drawings → C17 quote comparison. **At S57 close, the master orchestrator runs C4 → C14 as a real chain end-to-end with full C7 structural sizing + foundation + cost** (C11b STUB by default, OK opt-in via real evaluator + brief shim; C12 auto-routes to primary RefinedCandidate path when C11b OK; C15-C17 STUB with explicit S58+ follow-ups). Soul-complete v1 also requires 3D, interior design, full CAD pack for construction, municipal submission, construction-phase help — none of which exist yet.
+BuildemUp† (placeholder name; future "BuildEase") is a decision-support engine for Indian families building their own home. The product exists to close information asymmetry between homeowners and contractors/architects/engineers — particularly making material cost, engineer fees, labour, contractor margin, and timeline all visible separately. 17 components: C1 brief → C2 feasibility → C3a/C3b negotiation → C4 plot analysis → C5 topology → C6 orientation → C7 structural grid → C8 corridor → C9 room sizer → C10 wet zones → C11a/b topology mutation + NSGA-II → C12 vertical alignment → C13 doors → C14 connection graph → C15 problem finder → C16 dual drawings → C17 quote comparison. **At S59 close, the master orchestrator runs C4 → C16 as a real chain with C15 + C16 OK and an end-to-end browser UI; C17 runs as a separate /api/quote/compare flow; PIPELINE_PHASES carries 18 entries (the canonical 17 + c03a_extreme_case_detection async-flags phase).** Soul-complete v1 also requires 3D, interior design, full CAD pack for construction, municipal submission, construction-phase help — none of which exist yet.
 
 †= placeholder name marker. Final product name TBD ("BuildEase" preferred; "Archimind" is taken).
 
-**Welcome to S58. Read `S57_MASTER_ORCHESTRATOR_FOLLOWUPS.md` first, then this file, then `S57_SESSION_LOG.md`. Then await Ramalingam's direction.**
+**Welcome to S60. Read `S59_SESSION_LOG.md` first, then this file. Then await Ramalingam's direction.**

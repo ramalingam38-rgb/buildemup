@@ -77,8 +77,12 @@ class PhaseResult:
 PIPELINE_PHASES: Final[Tuple[str, ...]] = (
     "c01_brief",
     "c02_feasibility",
-    # C3a/C3b skipped in MVP (session-stateful negotiation flow;
-    # already accessible via /api/c3a/* URLs). See S57 follow-ups.
+    # C3a extreme-case detection ships as an ASYNC-FLAGS phase
+    # (S59 follow-up #10): runs detection only, never halts, surfaces
+    # detected cases as flags. The full negotiation flow (C3b) stays
+    # at /api/extreme-case/* — session-stateful and outside the
+    # orchestrator's pure-function contract.
+    "c03a_extreme_case_detection",
     "c04_plot_analysis",
     "c05_topology",
     "c06_orientation",

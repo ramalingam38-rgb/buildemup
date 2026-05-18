@@ -179,8 +179,14 @@ class MasterOrchestrator:
         c02_result = self._run_c02_feasibility(full_brief)
         phases.append(c02_result)
 
-        # ─── C3a/C3b — SKIPPED in MVP ──────────────────────────────
-        # Session-stateful negotiation; already HTTP-accessible.
+        # ─── C3a: extreme-case detection (S59 follow-up #10) ──────
+        # Async-flags mode: detection-only, never halts the pipeline.
+        # The full negotiation flow (C3b) stays at /api/extreme-case/*.
+        c03a_result = self._run_c3a_detection(
+            full_brief,
+            c02_result.payload if c02_result.status == PhaseStatus.OK else None,
+        )
+        phases.append(c03a_result)
 
         # ─── C4: PlotAnalysis ──────────────────────────────────────
         c04_result = self._run_c04_plot_analysis(brief_for_c4)
@@ -267,22 +273,42 @@ class MasterOrchestrator:
         # ─── C14: Connection graph (S57 follow-up #6) ─────────────
         c14_result = self._run_c14_connection_graph(c12_payload, c13_payload)
         phases.append(c14_result)
+        c14_payload = c14_result.payload if c14_result.status == PhaseStatus.OK else None
 
-        # ─── C15 → C17: STUB phases (S57 follow-ups #7/#8/#9) ─────
-        # C15 needs (C12, C13, C14) triples + metadata. C16 needs
-        # UpstreamInputBundle. C17 is a separate flow.
-        phases.append(self._stub_phase(
-            "c15_problem_finder",
-            "(C12, C13, C14) triples + ProblemAnalysisMetadata construction required",
-        ))
-        phases.append(self._stub_phase(
-            "c16_dual_drawings",
-            "UpstreamInputBundle assembly across C7/C9/C10/C12/C13 required",
-        ))
-        phases.append(self._stub_phase(
-            "c17_quote_comparison",
-            "Separate user-uploads-quote flow; not strictly downstream "
-            "of the main pipeline. Wire when C17 ingest UI is built.",
+        # ─── C15: Problem finder (S59 follow-up #7) ───────────────
+        c15_result = self._run_c15_problem_finder(
+            c12_payload, c13_payload, c14_payload,
+        )
+        phases.append(c15_result)
+        c15_payload = c15_result.payload if c15_result.status == PhaseStatus.OK else None
+
+        # ─── C16: Dual drawings (S59 follow-up #8) ────────────────
+        c16_result = self._run_c16_dual_drawings(
+            c07_result.payload if c07_result.status == PhaseStatus.OK else None,
+            c10_result.payload if c10_result.status == PhaseStatus.OK else None,
+            c12_payload, c13_payload, c14_payload, c15_payload,
+            plot_analysis,
+        )
+        phases.append(c16_result)
+
+        # ─── C17: Quote comparison ─────────────────────────────────
+        # Always SKIPPED inside the master pipeline — C17 is the
+        # user-uploaded-quote flow accessed separately via
+        # /api/quote/compare (S59 follow-up #9). The master
+        # orchestrator skips it deliberately so a no-quote run still
+        # produces a complete 17-phase result.
+        phases.append(PhaseResult(
+            phase_id="c17_quote_comparison",
+            status=PhaseStatus.SKIPPED,
+            skip_reason=(
+                "C17 runs as a separate user-uploaded-quote flow via "
+                "POST /api/quote/compare. The master pipeline does not "
+                "invoke C17 because it has no contractor quote to "
+                "compare. Wire a quote upload to that endpoint instead."
+            ),
+            notes=(
+                "S59 follow-up #9: see api/quote_endpoint.py.",
+            ),
         ))
 
         return self._finalize(phases, run_start)
@@ -311,6 +337,60 @@ class MasterOrchestrator:
             payload=full_brief,
             notes=("Brief provided by caller; C1 form-validation step bypassed.",),
         )
+
+    def _run_c3a_detection(
+        self, full_brief: Any, gap_analysis: Any,
+    ) -> PhaseResult:
+        """C3a extreme-case detection (S59 follow-up #10) — async-flags.
+
+        Runs only the detector step; does NOT enter the multi-turn
+        negotiation flow (that's C3b at /api/extreme-case/*). Detected
+        cases surface as a list in PhaseResult.payload + notes. Phase
+        always ships OK unless a hard exception fires — detection
+        finding cases is information, not failure.
+        """
+        phase_id = "c03a_extreme_case_detection"
+        if full_brief is None or gap_analysis is None:
+            return PhaseResult(
+                phase_id=phase_id,
+                status=PhaseStatus.SKIPPED,
+                skip_reason=(
+                    "C3a detection requires a full Brief + C2 "
+                    "DesignGapAnalysis. Pass full_brief= to .run() to "
+                    "enable; otherwise the pipeline continues without "
+                    "extreme-case flags."
+                ),
+            )
+        start = time.monotonic()
+        try:
+            from buildemup.components.c03a.detector import (
+                ExtremeCaseDetector,
+            )
+            cases = ExtremeCaseDetector.detect(gap_analysis, full_brief)
+            case_summary = tuple(
+                {
+                    "case_id": c.case_id.value if hasattr(c.case_id, "value") else str(c.case_id),
+                    "category": (
+                        c.category.value if hasattr(c.category, "value")
+                        else str(c.category)
+                    ),
+                }
+                for c in cases
+            )
+            return PhaseResult(
+                phase_id=phase_id,
+                status=PhaseStatus.OK,
+                payload={"cases_detected": case_summary},
+                elapsed_ms=(time.monotonic() - start) * 1000,
+                notes=(
+                    f"Extreme cases detected: {len(cases)}",
+                    "Async-flags mode: pipeline continues regardless.",
+                    "For interactive negotiation, route to "
+                    "POST /api/extreme-case/check (C3b flow).",
+                ),
+            )
+        except Exception as e:  # noqa: BLE001
+            return self._error_result(phase_id, e, start)
 
     def _run_c02_feasibility(self, full_brief: Any) -> PhaseResult:
         phase_id = "c02_feasibility"
@@ -886,6 +966,169 @@ class MasterOrchestrator:
                 ),
             )
         except Exception as e:
+            return self._error_result(phase_id, e, start)
+
+    def _run_c15_problem_finder(
+        self,
+        c12_payload: Any,
+        c13_payload: Any,
+        c14_payload: Any,
+    ) -> PhaseResult:
+        """C15 phase — problem analysis (S59 follow-up #7).
+
+        Builds (C12, C13, C14) triples via the
+        orchestration.adapters.c12_c13_c14_to_c15 module, derives
+        per-candidate ProblemAnalysisMetadata, then calls C15's
+        `analyze_problems_batch`. Skips when any upstream dependency
+        is missing; emits OK with an empty batch when no triples can
+        be assembled (e.g. C12 sparse-edge case → 0 C13 successes →
+        0 triples).
+        """
+        phase_id = "c15_problem_finder"
+        if c12_payload is None or c13_payload is None or c14_payload is None:
+            return PhaseResult(
+                phase_id=phase_id,
+                status=PhaseStatus.SKIPPED,
+                skip_reason=(
+                    "Upstream C12 / C13 / C14 did not all produce a "
+                    "payload (problem analysis requires the full triple)."
+                ),
+            )
+        start = time.monotonic()
+        try:
+            from buildemup.components.c15 import (
+                ProblemFinderConfig,
+                analyze_problems_batch,
+            )
+            from buildemup.orchestration.adapters import (
+                build_c15_inputs_from_upstream,
+                derive_cultural_profile,
+            )
+            cultural_profile = derive_cultural_profile(self.config.vastu_tier)
+            triples, metadata = build_c15_inputs_from_upstream(
+                c12_payload=c12_payload,
+                c13_payload=c13_payload,
+                c14_payload=c14_payload,
+                cultural_profile=cultural_profile,
+            )
+            batch = analyze_problems_batch(
+                triples=triples,
+                metadata_per_candidate=metadata,
+                config=ProblemFinderConfig(strict_mode=False),
+            )
+            return PhaseResult(
+                phase_id=phase_id,
+                status=PhaseStatus.OK,
+                payload=batch,
+                elapsed_ms=(time.monotonic() - start) * 1000,
+                notes=(
+                    f"Triples assembled: {len(triples)}",
+                    f"Cultural profile: {cultural_profile.value}",
+                    f"Analyses: {len(batch.successful)} OK, "
+                    f"{len(batch.failed)} failed",
+                    "Empty triples are normal when upstream C12/C13 "
+                    "produce sparse edges; phase still ships OK.",
+                ),
+            )
+        except Exception as e:  # noqa: BLE001
+            return self._error_result(phase_id, e, start)
+
+    def _run_c16_dual_drawings(
+        self,
+        c07_payload: Any,
+        c10_payload: Any,
+        c12_payload: Any,
+        c13_payload: Any,
+        c14_payload: Any,
+        c15_payload: Any,
+        plot_analysis: Any,
+    ) -> PhaseResult:
+        """C16 phase — dual drawings (S59 follow-up #8).
+
+        Assembles UpstreamInputBundle + SelectionResult per surviving
+        candidate via the orchestration.adapters.c12_to_c16 module,
+        then calls C16's `render_drawings_batch` in WARN mode.
+
+        STUB-degraded path: if the bundle builder finds no candidates
+        with the full {C12 + C13 + C14 + per-floor grid + per-floor wet
+        zones} cross-section, the phase ships STUB with reason rather
+        than failing — the chain runs end-to-end on this fixture but
+        renders nothing.
+        """
+        phase_id = "c16_dual_drawings"
+        if c12_payload is None or c13_payload is None:
+            return PhaseResult(
+                phase_id=phase_id,
+                status=PhaseStatus.SKIPPED,
+                skip_reason=(
+                    "Upstream C12 / C13 did not produce a payload "
+                    "(drawings require both at minimum)."
+                ),
+            )
+        start = time.monotonic()
+        try:
+            from buildemup.components.c16 import (
+                JurisdictionProfile,
+                RenderingConfig,
+                render_drawings_batch,
+            )
+            from buildemup.orchestration.adapters.c12_to_c16 import (
+                build_c16_inputs_from_upstream,
+            )
+            selection_results, bundles = build_c16_inputs_from_upstream(
+                c07_payload=c07_payload,
+                c10_payload=c10_payload,
+                c12_payload=c12_payload,
+                c13_payload=c13_payload,
+                c14_payload=c14_payload,
+                c15_payload=c15_payload,
+                plot_analysis=plot_analysis,
+            )
+            if not selection_results:
+                return PhaseResult(
+                    phase_id=phase_id,
+                    status=PhaseStatus.STUB,
+                    payload=None,
+                    elapsed_ms=(time.monotonic() - start) * 1000,
+                    stub_reason=(
+                        "No drawable candidates after upstream join: "
+                        "every C12 PlacedCandidate either failed C13 "
+                        "door placement or C14 circulation analysis. "
+                        "(C12 sparse-edge density problem — filed as "
+                        "B-C12-EDGE-DENSITY; working as designed.)"
+                    ),
+                    notes=(
+                        "C16 orchestrator was not invoked — no inputs.",
+                        "Tracked in 04_backlog/S57_MASTER_ORCHESTRATOR_FOLLOWUPS.md",
+                    ),
+                )
+            jurisdiction = JurisdictionProfile(
+                jurisdiction_id="tn_cdbr_2019",
+                declared_domain_scope="residential_v1",
+            )
+            rendering_config = RenderingConfig()
+            batch = render_drawings_batch(
+                selection_results=selection_results,
+                upstream_inputs_per=bundles,
+                jurisdiction_profile=jurisdiction,
+                config=rendering_config,
+                strict_mode=False,
+            )
+            return PhaseResult(
+                phase_id=phase_id,
+                status=PhaseStatus.OK,
+                payload=batch,
+                elapsed_ms=(time.monotonic() - start) * 1000,
+                notes=(
+                    f"Bundles assembled: {len(bundles)}",
+                    f"Drawings rendered: {len(batch.successes)} OK, "
+                    f"{len(batch.failures)} failed",
+                    f"Jurisdiction: {jurisdiction.jurisdiction_id}",
+                    "Per-candidate failures are normal when upstream "
+                    "data is sparse — surfaced via batch.failures.",
+                ),
+            )
+        except Exception as e:  # noqa: BLE001
             return self._error_result(phase_id, e, start)
 
     # ─────────────────────────────────────────────────────────────

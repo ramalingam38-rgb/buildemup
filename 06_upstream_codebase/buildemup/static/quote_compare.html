@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuildemUp — Compare a Quote</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="brief_form.css">
+  <link rel="stylesheet" href="orchestrator_run.css">
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+  <header class="bg-white border-b border-gray-200 py-5 px-6">
+    <div class="max-w-5xl mx-auto flex items-baseline justify-between">
+      <h1 class="text-2xl font-semibold tracking-tight">BuildemUp</h1>
+      <span class="text-sm text-gray-500">C17 — Quote Comparison</span>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-8">
+
+    <div class="mb-6 flex items-baseline justify-between">
+      <div>
+        <h2 class="text-xl font-semibold mb-1">Compare a contractor quote against the BOQ</h2>
+        <p class="text-gray-600 text-sm">
+          Paste a parsed quote (line items) + the project's cost lines (from
+          your C7 estimate) as JSON. The system runs C17 and shows where the
+          quote is above/below the reference rate range, what's missing, and
+          a conversation baseline.
+        </p>
+      </div>
+      <a href="/orchestrator_run.html" class="text-sm text-blue-600 underline">← pipeline run</a>
+    </div>
+
+    <div class="mb-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-sm text-blue-900">
+      <strong>ℹ️ v1 input contract:</strong> the parser (OCR + Claude API) that turns a PDF/Excel
+      contractor quote into a ParsedQuote dataclass is out of scope for C17 — this UI accepts the
+      already-parsed JSON shape. A "Load sample" button below pre-fills a minimal valid request you
+      can edit.
+    </div>
+
+    <form id="quote-form" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div class="grid grid-cols-3 gap-5 mb-5">
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Project ID *</span>
+          <input type="text" name="project_id" required value="proj-demo-001"
+            class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Jurisdiction</span>
+          <select name="jurisdiction_profile_id" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="tn_cdbr_2019" selected>tn_cdbr_2019 (Tamil Nadu)</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Domain scope</span>
+          <select name="declared_domain_scope" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="residential_v1" selected>residential_v1</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="block mb-3">
+        <span class="text-sm font-medium text-gray-700">Parsed quote (JSON) *</span>
+        <textarea name="parsed_quote_json" rows="12" required
+          class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+      </label>
+
+      <label class="block mb-5">
+        <span class="text-sm font-medium text-gray-700">Cost lines (JSON) *</span>
+        <textarea name="cost_lines_json" rows="8" required
+          class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md font-mono text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+      </label>
+
+      <div class="flex items-center gap-3">
+        <button type="submit" id="run-btn" class="px-6 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+          Run quote comparison
+        </button>
+        <button type="button" id="load-sample-btn" class="px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          Load sample
+        </button>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="include_payload" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+          <span>Include full report payload</span>
+        </label>
+        <span id="run-status" class="text-sm text-gray-500"></span>
+      </div>
+    </form>
+
+    <!-- Result panel -->
+    <div id="result-panel" class="hidden mt-6 space-y-4">
+
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <h3 class="text-lg font-semibold mb-3">Summary</h3>
+        <div id="summary-grid" class="grid grid-cols-3 gap-4 text-sm"></div>
+      </div>
+
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <h3 class="text-lg font-semibold mb-3">Signatures</h3>
+        <pre id="signatures" class="text-xs bg-slate-800 text-slate-100 p-3 rounded overflow-x-auto"></pre>
+      </div>
+
+      <div id="payload-panel" class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hidden">
+        <h3 class="text-lg font-semibold mb-3">Full QuoteComparisonReport</h3>
+        <pre id="payload-pre" class="text-xs bg-slate-800 text-slate-100 p-3 rounded overflow-auto" style="max-height: 500px;"></pre>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="max-w-5xl mx-auto px-6 py-6 text-xs text-gray-500 text-center">
+    BuildemUp — C17 Quote Comparison (S59 follow-up #9). Output is PENDING ENGINEER VALIDATION.
+  </footer>
+
+  <script src="quote_compare.js"></script>
+</body>
+</html>

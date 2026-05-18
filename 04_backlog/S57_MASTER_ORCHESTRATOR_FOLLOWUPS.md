@@ -2,6 +2,7 @@
 
 **Authored:** S56, May 16, 2026, Ramalingam + Claude
 **S57 update (May 17, 2026):** Items #4/#5/#6 ✅ CLOSED (C12 + C13 + C14 OK). Items #1/#2/#3 ✅ CLOSED (C7 full engine, C11a M1-M9, real C11b evaluator). **C11b now ships OK with the real MultiObjectiveEvaluator + brief shim — C12 activates the documented PRIMARY adapter path.** 8 follow-ups remain.
+**S59 update (May 18, 2026):** **ALL 14 FOLLOW-UPS NOW CLOSED.** S59 shipped #7 (C15 triples), #8 (C16 drawings), #9 (C17 quote endpoint), #10 (C3a/C3b async-flags), #11 (free-form input), #12 (payload serialization), #13 (scenario corpus), #14 (UI). The master orchestrator runs C4→C16 as a fully wired chain; C17 runs via a separate `/api/quote/compare` flow; PIPELINE_PHASES grew from 17 → 18 (added `c03a_extreme_case_detection`). Static UI ships at `/orchestrator_run.html` + `/quote_compare.html`. **0 follow-ups remain — S60 is calendar-bound + component-bug territory only.** See `00_START_HERE/S59_SESSION_LOG.md` for the close-out record.
 
 **Context:** S56 shipped the **MVP MasterOrchestrator** (`06_upstream_codebase/buildemup/orchestration/`) that walks all 17 components. S57 closed 6 follow-ups in one session: C7 runs the full StructuralGridEngine (grid + structure + foundation + cost); C11a supports the full M0-M9 operator suite; C11b uses a real EvaluatorProtocol (MultiObjectiveEvaluator + per-room brief shim) and now flips to OK; C12 activates the primary RefinedCandidate adapter path when C11b OK; C13/C14 ship OK. C15-C17 still STUB pending #7/#8/#9.
 
@@ -328,9 +329,12 @@ Phase ships OK when call returns a `DoorPlacementBatchResult`. Per-candidate `Do
 | **#2 C11a M0-M9 full operator suite (opt-in)** | **✅ S57 (2026-05-17, extended)** |
 | **#3 Real C11b EvaluatorProtocol + brief shim (opt-in)** | **✅ S57 (2026-05-17, extended)** |
 | **Full test sweep: 4,386 / 0 / 31** | **✅ S57 extended** |
-| C15 / C16 / C17 adapter glue (#7/#8/#9) | ⏸ S58+ |
-| C3a/C3b integration (#10) | ⏸ S58+ |
-| Free-form input contract (#11) | ⏸ S58+ |
-| Phase-payload serialization (#12) | ⏸ S58+ |
-| Scenario corpus (#13) | ⏸ S58+ |
-| UI surface (#14) | ⏸ S58+ |
+| **#7 C15 (C12,C13,C14) triples + ProblemAnalysisMetadata** | **✅ S59 (2026-05-18)** |
+| **#8 C16 UpstreamInputBundle assembly + render_drawings_batch** | **✅ S59 (2026-05-18)** |
+| **#9 C17 separate `/api/quote/compare` flow** | **✅ S59 (2026-05-18)** |
+| **#10 C3a/C3b integration (async-flags mode)** | **✅ S59 (2026-05-18)** |
+| **#11 Free-form Plot + FloorRoomBrief input contract** | **✅ S59 (2026-05-18)** |
+| **#12 Phase-payload JSON serialization** | **✅ S59 (2026-05-18)** |
+| **#13 Comprehensive fixture corpus** | **✅ S59 (2026-05-18)** |
+| **#14 UI: `/orchestrator_run.html` + `/quote_compare.html`** | **✅ S59 (2026-05-18)** |
+| **ALL 14 follow-ups closed; PIPELINE_PHASES now 18 with c03a** | **✅ S59 (2026-05-18)** |

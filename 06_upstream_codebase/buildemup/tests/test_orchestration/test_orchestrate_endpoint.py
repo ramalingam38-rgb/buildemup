@@ -20,7 +20,7 @@ def test_orchestrate_endpoint_runs_with_default_inputs():
     assert response["ok"] is True
     assert response["overall_status"] in {"ok", "stub"}
     assert response["total_elapsed_ms"] > 0
-    assert len(response["phases"]) == 17
+    assert len(response["phases"]) == 18  # S59: +c03a_extreme_case_detection
 
 
 def test_orchestrate_endpoint_returns_all_phases_in_order():
@@ -95,19 +95,17 @@ def test_orchestrate_endpoint_rejects_unknown_brief_fixture():
 # ──────────────────────────────────────────────────────────────────────
 
 
-def test_endpoint_reports_stub_phases_with_reason():
-    """C15-C17 should report status=stub with non-empty stub_reason.
-
-    C12 + C13 + C14 flipped to OK in S57 (follow-ups #4/#5/#6).
+def test_endpoint_reports_c15_c16_c17_terminal_state():
+    """After S59:
+       c15 OK (triples adapter), c16 OK|stub (drawings best-effort),
+       c17 SKIPPED (separate /api/quote/compare flow).
     """
     status, response = handle_orchestrate(b"")
-    stub_ids = {
-        "c15_problem_finder", "c16_dual_drawings", "c17_quote_comparison",
-    }
-    for p in response["phases"]:
-        if p["phase_id"] in stub_ids:
-            assert p["status"] == "stub"
-            assert p["stub_reason"], f"empty stub_reason for {p['phase_id']}"
+    by_id = {p["phase_id"]: p for p in response["phases"]}
+    assert by_id["c15_problem_finder"]["status"] == "ok"
+    assert by_id["c16_dual_drawings"]["status"] in ("ok", "stub")
+    assert by_id["c17_quote_comparison"]["status"] == "skipped"
+    assert "quote/compare" in by_id["c17_quote_comparison"]["skip_reason"]
 
 
 def test_endpoint_reports_c12_c13_c14_ok_via_adapters():

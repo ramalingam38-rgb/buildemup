@@ -1,0 +1,79 @@
+/* Orchestrator-results UI — phase chips + drawings preview. */
+
+.phase-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid;
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
+.phase-chip-ok      { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; }
+.phase-chip-stub    { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.phase-chip-skipped { background: #f3f4f6; border-color: #d1d5db; color: #4b5563; }
+.phase-chip-error   { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+
+.phase-chip .chip-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.phase-row {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  background: #fafafa;
+}
+
+.phase-row-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.875rem;
+  cursor: pointer;
+}
+
+.phase-row-body {
+  padding: 0.75rem 0.875rem 1rem;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.85rem;
+  background: white;
+}
+
+.phase-row-body pre {
+  max-height: 360px;
+  overflow: auto;
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.drawing-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  padding: 0.875rem;
+  background: #fafafa;
+}
+
+.drawing-svg-wrap {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  overflow: auto;
+}
+
+.drawing-svg-wrap svg {
+  max-width: 100%;
+  height: auto;
+}

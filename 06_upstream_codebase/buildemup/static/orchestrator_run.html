@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuildemUp — Run Full Pipeline</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="brief_form.css">
+  <link rel="stylesheet" href="orchestrator_run.css">
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+  <header class="bg-white border-b border-gray-200 py-5 px-6">
+    <div class="max-w-6xl mx-auto flex items-baseline justify-between">
+      <h1 class="text-2xl font-semibold tracking-tight">BuildemUp</h1>
+      <span class="text-sm text-gray-500">Master Orchestrator — Full Pipeline Run</span>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-8">
+
+    <div class="mb-8 flex items-baseline justify-between">
+      <div>
+        <h2 class="text-xl font-semibold mb-1">Run all 18 components end-to-end</h2>
+        <p class="text-gray-600 text-sm">
+          Pick a plot + brief fixture, run the master orchestrator,
+          and inspect per-phase status, payloads, and the C16 drawings.
+        </p>
+      </div>
+      <a href="/brief_form.html" class="text-sm text-blue-600 underline">← back to brief form</a>
+    </div>
+
+    <!-- Run form -->
+    <form id="orch-form" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+      <div class="grid grid-cols-3 gap-5 mb-5">
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Plot fixture</span>
+          <select name="plot_fixture" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="bangalore_40x60" selected>Bangalore 40×60 (T2)</option>
+            <option value="chennai_30x40">Chennai 30×40 (T1)</option>
+            <option value="delhi_60x90">Delhi 60×90 (T3)</option>
+            <option value="mumbai_30x40">Mumbai 30×40</option>
+            <option value="pune_30x40">Pune 30×40</option>
+            <option value="hyderabad_30x40">Hyderabad 30×40</option>
+          </select>
+        </label>
+
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Brief fixture</span>
+          <select name="brief_fixture" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="medium_brief" selected>medium_brief (3BR/2BA)</option>
+            <option value="small_brief">small_brief (1BR/1BA)</option>
+            <option value="large_brief">large_brief (4BR/3BA + study)</option>
+          </select>
+        </label>
+
+        <label class="block">
+          <span class="text-sm font-medium text-gray-700">Vastu tier</span>
+          <select name="vastu_tier" class="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="PARTIAL" selected>PARTIAL (7 items)</option>
+            <option value="OFF">OFF (none)</option>
+            <option value="FULL">FULL (hidden in v1)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="grid grid-cols-3 gap-5 mb-5">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="use_real_c11b_evaluator" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+          <span>Use real C11b evaluator (slower)</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="enable_full_mutation_operators" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+          <span>Full M0-M9 mutation suite</span>
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="include_payloads" checked class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+          <span>Include phase payloads</span>
+        </label>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button type="submit" id="run-btn" class="px-6 py-2 rounded-md bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+          Run pipeline
+        </button>
+        <a href="/quote_compare.html" class="px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          Compare a quote →
+        </a>
+        <span id="run-status" class="text-sm text-gray-500"></span>
+      </div>
+    </form>
+
+    <!-- Result panel -->
+    <div id="result-panel" class="hidden space-y-6">
+
+      <!-- Summary header -->
+      <div id="run-summary" class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <div class="flex items-baseline justify-between mb-2">
+          <h3 class="text-lg font-semibold">Run summary</h3>
+          <span id="run-elapsed" class="text-sm text-gray-500"></span>
+        </div>
+        <div id="run-summary-text" class="text-sm text-gray-700"></div>
+      </div>
+
+      <!-- Per-phase chips -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <h3 class="text-lg font-semibold mb-4">Per-phase status</h3>
+        <div id="phase-chips" class="grid grid-cols-2 md:grid-cols-3 gap-3"></div>
+      </div>
+
+      <!-- C3a extreme-case flags -->
+      <div id="c3a-panel" class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hidden">
+        <h3 class="text-lg font-semibold mb-3">C3a — extreme-case detection</h3>
+        <div id="c3a-cases" class="text-sm"></div>
+      </div>
+
+      <!-- C16 drawings -->
+      <div id="drawings-panel" class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <h3 class="text-lg font-semibold mb-3">C16 — dual drawings</h3>
+        <div id="drawings-status" class="text-sm text-gray-500"></div>
+        <div id="drawings-content" class="mt-4"></div>
+      </div>
+
+      <!-- Per-phase detail accordion -->
+      <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
+        <h3 class="text-lg font-semibold mb-3">Phase details</h3>
+        <p class="text-xs text-gray-500 mb-4">
+          Click a phase to expand its notes, error info, and payload.
+        </p>
+        <div id="phase-details" class="space-y-2"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="max-w-6xl mx-auto px-6 py-6 text-xs text-gray-500 text-center">
+    BuildemUp — Master Orchestrator UI (S59 follow-up #14). Output is PENDING ENGINEER VALIDATION.
+  </footer>
+
+  <script src="orchestrator_run.js"></script>
+</body>
+</html>

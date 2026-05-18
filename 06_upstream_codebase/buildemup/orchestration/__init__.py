@@ -37,6 +37,7 @@ from buildemup.orchestration.master_orchestrator import (
     MasterOrchestratorResult,
     MasterOrchestratorConfig,
 )
+from buildemup.orchestration.phase_payloads import serialize_phase_payload
 
 
 __all__ = [
@@ -46,4 +47,5 @@ __all__ = [
     "PhaseResult",
     "PhaseStatus",
     "PIPELINE_PHASES",
+    "serialize_phase_payload",
 ]

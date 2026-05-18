@@ -12,13 +12,16 @@ USAGE:
 ROUTES:
   GET  /                                       → redirect to /brief_form.html
   GET  /brief_form.html|js|css                 → static
+  GET  /orchestrator_run.html|js               → S59 orchestrator-results UI
+  GET  /quote_compare.html|js                  → S59 quote-upload UI
   GET  /api/vastu/partial-items                → 7 partial vastu items
   GET  /api/brief/resume?token=...             → resume saved brief
   GET  /health                                 → S7b § 8.4 health probe
   POST /api/brief/capture                      → C1 capture
   POST /api/brief/save                         → C1 save (returns resume URL)
   POST /api/feasibility/run                    → C2 feasibility
-  POST /api/orchestrate                        → S56 MVP master orchestrator (C4-C11a real, C12-C17 STUB)
+  POST /api/orchestrate                        → S59 master orchestrator (full 18-phase chain)
+  POST /api/quote/compare                      → S59 C17 quote-comparison (#9)
   POST /api/setback/preview                    → setback preview
   POST /api/extreme-case/check                 → C3a § 5.1
   POST /api/extreme-case/resolve               → C3a § 5.2
@@ -60,6 +63,9 @@ from buildemup.api.feasibility_endpoint import (
 )
 from buildemup.api.orchestrate_endpoint import (
     handle_orchestrate,
+)
+from buildemup.api.quote_endpoint import (
+    handle_quote_compare,
 )
 from buildemup.api.setback_preview_endpoint import (
     handle_setback_preview,
@@ -393,7 +399,13 @@ class BriefCaptureHandler(BaseHTTPRequestHandler):
             return
 
         # Static files
-        if path in ("/brief_form.html", "/brief_form.js", "/brief_form.css"):
+        if path in (
+            "/brief_form.html", "/brief_form.js", "/brief_form.css",
+            # S59 orchestrator-results + quote-upload UIs
+            "/orchestrator_run.html", "/orchestrator_run.js",
+            "/orchestrator_run.css",
+            "/quote_compare.html", "/quote_compare.js",
+        ):
             self._serve_static(path)
             return
 
@@ -431,12 +443,22 @@ class BriefCaptureHandler(BaseHTTPRequestHandler):
             return
 
         if path == "/api/orchestrate":
-            # S56 MVP — runs the full 17-component master orchestrator
-            # pipeline (C4-C11a real, C11b STUB on StubEvaluator,
-            # C12-C17 STUB pending adapter glue).
+            # S59 — runs the full 18-phase master orchestrator pipeline
+            # (C1-C17 plus c03a_extreme_case_detection).
             length = int(self.headers.get("Content-Length", 0))
             body = self.rfile.read(length) if length > 0 else b""
             status, response = handle_orchestrate(body)
+            self._send_json(status, response)
+            return
+
+        if path == "/api/quote/compare":
+            # S59 follow-up #9 — C17 quote-comparison flow. The
+            # master orchestrator does NOT invoke C17 because it has
+            # no contractor quote to compare; this endpoint is the
+            # entry point for the upload-quote-and-compare flow.
+            length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(length) if length > 0 else b""
+            status, response = handle_quote_compare(body)
             self._send_json(status, response)
             return
 
