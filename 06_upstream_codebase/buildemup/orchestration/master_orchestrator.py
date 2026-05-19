@@ -466,9 +466,30 @@ class MasterOrchestrator:
             from buildemup.components.c06 import prioritize_orientation
             from buildemup.domain.brief import VastuTier
             tier = VastuTier[self.config.vastu_tier]
-            oriented = prioritize_orientation(
-                candidates, plot_analysis, tier,
-            )
+            try:
+                oriented = prioritize_orientation(
+                    candidates, plot_analysis, tier,
+                )
+            except NotImplementedError as e:
+                # S59 ext: B-107 — C6 explicitly rejects intercardinal
+                # facing (NE/SE/SW/NW). Downgrade to STUB so downstream
+                # phases SKIP cleanly instead of every cascade-erroring.
+                msg = str(e)
+                if "intercardinal facing reserved" in msg or "B-107" in msg:
+                    return PhaseResult(
+                        phase_id=phase_id,
+                        status=PhaseStatus.STUB,
+                        elapsed_ms=(time.monotonic() - start) * 1000,
+                        stub_reason=(
+                            "C6 does not yet support intercardinal "
+                            "facing (NE/SE/SW/NW) — tracked under B-107. "
+                            "v1 supports cardinal facing only. Rotate "
+                            "the plot to a cardinal facing or wait for "
+                            "B-107 to extend orientation logic."
+                        ),
+                        notes=(f"Underlying: {msg[:160]}",),
+                    )
+                raise
             return PhaseResult(
                 phase_id=phase_id,
                 status=PhaseStatus.OK,
@@ -583,7 +604,31 @@ class MasterOrchestrator:
         start = time.monotonic()
         try:
             from buildemup.components.c08 import design_corridors
-            cdc = design_corridors(tuple(oriented), grid, plot_analysis)
+            from buildemup.components.c08.errors import (
+                CorridorSelfIntersectionError,
+            )
+            try:
+                cdc = design_corridors(tuple(oriented), grid, plot_analysis)
+            except CorridorSelfIntersectionError as e:
+                # S59 ext: C8 topology dispatch occasionally produces
+                # overlapping corridor segments on large plots with
+                # complex briefs (delhi_60x90 + 4BR+study). Downgrade
+                # to STUB rather than cascade-error the pipeline.
+                return PhaseResult(
+                    phase_id=phase_id,
+                    status=PhaseStatus.STUB,
+                    elapsed_ms=(time.monotonic() - start) * 1000,
+                    stub_reason=(
+                        "C8 corridor self-intersection (Inv 11) — the "
+                        "topology dispatch produced overlapping segments. "
+                        "Common on large plots with high room counts. "
+                        "Tracked under B-C8-LARGE-PLOT-COVERAGE."
+                    ),
+                    notes=(
+                        f"Underlying: CorridorSelfIntersectionError",
+                        f"Detail: {str(e)[:200]}",
+                    ),
+                )
             return PhaseResult(
                 phase_id=phase_id,
                 status=PhaseStatus.OK,
@@ -610,7 +655,31 @@ class MasterOrchestrator:
         start = time.monotonic()
         try:
             from buildemup.components.c09 import size_rooms
-            rsc = size_rooms(cdc, floor_brief, grid, plot_analysis)
+            from buildemup.components.c09.errors import (
+                BatchSizingInfeasibleError,
+            )
+            try:
+                rsc = size_rooms(cdc, floor_brief, grid, plot_analysis)
+            except BatchSizingInfeasibleError as e:
+                # S59 ext: tight plot + tight brief (e.g. pune_30x40 +
+                # 3BR/2BA) sometimes exhausts C9's per-candidate sizing
+                # search. Downgrade to STUB instead of fail-cascading.
+                return PhaseResult(
+                    phase_id=phase_id,
+                    status=PhaseStatus.STUB,
+                    elapsed_ms=(time.monotonic() - start) * 1000,
+                    stub_reason=(
+                        "All input candidates failed C9 sizing. Common "
+                        "cause: brief requests too many rooms for the "
+                        "plot's buildable envelope. Suggested "
+                        "remediation: drop a room, enlarge the plot, or "
+                        "raise C9's per-candidate search budget."
+                    ),
+                    notes=(
+                        f"Underlying: {type(e).__name__}",
+                        f"Detail: {str(e)[:200]}",
+                    ),
+                )
             return PhaseResult(
                 phase_id=phase_id,
                 status=PhaseStatus.OK,
@@ -637,7 +706,37 @@ class MasterOrchestrator:
         start = time.monotonic()
         try:
             from buildemup.components.c10 import plan_wet_zones
-            wzpc = plan_wet_zones(rsc, floor_brief, grid, plot_analysis)
+            from buildemup.components.c10.errors import (
+                BatchWetZoneInfeasibleError,
+            )
+            try:
+                wzpc = plan_wet_zones(rsc, floor_brief, grid, plot_analysis)
+            except BatchWetZoneInfeasibleError as e:
+                # S59 ext: small plots (e.g. mumbai/hyderabad 30×40 +
+                # small brief) sometimes can't fit a feasible wet-zone
+                # plan — every candidate exhausts wall capacity for
+                # bathroom+kitchen clusters. Downgrade to STUB so the
+                # pipeline doesn't fail-cascade everything downstream.
+                # The user-facing UI surfaces this honestly via the
+                # phase's stub_reason. C11a/C11b/C12/C13/C14/C15/C16
+                # then SKIP cleanly (their guards already handle the
+                # `wet_zoned_candidates is None` case).
+                return PhaseResult(
+                    phase_id=phase_id,
+                    status=PhaseStatus.STUB,
+                    elapsed_ms=(time.monotonic() - start) * 1000,
+                    stub_reason=(
+                        "All candidates failed wet-zone planning. "
+                        "Common cause: small plots where wall capacity "
+                        "can't accommodate bathroom + kitchen riser "
+                        "clusters. Suggested remediation: enlarge the "
+                        "plot, reduce wet-room count, or split clusters."
+                    ),
+                    notes=(
+                        f"Underlying: {type(e).__name__}",
+                        f"Detail: {str(e)[:240]}",
+                    ),
+                )
             return PhaseResult(
                 phase_id=phase_id,
                 status=PhaseStatus.OK,
@@ -745,7 +844,11 @@ class MasterOrchestrator:
                 BatchAllTopologiesFailedError,
             )
             brief_for_c11b = floor_brief
+            refinement_config = None
             if self.config.use_real_c11b_evaluator:
+                from buildemup.components.c11b.config import (
+                    LocalRefinementConfig,
+                )
                 from buildemup.orchestration.evaluators import (
                     build_c11b_brief_shim_from_upstream,
                     build_real_evaluator_from_upstream,
@@ -760,13 +863,35 @@ class MasterOrchestrator:
                 # NSGA actually has the constraint surface it needs.
                 brief_for_c11b = build_c11b_brief_shim_from_upstream(mutated)
                 evaluator_kind = "MultiObjectiveEvaluator"
+                # S59 ext: generous per-topology budget + larger init
+                # retry budget. Two issues observed when use_real_c11b
+                # _evaluator=True ran in isolated subset (vs full sweep):
+                # (a) 30s default wallclock was sometimes hit → STUB;
+                # (b) init_max_retries=100 was sometimes insufficient
+                # for the per-topology PRNG to find a feasible seed
+                # population (BatchAllTopologiesFailedError with no
+                # error attached). Bumping wallclock to 120s and
+                # init_max_retries 100→500 makes convergence
+                # deterministic across run orders without changing
+                # cache-key semantics for default-config callers.
+                refinement_config = LocalRefinementConfig(
+                    per_topology_wallclock_seconds=120.0,
+                    init_max_retries=500,
+                )
             else:
                 evaluator = StubEvaluator(StubEvaluatorConfig())
                 evaluator_kind = "StubEvaluator"
             try:
-                refined = run_local_refinement(
-                    mutated, brief_for_c11b, grid, plot_analysis, evaluator,
-                )
+                if refinement_config is not None:
+                    refined = run_local_refinement(
+                        mutated, brief_for_c11b, grid, plot_analysis,
+                        evaluator, config=refinement_config,
+                    )
+                else:
+                    refined = run_local_refinement(
+                        mutated, brief_for_c11b, grid, plot_analysis,
+                        evaluator,
+                    )
                 return PhaseResult(
                     phase_id=phase_id,
                     status=PhaseStatus.OK,

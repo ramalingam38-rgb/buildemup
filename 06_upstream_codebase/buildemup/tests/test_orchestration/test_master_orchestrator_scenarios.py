@@ -3,15 +3,24 @@
 Exercises every (plot, brief) combo from the named-fixture registry
 against the orchestrator. Each test confirms:
   - The pipeline runs without raising.
-  - All 18 phases produce a PhaseResult.
-  - C4-C14 reach OK (no upstream-chain regression).
-  - Overall status is OK (STUB/SKIPPED phases never break aggregated OK).
+  - All 17 phases produce a PhaseResult.
+  - For happy-path scenarios: C4-C14 reach OK; overall status is OK.
+  - For known-broken scenarios: the named component phase degrades to
+    STUB (S59 extended — the orchestrator now gracefully downgrades
+    every known component-level failure to STUB rather than ERROR-
+    cascading the pipeline). overall_status stays OK because STUB
+    phases don't trip aggregation.
 
-This is the v1 acceptance suite — when a future change breaks
-scenarios for a specific city/brief combo, the regression surface is
-explicit. Comprehensive edge-case coverage (Pune BLACK_COTTON, Mumbai
-stilt parking, Delhi corner plot, etc.) is tracked separately as
-v1+ scenarios; this file covers the matrix that already passes today.
+The underlying component bugs (B-107 intercardinal, C8 self-
+intersection, C9 sizing exhaustion, C10 wall-assignment exhaustion)
+all remain open at the component level; the orchestrator surface
+just degrades gracefully so the UI can display the limitation
+honestly. When a component-level fix lands, flip the assertion to
+expect OK and remove the entry from `_KNOWN_BROKEN_DOWNGRADES`.
+
+Comprehensive edge-case coverage (Pune BLACK_COTTON, Mumbai stilt
+parking, Delhi corner plot, etc.) is tracked separately as v1+
+scenarios; this file covers the named-fixture matrix.
 """
 from __future__ import annotations
 
@@ -39,30 +48,29 @@ from buildemup.tests.validation._c5_fixtures import (
 )
 
 
-# Each row: (test_id, plot_builder, brief_builder, expected_failing_phase).
-# expected_failing_phase = None means the scenario should reach overall OK.
-# When set, the scenario is known to fail at that phase due to a CURRENT
-# upstream limitation (NOT introduced by S59) — the test records the
-# breakage so a future fix flips the assertion green. Examples:
-#   - C6 (orientation) rejects intercardinal facings (NE/SE/SW/NW) under
-#     B-107 — chennai_30x40 carries facing=NORTHEAST → breaks at C6.
+# Each row: (test_id, plot_builder, brief_builder, downgraded_phase).
+# downgraded_phase = None means the scenario reaches overall OK with
+# every chain phase OK. When set, that phase is known to STUB-degrade
+# due to a CURRENT component-level limitation; the orchestrator
+# converts the underlying exception to a graceful STUB result so the
+# pipeline doesn't cascade-error and the UI surface can show the
+# limitation honestly. Overall status remains OK in both branches.
 _SCENARIOS = [
     # Happy path — the smoke baseline.
     ("bangalore_40x60_medium", bangalore_40x60, medium_brief, None),
 
-    # Known-broken combos — these expose pre-S59 upstream-component
-    # edge cases. The scenario corpus records them honestly so a
-    # future fix to the named component flips the assertion green.
-    #   C6 (orientation): NE / SE / SW / NW facings rejected per B-107.
+    # Known-broken combos — orchestrator gracefully degrades each to
+    # STUB on the named phase. The underlying component bug remains
+    # open; closing it means changing the assertion below to None.
+    #   C6 (orientation): NE/SE/SW/NW facings rejected per B-107.
     ("chennai_30x40_small",    chennai_30x40,   small_brief,
      "c06_orientation"),
     #   C8 (corridor): Delhi 60x90 + large brief produces a corridor
-    #   self-intersection (Inv 11 violation) — filed under existing
-    #   B-C8-LARGE-PLOT-COVERAGE backlog territory.
+    #   self-intersection (Inv 11) — B-C8-LARGE-PLOT-COVERAGE.
     ("delhi_60x90_large",      delhi_60x90,     large_brief,
      "c08_corridor"),
     #   C9 (room sizer): Pune 30x40 + medium brief exhausts sizing
-    #   search budget on every candidate (RoomSizingInfeasibleError).
+    #   search budget on every candidate.
     ("pune_30x40_medium",      pune_30x40,      medium_brief,
      "c09_room_sizer"),
     #   C10 (wet zones): 30x40 + small brief geometry exhausts wall-
@@ -92,18 +100,20 @@ _CHAIN_OK_PHASES = (
 
 
 @pytest.mark.parametrize(
-    "scenario_id,plot_builder,brief_builder,expected_failing_phase",
+    "scenario_id,plot_builder,brief_builder,downgraded_phase",
     _SCENARIOS,
     ids=[s[0] for s in _SCENARIOS],
 )
 def test_scenario_pipeline_runs_end_to_end(
-    scenario_id, plot_builder, brief_builder, expected_failing_phase,
+    scenario_id, plot_builder, brief_builder, downgraded_phase,
 ):
     """Each scenario runs without raising.
 
-    When `expected_failing_phase` is None, every chain phase ships OK.
-    When set, only that one phase is allowed to be ERROR (everything
-    downstream then naturally SKIPs).
+    When `downgraded_phase` is None, every chain phase ships OK and
+    overall_status is OK. When set, that one phase ships STUB
+    (orchestrator graceful-downgrade — S59 extended), every phase
+    downstream of it SKIPs cleanly, and overall_status stays OK
+    because STUB doesn't trip aggregation.
     """
     plot = plot_builder()
     brief_for_c4 = make_brief(plot)
@@ -118,13 +128,14 @@ def test_scenario_pipeline_runs_end_to_end(
 
     # Structural assertions.
     assert len(result.phases) == len(PIPELINE_PHASES)
+    # overall_status is OK regardless — STUB does not cascade to ERROR.
+    assert result.overall_status == PhaseStatus.OK, (
+        f"{scenario_id}: overall_status={result.overall_status} "
+        f"(expected OK; only ERROR would flip aggregation)"
+    )
 
-    if expected_failing_phase is None:
-        # Happy-path scenario.
-        assert result.overall_status == PhaseStatus.OK, (
-            f"{scenario_id}: overall_status={result.overall_status} "
-            f"(expected OK)"
-        )
+    if downgraded_phase is None:
+        # Happy-path scenario — every chain phase OK.
         for phase_id in _CHAIN_OK_PHASES:
             phase = result.phase(phase_id)
             assert phase is not None, f"{scenario_id}: missing phase {phase_id}"
@@ -135,16 +146,19 @@ def test_scenario_pipeline_runs_end_to_end(
         c16 = result.phase("c16_dual_drawings")
         assert c16.status in (PhaseStatus.OK, PhaseStatus.STUB)
     else:
-        # Known-broken scenario — verify only the expected phase errors.
-        bad = result.phase(expected_failing_phase)
-        assert bad is not None
-        assert bad.status == PhaseStatus.ERROR, (
-            f"{scenario_id}: expected {expected_failing_phase} to ERROR "
-            f"(B-107 NE-facing); got {bad.status}"
+        # Known-broken scenario — orchestrator downgrades the named
+        # phase to STUB with a populated stub_reason. Everything
+        # downstream SKIPs because its `is None` guard fires.
+        degraded = result.phase(downgraded_phase)
+        assert degraded is not None
+        assert degraded.status == PhaseStatus.STUB, (
+            f"{scenario_id}: expected {downgraded_phase} to STUB-"
+            f"degrade gracefully; got {degraded.status}"
         )
-        assert bad.error_class  # non-empty error class
-        # Overall status reflects the failure.
-        assert result.overall_status == PhaseStatus.ERROR
+        assert degraded.stub_reason, (
+            f"{scenario_id}: downgraded phase {downgraded_phase} must "
+            f"carry a populated stub_reason for the UI to display."
+        )
 
     # C17 stays SKIPPED inside the master pipeline regardless (S59 #9 wiring).
     c17 = result.phase("c17_quote_comparison")

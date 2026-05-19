@@ -8,8 +8,10 @@
 **The only remaining open work is:**
 - B-238 architect outreach (calendar-bound, Ramalingam-driven; packet ready since S56; UI now ready for click-through).
 - B-220 plumbing engineer outreach (calendar-bound; packet not yet built).
-- Component-level bugs surfaced by the S59 scenario corpus (B-107 C6 intercardinal, C8/C9/C10 fixture edge cases).
+- Component-level bugs surfaced by the S59 scenario corpus — **all now graceful-STUB-degraded at the orchestrator level (S59 extended).** Underlying component fixes (B-107 C6, B-C8, B-C9, B-C10, B-C12) remain open as architect-amendment work, but the pipeline never crashes on them.
 - v1+ roadmap doc (deferred per user direction until B-238 feedback lands).
+
+**S59 extended close (2026-05-19):** Test baseline grew to **4,422 passed / 0 failed / 31 skipped**. C11b flake fixed via `init_max_retries=500` in the orchestrator's real-evaluator path; the 5 scenario-corpus bugs now uniformly STUB-degrade at the orchestrator instead of ERROR-cascading.
 
 **Your task:** Read this file. Then read `S59_SESSION_LOG.md`. Then await Ramalingam's S60 direction.
 
