@@ -1,0 +1,37 @@
+# Render Blueprint for BuildemUp (S59 deploy)
+# Render docs: https://render.com/docs/blueprint-spec
+#
+# Free tier notes:
+#   - 750 instance-hours/month free (enough for one always-on web service).
+#   - Service spins down after 15 min of no requests; first request after
+#     spindown takes ~30s to wake up.
+#   - $PORT is set by Render automatically; the server reads it.
+#
+# After connecting Render to the GitHub repo, this file lets Render
+# provision the service in one click via the Blueprint flow.
+
+services:
+  - type: web
+    name: buildemup
+    runtime: python
+    plan: free
+    region: singapore
+    branch: claude/wonderful-agnesi-b41550
+    rootDir: .
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd 06_upstream_codebase && python -m buildemup.api.server
+    healthCheckPath: /brief_form.html
+    autoDeploy: true
+    envVars:
+      - key: BUILDEMUP_ENV
+        value: dev
+        # Dev-mode validation is non-fatal — required env vars get
+        # warnings, not exit(1). Flip to "prod" once RESEND_API_KEY +
+        # BUILDEMUP_ADMIN_TOKEN + a writable BUILDEMUP_DATABASE_PATH
+        # are all provisioned.
+      - key: PYTHON_VERSION
+        value: "3.13.0"
+      - key: BUILDEMUP_HTTP_VERBOSE
+        value: "1"
+        # Verbose request logs in Render's log stream so you can see
+        # exactly what the architect clicks during the B-238 demo.
