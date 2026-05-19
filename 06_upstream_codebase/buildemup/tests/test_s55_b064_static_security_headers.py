@@ -48,11 +48,28 @@ class TestB064StaticSecurityHeaders(unittest.TestCase):
             self.assertEqual(headers["Content-Security-Policy"], _STATIC_CSP)
 
     def test_csp_denies_third_party_scripts(self):
-        """default-src 'self' + script-src 'self' = no remote JS."""
+        """script-src allows 'self' + only the Tailwind Play CDN.
+
+        S59 deploy (Render) relaxed script-src to allow
+        https://cdn.tailwindcss.com — the Tailwind Play CDN script
+        used by orchestrator_run.html, quote_compare.html, and
+        brief_form.html. No other remote scripts permitted; no
+        'unsafe-inline' for scripts. (Pre-1.0 we should bundle
+        Tailwind and re-tighten to script-src 'self'.)
+        """
         self.assertIn("default-src 'self'", _STATIC_CSP)
         self.assertIn("script-src 'self'", _STATIC_CSP)
-        # No https://*.example.com, no 'unsafe-inline' for scripts.
+        # Tailwind Play CDN is the ONLY remote script allowance.
+        self.assertIn("https://cdn.tailwindcss.com", _STATIC_CSP)
+        # No 'unsafe-inline' for scripts (inline scripts still
+        # forbidden — anything that runs must live in a .js file).
         self.assertNotIn("'unsafe-inline' 'self'", _STATIC_CSP.split(";")[1])
+        # Defense-in-depth: no other CDN hosts snuck in.
+        for forbidden_cdn in (
+            "unpkg.com", "jsdelivr.net", "cdnjs.cloudflare.com",
+            "ajax.googleapis.com", "code.jquery.com",
+        ):
+            self.assertNotIn(forbidden_cdn, _STATIC_CSP)
 
     def test_csp_forbids_framing(self):
         """frame-ancestors 'none' prevents clickjacking via iframe embed."""

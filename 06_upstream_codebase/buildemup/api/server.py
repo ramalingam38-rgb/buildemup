@@ -132,17 +132,23 @@ def _inject_test_mode_meta(html_bytes: bytes) -> bytes:
 # B-064 — static asset hardening (CSP + Cache-Control + nosniff)
 # ─────────────────────────────────────────────────────────────────────
 
-# Conservative CSP for our static UI surface. The C1 brief form and
-# C3a case/done/resume pages all run their own JS + own CSS only; no
-# third-party scripts, no inline event handlers, no remote XHR.
+# CSP for our static UI surface. The C1 brief form and C3a
+# case/done/resume pages run their own JS + own CSS, plus the
+# Tailwind Play CDN (cdn.tailwindcss.com) used by the S59 UI surfaces
+# (orchestrator_run.html, quote_compare.html, brief_form.html).
 #
-# We allow 'unsafe-inline' for styles because some pages emit small
-# inline <style> blocks for severity badges / banner colors. Inline
-# scripts are NOT permitted — anything that needs to run must live in
-# a .js file under /static/.
+# Allowances:
+#   script-src — 'self' for our own JS + cdn.tailwindcss.com for
+#                Tailwind Play. (Tailwind Play is acceptable for the
+#                early-stage demo; pre-1.0 we should bundle Tailwind
+#                and drop this CDN allowance.)
+#   style-src  — 'self' + 'unsafe-inline' because Tailwind Play injects
+#                runtime <style> tags AND a few C3a pages emit small
+#                inline <style> blocks for severity badges / banner
+#                colors. Inline scripts are NOT permitted.
 _STATIC_CSP = (
     "default-src 'self'; "
-    "script-src 'self'; "
+    "script-src 'self' https://cdn.tailwindcss.com; "
     "style-src 'self' 'unsafe-inline'; "
     "img-src 'self' data:; "
     "connect-src 'self'; "
