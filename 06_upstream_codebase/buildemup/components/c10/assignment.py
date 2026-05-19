@@ -61,8 +61,18 @@ def assign_clusters_to_walls(
     capacity_weights: WetZoneCapacityWeights,
     max_states: int = 100,
     max_attempts: int = 50,
+    enable_relaxation_pass: bool = True,
 ) -> AssignmentResult:
     """Greedy + bounded backtracking assignment.
+
+    Per C10 SPEC v1.0 LOCKED § 3 Phase 3 + C10 AMENDMENT v1.1 (S59 ext):
+    if the strict pass exhausts the search bound, optionally fall back
+    to a RELAXATION PASS over the full grid-wall set, emitting one
+    ``ForcedCultureOverride`` per relaxed assignment. The relaxation
+    keeps capacity as a hard gate but drops the
+    ``cluster_acceptable_walls`` filter — useful on small plots where
+    the per-cluster acceptable-wall sets are too sparse to satisfy
+    every cluster simultaneously.
 
     Args:
         clusters: cluster_id -> tuple of room_ids (lex-ASC).
@@ -77,10 +87,14 @@ def assign_clusters_to_walls(
         capacity_weights: per-fixture capacity weighting.
         max_states: bound for backtracking.
         max_attempts: bound for greedy retry.
+        enable_relaxation_pass: per C10 AMENDMENT v1.1, when True (the
+            new default) retry over the full wall set on strict
+            exhaustion. False keeps the v1.0 strict-only semantics.
 
     Raises:
-        WetZoneInfeasibleError(failure_phase="assignment") if no
-        feasible assignment found within bounds.
+        WetZoneInfeasibleError(failure_phase="assignment") if neither
+            the strict pass nor (when enabled) the relaxation pass
+            finds a feasible assignment within bounds.
     """
     walls_by_id = {w.wall_id: w for w in grid.wall_segments_canonical()}
 
@@ -145,7 +159,70 @@ def assign_clusters_to_walls(
         return False
 
     success = _try_assign(0, used_walls)
+    relaxation_used = False
     truncation: TruncationReason
+    if not success and enable_relaxation_pass:
+        # C10 AMENDMENT v1.1 — strict greedy exhausted; retry over the
+        # full wall set with capacity as the only hard gate. Every
+        # assignment made by this pass is recorded as a
+        # ForcedCultureOverride so downstream consumers can surface the
+        # relaxation honestly to the user.
+        used_walls.clear()
+        all_wall_ids = set(walls_by_id.keys())
+        relaxed_states = 0
+
+        def _try_assign_relaxed(idx: int, current: dict[str, str]) -> bool:
+            nonlocal relaxed_states
+            if idx >= len(cluster_ids):
+                return True
+            cid = cluster_ids[idx]
+            # Sort the full wall set by score (descending) so the best
+            # available wall is tried first even outside the strict
+            # acceptable set.
+            wall_candidates = sorted(
+                all_wall_ids,
+                key=lambda w: (-_wall_score(cid, w, current), w),
+            )
+            for wall_id in wall_candidates:
+                relaxed_states += 1
+                if relaxed_states > max_states * 4:
+                    # Generous bound — relaxation tries 4× the strict
+                    # budget because the search space is much wider.
+                    return False
+                if not _wall_capacity_ok(cid, wall_id):
+                    continue
+                current[cid] = wall_id
+                if _try_assign_relaxed(idx + 1, current):
+                    return True
+                del current[cid]
+            return False
+
+        success = _try_assign_relaxed(0, used_walls)
+        if success:
+            relaxation_used = True
+            # Combine state counts so callers see the full work done.
+            states_explored += relaxed_states
+            # Record one ForcedCultureOverride per cluster whose
+            # assigned wall fell OUTSIDE its strict acceptable set.
+            for cid, wid in used_walls.items():
+                strict_set = cluster_acceptable_walls.get(cid, set())
+                if wid in strict_set:
+                    continue  # acceptable assignment; nothing to flag
+                cat = cluster_primary_category.get(cid, "bathroom")
+                # Rejected alternatives = the cluster's strict
+                # acceptable-set members it didn't get.
+                rejected = tuple(
+                    (w, "strict_acceptable_set_infeasible")
+                    for w in sorted(strict_set)
+                    if w in walls_by_id
+                )
+                forced.append(ForcedCultureOverride(
+                    room_id=clusters[cid][0],
+                    wall_id=wid,
+                    category=cat,
+                    rejected_alternatives=rejected,
+                ))
+
     if not success:
         # Build informative remediation hints.
         hints = (
@@ -174,12 +251,18 @@ def assign_clusters_to_walls(
             TruncationReason.MAX_STATES if states_explored > max_states
             else TruncationReason.INFEASIBLE_TERMINATED
         )
+        relax_note = (
+            " (relaxation pass also failed)" if enable_relaxation_pass
+            else " (strict-only mode — set enable_relaxation_pass=True "
+                 "for AMENDMENT v1.1 fallback)"
+        )
         raise WetZoneInfeasibleError(
             f"Phase 3 wall assignment exhausted: states_explored="
-            f"{states_explored}, clusters={list(cluster_ids)}",
+            f"{states_explored}, clusters={list(cluster_ids)}{relax_note}",
             remediation_hints=hints,
             failure_phase="assignment",
         )
+    _ = relaxation_used  # observability hook; future amendment may surface
 
     # Detect forced culturally-discouraged: when the assigned wall has
     # discouraged classification for the cluster's primary category.

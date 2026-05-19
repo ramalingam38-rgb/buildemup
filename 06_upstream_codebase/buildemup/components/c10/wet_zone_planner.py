@@ -304,6 +304,7 @@ def _plan_one_candidate(
         capacity_weights=config.capacity_weights,
         max_states=config.max_backtrack_states,
         max_attempts=config.max_assignment_attempts,
+        enable_relaxation_pass=config.enable_relaxation_pass,
     )
 
     # Build wet_wall_assignment per-room from cluster assignment.

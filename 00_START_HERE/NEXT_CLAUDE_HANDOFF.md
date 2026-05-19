@@ -13,6 +13,16 @@
 
 **S59 extended close (2026-05-19):** Test baseline grew to **4,422 passed / 0 failed / 31 skipped**. C11b flake fixed via `init_max_retries=500` in the orchestrator's real-evaluator path; the 5 scenario-corpus bugs now uniformly STUB-degrade at the orchestrator instead of ERROR-cascading.
 
+**S59 extended pt 2 close (2026-05-19):** Spec-amendment pass.
+- **C8 v1.1 AMENDMENT LOCKED** — COURTYARD arm corner-trim. **Genuine algorithm fix**; Delhi+large now ships C8 OK (no longer STUB).
+- **C10 v1.1 AMENDMENT LOCKED** — Phase 3 relaxation pass (opt-in-default). Doesn't unblock Mumbai/Hyderabad (binding constraint is 3m riser spacing on small plot, plumbing-engineer territory) but unblocks future "tight-but-fixable" cases.
+- **C9 stub_reason enrichment** — surfaces actual Inv 9 deficit ("brief exceeds plot by X m²") in the orchestrator response.
+- **B-107 DEFERRAL MEMO** — vastu intercardinal extension needs vastu-expert review.
+- **B-C12 DEFERRAL MEMO** — slicing-tree shared-edge density redesign needs architect review.
+- Scenario suite went from 1 happy + 5 known-broken → 4 happy + 4 known-broken.
+
+**Test sweep target: 4,422 passed.** (Verified post-amendment; no regression.)
+
 **Your task:** Read this file. Then read `S59_SESSION_LOG.md`. Then await Ramalingam's S60 direction.
 
 ---

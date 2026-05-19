@@ -677,12 +677,31 @@ def dispatch_courtyard(
     # For simplicity, each arm spans the full envelope dimension; junction
     # overlap is handled at area-accounting time.
 
+    # C8 AMENDMENT v1.1 (S59 ext / B-C8-LARGE-PLOT-COVERAGE): each arm
+    # was originally `(0..ew)` / `(0..ed)` — spanning the full envelope
+    # dimension and overlapping adjacent arms at the corners by w×w.
+    # Inv 11 (no self-intersection) raised CorridorSelfIntersectionError
+    # on every COURTYARD output because the overlapping arms didn't
+    # share endpoints. Fix: trim each arm to meet the orthogonal arm's
+    # centerline so the four corners become proper shared endpoints.
+    # New arm spans: `(perp_centerline .. ew - perp_centerline)` for
+    # horizontal arms, similarly for vertical.
+    south_start_pt = (west_centerline_x, south_centerline_y)
+    south_end_pt   = (east_centerline_x, south_centerline_y)
+    east_start_pt  = (east_centerline_x, south_centerline_y)
+    east_end_pt    = (east_centerline_x, north_centerline_y)
+    north_start_pt = (east_centerline_x, north_centerline_y)
+    north_end_pt   = (west_centerline_x, north_centerline_y)
+    west_start_pt  = (west_centerline_x, north_centerline_y)
+    west_end_pt    = (west_centerline_x, south_centerline_y)
+    horizontal_length = ew - w  # trimmed
+    vertical_length = ed - w
     arms_data = [
         # (kind, start_pt, end_pt, runs_along, length)
-        ("south", (0.0, south_centerline_y), (ew, south_centerline_y), PlotOrientation.EAST, ew),
-        ("east", (east_centerline_x, 0.0), (east_centerline_x, ed), PlotOrientation.NORTH, ed),
-        ("north", (ew, north_centerline_y), (0.0, north_centerline_y), PlotOrientation.WEST, ew),
-        ("west", (west_centerline_x, ed), (west_centerline_x, 0.0), PlotOrientation.SOUTH, ed),
+        ("south", south_start_pt, south_end_pt, PlotOrientation.EAST,  horizontal_length),
+        ("east",  east_start_pt,  east_end_pt,  PlotOrientation.NORTH, vertical_length),
+        ("north", north_start_pt, north_end_pt, PlotOrientation.WEST,  horizontal_length),
+        ("west",  west_start_pt,  west_end_pt,  PlotOrientation.SOUTH, vertical_length),
     ]
 
     # Map plot_facing to which arm gets the ENTRY

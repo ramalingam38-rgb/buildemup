@@ -58,6 +58,8 @@ from buildemup.tests.validation._c5_fixtures import (
 _SCENARIOS = [
     # Happy path — the smoke baseline.
     ("bangalore_40x60_medium", bangalore_40x60, medium_brief, None),
+    # Was C8-broken pre-S59 ext; C8 v1.1 AMENDMENT now happy-path.
+    ("delhi_60x90_large",      delhi_60x90,     large_brief,   None),
 
     # Known-broken combos — orchestrator gracefully degrades each to
     # STUB on the named phase. The underlying component bug remains
@@ -65,10 +67,9 @@ _SCENARIOS = [
     #   C6 (orientation): NE/SE/SW/NW facings rejected per B-107.
     ("chennai_30x40_small",    chennai_30x40,   small_brief,
      "c06_orientation"),
-    #   C8 (corridor): Delhi 60x90 + large brief produces a corridor
-    #   self-intersection (Inv 11) — B-C8-LARGE-PLOT-COVERAGE.
-    ("delhi_60x90_large",      delhi_60x90,     large_brief,
-     "c08_corridor"),
+    # delhi_60x90 + large was previously C8-stub-degraded; S59 ext
+    # C8 v1.1 AMENDMENT (COURTYARD arm corner-trim) fixed Inv 11 and
+    # the scenario now reaches happy-path.
     #   C9 (room sizer): Pune 30x40 + medium brief exhausts sizing
     #   search budget on every candidate.
     ("pune_30x40_medium",      pune_30x40,      medium_brief,

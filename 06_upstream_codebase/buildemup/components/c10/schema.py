@@ -297,6 +297,17 @@ class WetZonePlanConfig:
     max_backtrack_states: int = 100
     max_assignment_attempts: int = 50
     trap_arm_tolerance_m: float = 0.15
+    enable_relaxation_pass: bool = True
+    """C10 AMENDMENT v1.1 (S59 ext) — when the strict Phase-3 greedy
+    fails on small plots (acceptable_walls sets too sparse to satisfy
+    every cluster simultaneously), retry over the FULL grid wall set,
+    using capacity as the only hard gate and emitting a
+    ``ForcedCultureOverride`` per relaxed assignment. Preserves WARN-
+    mode UX: the user gets a layout with a flag rather than a
+    cascade-error. Set False to keep strict behaviour (e.g. for
+    deterministic test fixtures that intentionally exercise the
+    failure path).
+    """
     performance_budgets: WetZonePerformanceBudgets = field(
         default_factory=WetZonePerformanceBudgets
     )

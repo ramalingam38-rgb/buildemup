@@ -657,27 +657,62 @@ class MasterOrchestrator:
             from buildemup.components.c09 import size_rooms
             from buildemup.components.c09.errors import (
                 BatchSizingInfeasibleError,
+                RoomSizingInfeasibleError,
             )
             try:
                 rsc = size_rooms(cdc, floor_brief, grid, plot_analysis)
             except BatchSizingInfeasibleError as e:
-                # S59 ext: tight plot + tight brief (e.g. pune_30x40 +
-                # 3BR/2BA) sometimes exhausts C9's per-candidate sizing
-                # search. Downgrade to STUB instead of fail-cascading.
+                # S59 ext / B-C9 amendment: every input candidate failed
+                # C9 sizing. The common cause on tight plots is **Inv 9
+                # mathematical infeasibility**: Σ liveability_min_area
+                # exceeds the buildable envelope minus corridor — i.e.
+                # the brief asks for more area than the plot can hold.
+                # This is NOT a search-budget problem; no amount of
+                # additional iteration would find a feasible packing.
+                # The amendment surfaces the worst-case deficit so the
+                # UI can show "your brief is ~X m² over capacity" rather
+                # than a generic exhaustion message.
+                worst_deficit = 0.0
+                worst_envelope = 0.0
+                worst_min_area = 0.0
+                deterministic_infeasible = False
+                for _idx, exc in e.failures:
+                    if isinstance(exc, RoomSizingInfeasibleError):
+                        deterministic_infeasible = True
+                        if exc.deficit_m2 > worst_deficit:
+                            worst_deficit = exc.deficit_m2
+                            worst_envelope = exc.envelope_minus_corridor_m2
+                            worst_min_area = exc.total_liveability_min_area_m2
+                if deterministic_infeasible:
+                    stub_reason = (
+                        f"Brief exceeds plot capacity by "
+                        f"~{worst_deficit:.1f} m² (NBC-minimum room "
+                        f"areas sum to {worst_min_area:.1f} m² but the "
+                        f"buildable envelope minus corridor is only "
+                        f"{worst_envelope:.1f} m²). Inv 9 — mathematical "
+                        f"infeasibility, not a search budget issue. "
+                        f"Remediation: drop a room (try removing pooja "
+                        f"or utility for the tightest reduction) or "
+                        f"enlarge the plot."
+                    )
+                else:
+                    stub_reason = (
+                        "All input candidates failed C9 sizing for a "
+                        "non-area reason (likely width-infeasibility, "
+                        "Inv 17a). Try a wider/squarer plot, smaller "
+                        "rooms, or check the brief for unusual room "
+                        "min-width hints."
+                    )
                 return PhaseResult(
                     phase_id=phase_id,
                     status=PhaseStatus.STUB,
                     elapsed_ms=(time.monotonic() - start) * 1000,
-                    stub_reason=(
-                        "All input candidates failed C9 sizing. Common "
-                        "cause: brief requests too many rooms for the "
-                        "plot's buildable envelope. Suggested "
-                        "remediation: drop a room, enlarge the plot, or "
-                        "raise C9's per-candidate search budget."
-                    ),
+                    stub_reason=stub_reason,
                     notes=(
                         f"Underlying: {type(e).__name__}",
-                        f"Detail: {str(e)[:200]}",
+                        f"Per-candidate failures: {len(e.failures)} of "
+                        f"{e.input_count}",
+                        f"Detail: {str(e)[:240]}",
                     ),
                 )
             return PhaseResult(
