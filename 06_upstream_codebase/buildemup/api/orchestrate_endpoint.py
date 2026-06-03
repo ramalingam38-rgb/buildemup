@@ -208,6 +208,17 @@ def handle_orchestrate(body: bytes) -> Tuple[int, Dict[str, Any]]:
         }
 
     # ─── Build response ───────────────────────────────────────────
+    # S60: always include a layout_preview built from C12's placement
+    # so the UI can render a floorplan even when C16's formal bundle
+    # lands STUB (B-C12-EDGE-DENSITY). Best-effort: never let preview
+    # construction break the response.
+    try:
+        from buildemup.orchestration.layout_preview import build_layout_preview
+        layout_preview = build_layout_preview(result)
+    except Exception:  # noqa: BLE001
+        _LOG.exception("layout_preview construction failed")
+        layout_preview = None
+
     response = {
         "ok": result.overall_status != PhaseStatus.ERROR,
         "overall_status": result.overall_status.value,
@@ -222,6 +233,7 @@ def handle_orchestrate(body: bytes) -> Tuple[int, Dict[str, Any]]:
             "use_real_c11b_evaluator": config.use_real_c11b_evaluator,
             "halt_on_first_failure": config.halt_on_first_failure,
         },
+        "layout_preview": layout_preview,
         "phases": [
             _serialize_phase(p, include_payloads, max_collection_items)
             for p in result.phases

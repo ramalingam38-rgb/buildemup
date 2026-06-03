@@ -93,11 +93,11 @@
     );
     renderC3aPanel(c3a);
 
-    // C16 drawings.
+    // C16 drawings (formal bundle) — with C12 placement-preview fallback.
     const c16 = (body.phases || []).find(
       (p) => p.phase_id === "c16_dual_drawings",
     );
-    renderDrawings(c16);
+    renderDrawings(c16, body.layout_preview);
 
     // Phase detail accordion.
     phaseDetails.innerHTML = "";
@@ -153,55 +153,216 @@
       "</ul>";
   }
 
-  function renderDrawings(c16) {
+  function renderDrawings(c16, layoutPreview) {
     drawingsContent.innerHTML = "";
+
+    // Did C16 produce a formal bundle with drawable successes?
+    const c16Successes =
+      (c16 && c16.payload && c16.payload.successes) || [];
+
+    if (c16 && c16.status === "ok" && c16Successes.length > 0) {
+      const failures = (c16.payload && c16.payload.failures) || [];
+      drawingsStatus.innerHTML =
+        "<strong>" +
+        c16Successes.length +
+        "</strong> formal drawing bundle(s) rendered (C16), " +
+        "<strong>" +
+        failures.length +
+        "</strong> per-candidate failure(s).";
+      c16Successes.forEach((s, i) => {
+        drawingsContent.appendChild(buildDrawingCard(s, i));
+      });
+      return;
+    }
+
+    // Fallback: render the C12 placement preview so the user always
+    // sees a floorplan, even when the formal C16 bundle is STUB.
+    if (layoutPreview && (layoutPreview.rooms || []).length > 0) {
+      const c16Note = c16 && c16.stub_reason ? c16.stub_reason : "";
+      drawingsStatus.innerHTML =
+        '<span class="text-blue-700 font-medium">Placement preview</span> ' +
+        "— " +
+        (layoutPreview.rooms || []).length +
+        " rooms from the live C9 sizing + C12 placement engine.";
+      drawingsContent.appendChild(
+        buildPreviewCard(layoutPreview, c16Note),
+      );
+      return;
+    }
+
+    // Nothing to draw at all — explain why honestly.
     if (!c16) {
       drawingsStatus.textContent = "C16 phase missing from response.";
-      return;
-    }
-    if (c16.status === "skipped") {
+    } else if (c16.status === "skipped") {
       drawingsStatus.textContent =
         "C16 skipped: " + (c16.skip_reason || "(no reason)");
-      return;
-    }
-    if (c16.status === "stub") {
+    } else if (c16.status === "stub") {
       drawingsStatus.innerHTML =
         '<span class="text-amber-700">C16 STUB:</span> ' +
-        escapeHtml(c16.stub_reason || "");
-      return;
-    }
-    if (c16.status === "error") {
+        escapeHtml(c16.stub_reason || "") +
+        " (no upstream placement to preview)";
+    } else if (c16.status === "error") {
       drawingsStatus.innerHTML =
         '<span class="text-red-700">C16 error:</span> ' +
         escapeHtml(c16.error_class || "") +
         " — " +
         escapeHtml(c16.error_message || "");
-      return;
+    } else {
+      drawingsStatus.textContent = "No drawable geometry available.";
     }
-    // OK path.
-    const payload = c16.payload || {};
-    const successes = payload.successes || [];
-    const failures = payload.failures || [];
-    drawingsStatus.innerHTML =
-      "<strong>" +
-      successes.length +
-      "</strong> drawing bundle(s) rendered, " +
-      "<strong>" +
-      failures.length +
-      "</strong> per-candidate failure(s).";
+  }
 
-    if (successes.length === 0) {
-      drawingsContent.innerHTML =
-        '<p class="text-sm text-gray-500 mt-2">' +
-        "No drawable candidates on this fixture (C12 sparse-edge case). " +
-        "Per the S57 follow-ups, this is working-as-designed." +
-        "</p>";
-      return;
+  // Render the C12 placement preview as an SVG floorplan. This is the
+  // engine's actual room placement (positions + sizes from C9/C12),
+  // shown when the formal C16 bundle isn't available yet.
+  function buildPreviewCard(preview, c16Note) {
+    const card = document.createElement("div");
+    card.className = "drawing-card mb-4";
+
+    const header = document.createElement("div");
+    header.className = "flex items-baseline justify-between mb-2";
+    const env = preview.envelope || {};
+    header.innerHTML =
+      '<span class="font-medium text-sm">Floor placement preview</span>' +
+      '<span class="text-xs text-gray-500">' +
+      escapeHtml(
+        (env.width_m || "?") + "m × " + (env.depth_m || "?") + "m envelope",
+      ) +
+      "</span>";
+    card.appendChild(header);
+
+    const svgWrap = document.createElement("div");
+    svgWrap.className = "drawing-svg-wrap";
+    svgWrap.innerHTML = renderPreviewSvg(preview);
+    card.appendChild(svgWrap);
+
+    if (preview.note) {
+      const note = document.createElement("p");
+      note.className = "text-xs text-gray-500 mt-2 italic";
+      note.textContent = preview.note;
+      card.appendChild(note);
+    }
+    return card;
+  }
+
+  // SVG renderer for the placement preview. Rooms are colour-coded
+  // rects (metres → scaled), columns small dark squares, plus an
+  // envelope outline. Y is flipped so north reads up.
+  function renderPreviewSvg(preview) {
+    const rooms = preview.rooms || [];
+    const columns = preview.columns || [];
+    const env = preview.envelope || {};
+    if (rooms.length === 0) {
+      return '<p class="text-sm text-gray-500 p-4">No rooms to draw.</p>';
     }
 
-    successes.forEach((s, i) => {
-      drawingsContent.appendChild(buildDrawingCard(s, i));
+    // Bounds: prefer envelope, fall back to room bbox.
+    let W = env.width_m || 0;
+    let H = env.depth_m || 0;
+    rooms.forEach((r) => {
+      W = Math.max(W, (r.x_m || 0) + (r.width_m || 0));
+      H = Math.max(H, (r.y_m || 0) + (r.depth_m || 0));
     });
+    W = W || 1;
+    H = H || 1;
+
+    const pad = 24;
+    const targetW = 600;
+    const targetH = 460;
+    const scale = Math.min(
+      (targetW - 2 * pad) / W,
+      (targetH - 2 * pad) / H,
+    );
+    const px = (x) => pad + x * scale;
+    // Flip Y so SW-origin reads naturally (north up).
+    const py = (y) => targetH - pad - y * scale;
+
+    const parts = [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' +
+        targetW +
+        " " +
+        targetH +
+        '" preserveAspectRatio="xMidYMid meet">',
+      '<rect width="100%" height="100%" fill="#fafafa"/>',
+    ];
+
+    // Envelope outline.
+    parts.push(
+      '<rect x="' +
+        px(0) +
+        '" y="' +
+        py(H) +
+        '" width="' +
+        W * scale +
+        '" height="' +
+        H * scale +
+        '" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>',
+    );
+
+    // Rooms.
+    rooms.forEach((r) => {
+      const x = px(r.x_m || 0);
+      const y = py((r.y_m || 0) + (r.depth_m || 0)); // top-left after flip
+      const w = (r.width_m || 0) * scale;
+      const h = (r.depth_m || 0) * scale;
+      parts.push(
+        '<rect x="' +
+          x +
+          '" y="' +
+          y +
+          '" width="' +
+          w +
+          '" height="' +
+          h +
+          '" fill="' +
+          colorForCategory(r.category) +
+          '" stroke="#475569" stroke-width="1.2" rx="1.5"/>',
+      );
+      // Label: category + dimensions.
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      parts.push(
+        '<text x="' +
+          cx +
+          '" y="' +
+          (cy - 4) +
+          '" font-size="10" font-weight="600" fill="#1e293b" text-anchor="middle" dominant-baseline="middle">' +
+          escapeHtml(prettyCategory(r.category)) +
+          "</text>",
+      );
+      parts.push(
+        '<text x="' +
+          cx +
+          '" y="' +
+          (cy + 9) +
+          '" font-size="8" fill="#64748b" text-anchor="middle" dominant-baseline="middle">' +
+          escapeHtml(
+            (r.width_m || 0).toFixed(1) + "×" + (r.depth_m || 0).toFixed(1) + "m",
+          ) +
+          "</text>",
+      );
+    });
+
+    // Columns.
+    columns.forEach((c) => {
+      const cx = px(c.x_m || 0);
+      const cy = py(c.y_m || 0);
+      parts.push(
+        '<rect x="' +
+          (cx - 2.5) +
+          '" y="' +
+          (cy - 2.5) +
+          '" width="5" height="5" fill="#334155"/>',
+      );
+    });
+
+    parts.push("</svg>");
+    return parts.join("");
+  }
+
+  function prettyCategory(cat) {
+    const s = (cat || "").replace(/_/g, " ");
+    return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
   function buildDrawingCard(success, idx) {
