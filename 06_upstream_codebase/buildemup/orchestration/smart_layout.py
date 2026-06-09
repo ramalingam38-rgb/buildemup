@@ -1,80 +1,108 @@
-"""Smart layout engine (S60) — adjacency-aware floor-plan arrangement.
+"""Smart layout engine v2 (S60) — graph/core-first floor-plan arrangement.
 
-THE PROBLEM THIS SOLVES
-=======================
-The engine's C12 placement (slicing k-d tree) sizes rooms correctly but
-arranges them with **zero adjacency awareness** — bedrooms and their
-bathrooms land on opposite sides, rooms leave big gaps, and C8's
-computed corridors are discarded before placement. The visual result is
-"disconnected boxes," not a house. (Documented as B-C12-EDGE-DENSITY;
-the adjacency-hint plumbing was never completed — see S57 follow-up #4.)
+WHY THIS EXISTS
+===============
+The engine has no working intelligent layout (C12 is an area-packer with
+zero adjacency awareness; adjacency_hints never populated; C8 corridors
+discarded). v1 of this module was a 2-zone band-packer with no staircase
+and no real circulation — the user correctly called it "boxes in order."
 
-WHAT THIS MODULE DOES
-=====================
-Takes the engine's room PROGRAM (categories + NBC sizes from C9/C12) and
-arranges it into a coherent, house-like floor plan using explicit
-architectural rules:
+v2 builds a coherent home using architectural rules drawn from how real
+procedural/graph floor-plan generators work (constrained-growth +
+adjacency-graph; see web research S60):
 
-  - Public zone (living / dining / kitchen / pooja / hall) along the
-    FRONT (entrance/facing side).
-  - Private zone (bedrooms) along the BACK.
-  - Each bedroom is PAIRED with a bathroom placed directly beside it
-    (the attached-bath adjacency the user asked for). Leftover bathrooms
-    + utility/store go to a service strip.
-  - A CORRIDOR spine runs between the public and private zones; every
-    room opens onto it (doors), and the main ENTRANCE sits on the
-    facing side.
-  - Rooms are scaled to tile the buildable area so the plan reads full,
-    with shared walls.
+  - A STAIRCASE CORE is always present (injected if the room program
+    omits it) and placed at a FIXED position so it lines up across
+    floors — the thing you climb to reach the first floor.
+  - The MAIN ENTRANCE opens into the LIVING room (never a bathroom).
+  - KITCHEN + DINING are grouped together; utility/wash sits by the
+    kitchen.
+  - A CORRIDOR/LOBBY beside the stair forms the circulation spine;
+    BEDROOMS open off it, each PAIRED with its ensuite bathroom.
+  - POOJA is placed in a corner (NE-leaning) per Indian convention.
+  - No bathroom is ever placed in the entrance/living band.
 
-This is a heuristic generator (not a constraint solver). It is honest:
-room sizes/areas come from the engine; the ARRANGEMENT is rule-based and
-clearly labelled illustrative until the C12 adjacency integration ships.
+Honesty: room sizes/areas come from the engine (NBC). The ARRANGEMENT
+is rule-based (a deterministic heuristic generator), labelled
+illustrative until a full graph-dualization engine + the C12 adjacency
+integration ship. This is the real fix for "lifeless boxes," not yet a
+C12 replacement.
 
-OUTPUT
-======
-`build_smart_layout(...)` returns a JSON-friendly dict:
+OUTPUT (JSON-friendly dict)
+===========================
   {
-    "envelope": {"width_m", "depth_m"},
+    "envelope": {"width_m","depth_m"},
     "facing": "N|E|S|W",
     "rooms":   [{"category","label","x_m","y_m","width_m","depth_m"}],
     "corridor":[{"x_m","y_m","width_m","depth_m"}],
-    "doors":   [{"x_m","y_m"}],          # door centres (room <-> corridor)
-    "entrance":{"x_m","y_m"},            # main entry on the facing side
+    "doors":   [{"x_m","y_m"}],
+    "entrance":{"x_m","y_m"},
     "note": str,
   }
-Coordinates use a frame where y=0 is the FRONT (facing side) and y grows
-toward the back; the frontend flips as needed.
+Frame: y=0 is the FRONT (facing/entrance side); y grows toward the back.
 """
 from __future__ import annotations
 
 from typing import Any, Optional
 
-_PUBLIC = ("living", "dining", "kitchen", "pooja", "hall", "foyer", "entrance")
-_PRIVATE = ("bedroom",)
+# Category groups
+_LIVING = ("living", "hall", "foyer", "drawing")
+_COOK = ("kitchen", "dining")
+_BEDROOM = ("bedroom",)
 _BATH = ("bathroom",)
-_SERVICE = ("utility", "store", "staircase", "balcony")
+_POOJA = ("pooja",)
+_SERVICE = ("utility", "store", "wash")
 
-_CORRIDOR_W_M = 1.1  # NBC-ish corridor width
+_CORRIDOR_W_M = 1.2          # circulation width
+_STAIR_W_M = 2.4            # staircase footprint width
+_STAIR_D_M = 4.0           # staircase footprint depth (dog-leg)
+_MIN_BAND_D_M = 2.4        # smallest usable band depth
 
 
 def _area(r: dict) -> float:
     return max(0.25, float(r.get("width_m") or 1.0) * float(r.get("depth_m") or 1.0))
 
 
+def _rect(category: str, x: float, y: float, w: float, d: float, label: str = "") -> dict:
+    return {
+        "category": category,
+        "label": label or category,
+        "x_m": round(x, 3), "y_m": round(y, 3),
+        "width_m": round(w, 3), "depth_m": round(d, 3),
+    }
+
+
 def _classify(rooms: list[dict]) -> dict[str, list[dict]]:
-    buckets: dict[str, list[dict]] = {"public": [], "bedroom": [], "bath": [], "service": []}
+    b: dict[str, list[dict]] = {"living": [], "cook": [], "bedroom": [], "bath": [], "pooja": [], "service": []}
     for r in rooms:
         cat = (r.get("category") or "").lower()
-        if cat in _PRIVATE:
-            buckets["bedroom"].append(r)
+        if cat in _LIVING:
+            b["living"].append(r)
+        elif cat in _COOK:
+            b["cook"].append(r)
+        elif cat in _BEDROOM:
+            b["bedroom"].append(r)
         elif cat in _BATH:
-            buckets["bath"].append(r)
-        elif cat in _PUBLIC:
-            buckets["public"].append(r)
+            b["bath"].append(r)
+        elif cat in _POOJA:
+            b["pooja"].append(r)
         else:
-            buckets["service"].append(r)
-    return buckets
+            b["service"].append(r)
+    return b
+
+
+def _lay_row(items: list[tuple[str, float]], x0: float, y0: float, row_w: float, row_d: float) -> list[dict]:
+    """Place items (category, area) left-to-right filling the row; widths ∝ area."""
+    total = sum(a for _, a in items) or 1.0
+    out = []
+    x = x0
+    for i, (cat, a) in enumerate(items):
+        w = row_w * (a / total)
+        if i == len(items) - 1:
+            w = (x0 + row_w) - x  # absorb rounding into the last cell
+        out.append(_rect(cat, x, y0, w, row_d))
+        x += w
+    return out
 
 
 def build_smart_layout(
@@ -83,97 +111,152 @@ def build_smart_layout(
     envelope_w: float,
     envelope_d: float,
     facing: str = "N",
+    include_staircase: bool = True,
 ) -> Optional[dict]:
-    """Arrange the room program into a coherent floor plan.
+    """Arrange the room program into a coherent home floor plan (v2).
 
-    Args:
-        rooms: list of {category, width_m, depth_m, room_id?} (engine sizes).
-        envelope_w / envelope_d: buildable envelope in metres.
-        facing: cardinal direction the front faces (display only).
-    Returns:
-        Layout dict (see module docstring), or None if no rooms.
+    Bands front (entrance) -> back:
+      1. LIVING (full width) — entrance opens here.
+      2. KITCHEN + DINING (+ utility) — cooking band.
+      3. CORE — staircase (one side) + corridor/lobby (rest).
+      4. BEDROOMS — each with its ensuite bathroom behind it; pooja in
+         a back corner.
+    Bands that have no rooms are skipped; the staircase core is always
+    present (so upper floors line up and are reachable).
     """
     if not rooms or envelope_w <= 0 or envelope_d <= 0:
         return None
 
     W = float(envelope_w)
     D = float(envelope_d)
-    buckets = _classify(rooms)
-
-    # ── Pair each bedroom with a bathroom (attached) ──
-    baths = list(buckets["bath"])
-    bedroom_pairs: list[tuple[dict, Optional[dict]]] = []
-    for bed in buckets["bedroom"]:
-        bath = baths.pop(0) if baths else None
-        bedroom_pairs.append((bed, bath))
-    # Leftover baths + service rooms form a service group placed with public.
-    service_rooms = list(buckets["service"]) + baths
-
-    public_rooms = list(buckets["public"]) + service_rooms
-
-    # ── Zone depth split (front public vs back private), proportional to area ──
-    pub_area = sum(_area(r) for r in public_rooms) or 1.0
-    priv_area = sum(_area(b) + (_area(t) if t else 0.0) for b, t in bedroom_pairs) or 1.0
-
-    has_public = len(public_rooms) > 0
-    has_private = len(bedroom_pairs) > 0
-
-    usable_d = max(1.0, D - (_CORRIDOR_W_M if (has_public and has_private) else 0.0))
-    if has_public and has_private:
-        front_d = usable_d * (pub_area / (pub_area + priv_area))
-        # keep each zone at least 2m deep so rooms are usable
-        front_d = min(max(front_d, 2.0), usable_d - 2.0)
-        back_d = usable_d - front_d
-        corridor_y = front_d
-        back_y = front_d + _CORRIDOR_W_M
-    elif has_public:
-        front_d, back_d, corridor_y, back_y = usable_d, 0.0, None, None
-    else:
-        front_d, back_d, corridor_y, back_y = 0.0, usable_d, None, 0.0
+    g = _classify(rooms)
 
     out_rooms: list[dict] = []
     doors: list[dict] = []
+    corridor: list[dict] = []
 
-    # ── Front zone: public rooms left-to-right, widths ∝ area ──
-    if has_public:
-        _lay_row(public_rooms, x0=0.0, y0=0.0, row_w=W, row_d=front_d,
-                 out_rooms=out_rooms, doors=doors,
-                 door_edge="bottom" if has_private else None,
-                 corridor_y=corridor_y)
+    # ── Pair bedrooms with ensuite bathrooms ──
+    baths = list(g["bath"])
+    bed_pairs: list[tuple[dict, Optional[dict]]] = []
+    for bed in g["bedroom"]:
+        bed_pairs.append((bed, baths.pop(0) if baths else None))
+    common_baths = baths  # leftover -> common, placed off the corridor
 
-    # ── Back zone: bedroom+bath columns left-to-right, widths ∝ pair area ──
-    if has_private:
-        total_pair_area = sum(_area(b) + (_area(t) if t else 0.0) for b, t in bedroom_pairs) or 1.0
+    # ── Band depth budget ──
+    stair_d = min(_STAIR_D_M, max(_MIN_BAND_D_M, D * 0.22)) if include_staircase else 0.0
+    core_d = max(stair_d, _CORRIDOR_W_M) if (include_staircase or bed_pairs) else 0.0
+
+    living_area = sum(_area(r) for r in g["living"]) or 0.0
+    cook_area = sum(_area(r) for r in g["cook"]) + sum(_area(r) for r in g["service"])
+    bed_area = sum(_area(b) + (_area(t) if t else 0.0) for b, t in bed_pairs)
+    bed_area += sum(_area(r) for r in g["pooja"]) + sum(_area(r) for r in common_baths)
+
+    flexible_d = max(1.0, D - core_d)
+    zone_total = (living_area + cook_area + bed_area) or 1.0
+    living_d = flexible_d * (living_area / zone_total) if living_area else 0.0
+    cook_d = flexible_d * (cook_area / zone_total) if cook_area else 0.0
+    bed_d = flexible_d - living_d - cook_d
+
+    # enforce minimums where a band has content
+    if living_area:
+        living_d = max(living_d, _MIN_BAND_D_M)
+    if cook_area:
+        cook_d = max(cook_d, _MIN_BAND_D_M)
+    # rebalance bed_d so total fits
+    used = living_d + cook_d + core_d
+    bed_d = max(0.0, D - used)
+    if bed_pairs and bed_d < _MIN_BAND_D_M:
+        # steal from cook/living proportionally
+        deficit = _MIN_BAND_D_M - bed_d
+        if cook_d > living_d:
+            cook_d = max(_MIN_BAND_D_M, cook_d - deficit)
+        else:
+            living_d = max(_MIN_BAND_D_M, living_d - deficit)
+        bed_d = max(0.0, D - (living_d + cook_d + core_d))
+
+    y = 0.0
+
+    # ── Band 1: LIVING (entrance) ──
+    if living_area:
+        liv = g["living"][0]
+        out_rooms.append(_rect("living", 0.0, y, W, living_d, liv.get("room_id") or "Living"))
+        # entrance door into living, on the front edge
+        doors.append({"x_m": round(W / 2, 3), "y_m": 0.0})
+        living_top = y + living_d
+        y = living_top
+
+    # ── Band 2: KITCHEN + DINING + utility ──
+    if cook_area:
+        items = [(r.get("category") or "room", _area(r)) for r in g["cook"]]
+        items += [(r.get("category") or "utility", _area(r)) for r in g["service"]]
+        row = _lay_row(items, 0.0, y, W, cook_d)
+        out_rooms.extend(row)
+        # door living -> cooking band (vertical flow)
+        if living_area:
+            doors.append({"x_m": round(W / 2, 3), "y_m": round(y, 3)})
+        y += cook_d
+
+    # ── Band 3: CORE (staircase + corridor/lobby) ──
+    core_y = y
+    if core_d > 0:
+        stair_w = min(_STAIR_W_M, W * 0.4) if include_staircase else 0.0
+        if include_staircase and stair_w > 0:
+            # staircase on the RIGHT side (fixed position across floors)
+            out_rooms.append(_rect("staircase", W - stair_w, core_y, stair_w, core_d, "Stair"))
+        corr_w = W - (stair_w if include_staircase else 0.0)
+        if corr_w > 0.5:
+            corridor.append({"x_m": 0.0, "y_m": round(core_y, 3), "width_m": round(corr_w, 3), "depth_m": round(core_d, 3)})
+            # common baths tucked into the corridor band's left edge (off the lobby)
+            cx = 0.0
+            for cb in common_baths:
+                cbw = min(_area(cb) / max(core_d, 1.0), corr_w * 0.4)
+                cbw = max(1.2, cbw)
+                out_rooms.append(_rect("bathroom", cx, core_y, cbw, core_d, cb.get("room_id") or "Bath"))
+                doors.append({"x_m": round(cx + cbw / 2, 3), "y_m": round(core_y + core_d, 3)})
+                cx += cbw
+            # door from cooking/living into the lobby
+            doors.append({"x_m": round(corr_w / 2, 3), "y_m": round(core_y, 3)})
+            # door lobby -> staircase
+            if include_staircase and stair_w > 0:
+                doors.append({"x_m": round(W - stair_w, 3), "y_m": round(core_y + core_d / 2, 3)})
+        y += core_d
+
+    # ── Band 4: BEDROOMS (+ ensuite) + pooja corner ──
+    back_y = y
+    if bed_pairs and bed_d > 0:
+        # widths ∝ pair area; pooja gets a small slice at the right (NE-ish)
+        pooja = g["pooja"][0] if g["pooja"] else None
+        pooja_w = min(2.0, W * 0.18) if pooja else 0.0
+        usable_w = W - pooja_w
+        total_pair = sum(_area(b) + (_area(t) if t else 0.0) for b, t in bed_pairs) or 1.0
         x = 0.0
-        for bed, bath in bedroom_pairs:
-            pair_area = _area(bed) + (_area(bath) if bath else 0.0)
-            col_w = W * (pair_area / total_pair_area)
+        for i, (bed, bath) in enumerate(bed_pairs):
+            pa = _area(bed) + (_area(bath) if bath else 0.0)
+            col_w = usable_w * (pa / total_pair)
+            if i == len(bed_pairs) - 1 and not pooja:
+                col_w = usable_w - x
             if bath is not None:
-                # Bedroom occupies the upper portion of the column; its
-                # bathroom sits directly below it (attached) — adjacency.
-                bed_frac = _area(bed) / pair_area
-                bed_d = back_d * bed_frac
-                bath_d = back_d - bed_d
-                out_rooms.append(_rect("bedroom", bed, x, back_y, col_w, bed_d))
-                out_rooms.append(_rect("bathroom", bath, x, back_y + bed_d, col_w, bath_d))
-                # door: bedroom -> corridor (top edge of bedroom)
-                doors.append({"x_m": round(x + col_w / 2, 3), "y_m": round(back_y, 3)})
-                # door: bedroom -> its bathroom (shared internal edge)
-                doors.append({"x_m": round(x + col_w / 2, 3), "y_m": round(back_y + bed_d, 3)})
+                bed_frac = _area(bed) / pa
+                bd = bed_d * bed_frac
+                td = bed_d - bd
+                out_rooms.append(_rect("bedroom", x, back_y, col_w, bd, bed.get("room_id") or "Bedroom"))
+                out_rooms.append(_rect("bathroom", x, back_y + bd, col_w, td, bath.get("room_id") or "Bath"))
+                doors.append({"x_m": round(x + col_w / 2, 3), "y_m": round(back_y, 3)})           # corridor->bedroom
+                doors.append({"x_m": round(x + col_w / 2, 3), "y_m": round(back_y + bd, 3)})       # bedroom->ensuite
             else:
-                out_rooms.append(_rect("bedroom", bed, x, back_y, col_w, back_d))
+                out_rooms.append(_rect("bedroom", x, back_y, col_w, bed_d, bed.get("room_id") or "Bedroom"))
                 doors.append({"x_m": round(x + col_w / 2, 3), "y_m": round(back_y, 3)})
             x += col_w
+        # pooja in the back-right corner (NE-leaning)
+        if pooja:
+            out_rooms.append(_rect("pooja", W - pooja_w, back_y, pooja_w, min(bed_d, 2.2), pooja.get("room_id") or "Pooja"))
+            doors.append({"x_m": round(W - pooja_w / 2, 3), "y_m": round(back_y, 3)})
+    elif g["pooja"]:
+        # no bedrooms but a pooja -> small corner room at the back
+        pooja = g["pooja"][0]
+        pw = min(2.0, W * 0.2)
+        out_rooms.append(_rect("pooja", W - pw, back_y, pw, max(_MIN_BAND_D_M, bed_d), pooja.get("room_id") or "Pooja"))
 
-    # ── Corridor spine ──
-    corridor: list[dict] = []
-    if has_public and has_private:
-        corridor.append({
-            "x_m": 0.0, "y_m": round(corridor_y, 3),
-            "width_m": round(W, 3), "depth_m": round(_CORRIDOR_W_M, 3),
-        })
-
-    # ── Entrance on the facing side (front, y=0) ──
     entrance = {"x_m": round(W / 2, 3), "y_m": 0.0}
 
     return {
@@ -183,50 +266,22 @@ def build_smart_layout(
         "corridor": corridor,
         "doors": doors,
         "entrance": entrance,
+        "has_staircase": bool(include_staircase),
         "note": (
-            "Smart layout — room sizes are engine-computed (NBC); the "
-            "arrangement groups public rooms at the entrance, pairs each "
-            "bedroom with its bathroom, and connects everything via a "
-            "corridor. Rule-based arrangement (illustrative) until the "
-            "C12 adjacency engine ships."
+            "Smart layout v2 — entrance opens into the living room; "
+            "kitchen & dining are grouped; a staircase + lobby form the "
+            "circulation core (same position every floor); bedrooms open "
+            "off the lobby, each with its attached bathroom; pooja in a "
+            "corner. Room sizes are engine-computed (NBC); the "
+            "arrangement is rule-based (illustrative) — a full "
+            "graph-based layout engine is the next build."
         ),
     }
 
 
-def _lay_row(
-    room_list: list[dict], *, x0: float, y0: float, row_w: float, row_d: float,
-    out_rooms: list[dict], doors: list[dict],
-    door_edge: Optional[str], corridor_y: Optional[float],
-) -> None:
-    """Lay rooms left-to-right filling [x0, x0+row_w] × [y0, y0+row_d],
-    widths proportional to area."""
-    total = sum(_area(r) for r in room_list) or 1.0
-    x = x0
-    for r in room_list:
-        w = row_w * (_area(r) / total)
-        out_rooms.append(_rect(r.get("category") or "room", r, x, y0, w, row_d))
-        if door_edge == "bottom":
-            doors.append({"x_m": round(x + w / 2, 3), "y_m": round(y0 + row_d, 3)})
-        x += w
-
-
-def _rect(category: str, src: dict, x: float, y: float, w: float, d: float) -> dict:
-    return {
-        "category": category,
-        "label": src.get("room_id") or category,
-        "x_m": round(x, 3),
-        "y_m": round(y, 3),
-        "width_m": round(w, 3),
-        "depth_m": round(d, 3),
-        # carry the engine's true NBC size for the legend / honesty
-        "engine_width_m": round(float(src.get("width_m") or 0.0), 3),
-        "engine_depth_m": round(float(src.get("depth_m") or 0.0), 3),
-    }
-
-
 def build_smart_layout_from_preview(layout_preview: Any, facing: str = "N") -> Optional[dict]:
-    """Convenience wrapper: build a smart layout from a layout_preview dict
-    (the shape `orchestration.layout_preview.build_layout_preview` emits)."""
+    """Build a smart layout from a layout_preview dict (the shape
+    `orchestration.layout_preview.build_layout_preview` emits)."""
     if not layout_preview:
         return None
     env = layout_preview.get("envelope") or {}

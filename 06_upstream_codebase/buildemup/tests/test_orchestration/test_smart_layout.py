@@ -39,7 +39,8 @@ def test_build_smart_layout_basic_shape():
     assert sl is not None
     assert sl["envelope"] == {"width_m": 12.192, "depth_m": 18.288}
     assert sl["facing"] == "E"
-    assert len(sl["rooms"]) == 9
+    # 9 program rooms + 1 injected staircase = 10
+    assert len(sl["rooms"]) == 10
     assert sl["entrance"]["y_m"] == 0.0
 
 
@@ -58,14 +59,44 @@ def test_rooms_stay_within_envelope():
 
 
 def test_public_rooms_at_front_bedrooms_at_back():
-    """Public rooms (living/kitchen/pooja) should sit at the front (low y);
-    bedrooms at the back (high y)."""
+    """Living/kitchen should sit at the front (low y); bedrooms at the
+    back (high y). (v2: pooja moves to a back corner per convention.)"""
     sl = build_smart_layout(rooms=_rooms_3br(), envelope_w=12.192, envelope_d=18.288)
-    publics = [r for r in sl["rooms"] if r["category"] in ("living", "kitchen", "pooja")]
+    publics = [r for r in sl["rooms"] if r["category"] in ("living", "kitchen")]
     bedrooms = [r for r in sl["rooms"] if r["category"] == "bedroom"]
     max_public_y = max(r["y_m"] + r["depth_m"] for r in publics)
     min_bedroom_y = min(r["y_m"] for r in bedrooms)
     assert min_bedroom_y >= max_public_y - 0.01, "bedrooms should be behind public rooms"
+
+
+def test_staircase_is_present():
+    """v2: a staircase must always be placed (so upper floors are
+    reachable) even though the room program omits it."""
+    sl = build_smart_layout(rooms=_rooms_3br(), envelope_w=12.192, envelope_d=18.288)
+    stairs = [r for r in sl["rooms"] if r["category"] == "staircase"]
+    assert len(stairs) == 1, "exactly one staircase expected"
+    assert sl["has_staircase"] is True
+
+
+def test_entrance_opens_into_living_not_a_bathroom():
+    """The entrance is on the front edge; the room spanning the front
+    must be the living room, never a bathroom."""
+    sl = build_smart_layout(rooms=_rooms_3br(), envelope_w=12.192, envelope_d=18.288)
+    ex = sl["entrance"]["x_m"]
+    front = [r for r in sl["rooms"] if r["y_m"] < 0.5
+             and r["x_m"] - 0.01 <= ex <= r["x_m"] + r["width_m"] + 0.01]
+    assert front, "a room should sit at the entrance"
+    assert all(r["category"] != "bathroom" for r in front), "no bathroom at the entrance"
+    assert any(r["category"] == "living" for r in front), "entrance should open into living"
+
+
+def test_kitchen_and_dining_grouped():
+    """Kitchen and dining should be in the same depth band (grouped)."""
+    rooms = _rooms_3br() + [{"category": "dining", "width_m": 3.0, "depth_m": 3.0, "room_id": "DINING_1"}]
+    sl = build_smart_layout(rooms=rooms, envelope_w=12.192, envelope_d=18.288)
+    kitchen = next(r for r in sl["rooms"] if r["category"] == "kitchen")
+    dining = next(r for r in sl["rooms"] if r["category"] == "dining")
+    assert abs(kitchen["y_m"] - dining["y_m"]) < 0.5, "kitchen & dining should share a band"
 
 
 def test_each_bedroom_paired_with_a_bathroom_adjacent():
@@ -96,12 +127,16 @@ def test_doors_present():
     assert len(sl["doors"]) >= len([r for r in sl["rooms"] if r["category"] == "bedroom"])
 
 
-def test_high_fill():
-    """The arrangement should fill most of the buildable area (no big gaps)."""
+def test_good_fill_with_circulation():
+    """Rooms + corridor should use most of the plot; rooms alone are
+    lower because circulation (corridor) is real space, as in a house."""
     sl = build_smart_layout(rooms=_rooms_3br(), envelope_w=12.192, envelope_d=18.288)
-    area = sum(r["width_m"] * r["depth_m"] for r in sl["rooms"])
     env = sl["envelope"]["width_m"] * sl["envelope"]["depth_m"]
-    assert area / env >= 0.75, f"fill only {area / env:.0%}"
+    room_area = sum(r["width_m"] * r["depth_m"] for r in sl["rooms"])
+    corr_area = sum(c["width_m"] * c["depth_m"] for c in sl["corridor"])
+    assert (room_area + corr_area) / env >= 0.80, (
+        f"rooms+corridor use only {(room_area + corr_area) / env:.0%}"
+    )
 
 
 def test_empty_rooms_returns_none():
