@@ -1,44 +1,27 @@
-// design.js — BuildEase "enter your plot + floors, see your home" (S60 v2).
-//
-// 3-step wizard: Plot -> Floors & rooms (per-floor composition) -> Budget.
-// On generate, runs the orchestrator once per residential floor (free-form
-// input), then renders a compacted floor plan per floor. Room SIZES are
-// engine-computed; the arrangement is a tidy shelf-pack preview (the
-// engine's spatial placement is still being refined — B-C12).
+// design.js — BuildEase design page (S60 v3).
+// 3-step wizard: Plot -> Floors&rooms (bedrooms with attached bath +
+// common baths + other rooms) -> Setbacks (NBC hint) & budget.
+// Renders a space-filling floor plan (rooms tile the plot, share walls,
+// doors on shared edges). Room sizes/cost are engine-computed.
 
 (function () {
   "use strict";
 
-  // ── Room + floor vocab (mirrors the old brief form) ──
-  const ROOM_TYPES = [
-    { value: "bedroom_master", label: "Master bedroom" },
-    { value: "bedroom_regular", label: "Bedroom" },
-    { value: "bathroom_attached", label: "Bathroom (attached)" },
-    { value: "bathroom_common", label: "Bathroom (common)" },
-    { value: "kitchen", label: "Kitchen" },
-    { value: "living", label: "Living" },
-    { value: "dining", label: "Dining" },
-    { value: "pooja", label: "Pooja" },
-    { value: "study", label: "Study" },
-    { value: "store", label: "Store" },
-    { value: "utility", label: "Utility" },
-    { value: "balcony", label: "Balcony" },
+  const OTHER_ROOMS = [
+    { key: "kitchen", label: "Kitchen" },
+    { key: "living", label: "Living" },
+    { key: "dining", label: "Dining" },
+    { key: "pooja", label: "Pooja" },
+    { key: "study", label: "Study" },
+    { key: "utility", label: "Utility" },
+    { key: "store", label: "Store" },
+    { key: "balcony", label: "Balcony" },
   ];
   const FLOOR_USES = [
     { value: "residential", label: "Residential" },
     { value: "stilt_parking", label: "Stilt parking (no rooms)" },
     { value: "terrace", label: "Terrace (no rooms)" },
   ];
-  const GROUND_DEFAULT = [
-    { t: "living", c: 1 }, { t: "kitchen", c: 1 },
-    { t: "bedroom_master", c: 1 }, { t: "bathroom_attached", c: 1 },
-    { t: "bathroom_common", c: 1 }, { t: "pooja", c: 1 },
-  ];
-  const UPPER_DEFAULT = [
-    { t: "bedroom_regular", c: 2 }, { t: "bathroom_attached", c: 1 },
-    { t: "bathroom_common", c: 1 },
-  ];
-
   const COLORS = {
     bedroom: "#bfdbfe", bathroom: "#fde68a", kitchen: "#fbcfe8",
     living: "#bbf7d0", pooja: "#fecaca", utility: "#e2e8f0",
@@ -46,12 +29,9 @@
     store: "#e5e7eb", balcony: "#cffafe",
   };
   const colorFor = (c) => COLORS[(c || "").toLowerCase()] || "#e5e7eb";
-  const pretty = (c) => {
-    const s = (c || "").replace(/_/g, " ");
-    return s.charAt(0).toUpperCase() + s.slice(1);
-  };
+  const pretty = (c) => { const s = (c || "").replace(/_/g, " "); return s.charAt(0).toUpperCase() + s.slice(1); };
+  const FT = 3.28084;
 
-  // ── Elements ──
   const form = document.getElementById("design-form");
   const prevBtn = document.getElementById("prev-btn");
   const nextBtn = document.getElementById("next-btn");
@@ -60,15 +40,14 @@
   const floorCount = document.getElementById("floor-count");
   const floorList = document.getElementById("floor-list");
   const result = document.getElementById("result");
+  const nbcHint = document.getElementById("nbc-hint");
+  const nbcHintText = document.getElementById("nbc-hint-text");
 
   let step = 1;
   const TOTAL = 3;
 
-  // ── Wizard ──
   function showStep(n) {
-    document.querySelectorAll(".step-panel").forEach((p) => {
-      p.classList.toggle("hidden", Number(p.dataset.step) !== n);
-    });
+    document.querySelectorAll(".step-panel").forEach((p) => p.classList.toggle("hidden", Number(p.dataset.step) !== n));
     document.querySelectorAll(".step-ind").forEach((ind) => {
       const s = Number(ind.dataset.step);
       ind.classList.toggle("active", s === n);
@@ -80,11 +59,9 @@
   }
   nextBtn.addEventListener("click", () => {
     if (step === 1 && !floorList.children.length) rebuildFloors();
-    if (step < TOTAL) { step += 1; showStep(step); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    if (step < TOTAL) { step += 1; showStep(step); if (step === 3) refreshSetbackHint(); window.scrollTo({ top: 0, behavior: "smooth" }); }
   });
-  prevBtn.addEventListener("click", () => {
-    if (step > 1) { step -= 1; showStep(step); window.scrollTo({ top: 0, behavior: "smooth" }); }
-  });
+  prevBtn.addEventListener("click", () => { if (step > 1) { step -= 1; showStep(step); window.scrollTo({ top: 0, behavior: "smooth" }); } });
 
   // ── Per-floor composition ──
   floorCount.addEventListener("change", rebuildFloors);
@@ -95,308 +72,285 @@
     for (let i = 0; i < n; i += 1) {
       const isGround = i === 0;
       const label = isGround ? "Ground floor" : "Floor " + i;
-      const defaults = isGround ? GROUND_DEFAULT : UPPER_DEFAULT;
       const panel = document.createElement("div");
       panel.className = "floor-panel";
       panel.dataset.floor = String(i);
+      // defaults: ground -> master+1 regular, kitchen+living+pooja, 1 common bath
+      //           upper -> 2 regular bedrooms, 1 common bath
+      const otherChecks = OTHER_ROOMS.map((o) => {
+        const on = isGround && (o.key === "kitchen" || o.key === "living" || o.key === "pooja");
+        return '<label class="inline-flex items-center gap-1 text-sm mr-3 mb-1">' +
+          '<input type="checkbox" class="other-room" data-key="' + o.key + '"' + (on ? " checked" : "") + "> " + o.label + "</label>";
+      }).join("");
       panel.innerHTML =
         '<div class="flex items-baseline justify-between mb-3">' +
         '<h4 class="font-semibold">' + label + "</h4>" +
-        '<select class="floor-use text-sm" data-floor="' + i + '">' +
-        FLOOR_USES.map((f) => '<option value="' + f.value + '">' + f.label + "</option>").join("") +
-        "</select></div>" +
-        '<div class="rooms" data-floor="' + i + '">' +
-        defaults.map((r) => roomRowHtml(r.t, r.c)).join("") +
-        "</div>" +
-        '<button type="button" class="add-room mt-2 text-xs text-blue-600 underline" data-floor="' + i + '">+ Add room</button>';
+        '<select class="floor-use text-sm">' + FLOOR_USES.map((f) => '<option value="' + f.value + '">' + f.label + "</option>").join("") + "</select></div>" +
+        '<div class="floor-body">' +
+        '<div class="mb-3"><div class="text-sm font-medium text-slate-700 mb-1">Bedrooms</div>' +
+        '<div class="bedrooms space-y-2"></div>' +
+        '<button type="button" class="add-bed mt-2 text-xs text-blue-600 underline">+ Add bedroom</button></div>' +
+        '<label class="block mb-3 max-w-[200px]"><span class="text-sm font-medium text-slate-700">Common bathrooms</span>' +
+        '<input type="number" class="common-bath fld" min="0" max="6" value="1"></label>' +
+        '<div class="text-sm font-medium text-slate-700 mb-1">Other rooms</div>' +
+        '<div class="flex flex-wrap">' + otherChecks + "</div>" +
+        "</div>";
       floorList.appendChild(panel);
+      // seed bedrooms
+      const beds = panel.querySelector(".bedrooms");
+      if (isGround) {
+        beds.appendChild(bedRow("master", true));
+        beds.appendChild(bedRow("regular", false));
+      } else {
+        beds.appendChild(bedRow("regular", true));
+        beds.appendChild(bedRow("regular", false));
+      }
     }
-    wireFloorHandlers();
+    wireFloors();
   }
 
-  function roomRowHtml(type, count) {
-    return (
-      '<div class="room-row">' +
-      '<select class="room-type flex-1">' +
-      ROOM_TYPES.map((rt) => '<option value="' + rt.value + '"' + (rt.value === type ? " selected" : "") + ">" + rt.label + "</option>").join("") +
-      "</select>" +
-      '<input type="number" class="room-count" style="width:64px" min="1" max="10" value="' + count + '">' +
-      '<button type="button" class="rm-room text-slate-400 hover:text-red-500" title="Remove">✕</button>' +
-      "</div>"
-    );
+  function bedRow(type, ensuite) {
+    const div = document.createElement("div");
+    div.className = "bed-row room-row";
+    div.innerHTML =
+      '<select class="bed-type"><option value="master"' + (type === "master" ? " selected" : "") + ">Master bedroom</option>" +
+      '<option value="regular"' + (type === "regular" ? " selected" : "") + ">Bedroom</option></select>" +
+      '<label class="inline-flex items-center gap-1 text-sm"><input type="checkbox" class="bed-ensuite"' + (ensuite ? " checked" : "") + "> attached bathroom</label>" +
+      '<button type="button" class="rm-bed text-slate-400 hover:text-red-500" title="Remove">✕</button>';
+    div.querySelector(".rm-bed").onclick = () => div.remove();
+    return div;
   }
 
-  function wireFloorHandlers() {
-    floorList.querySelectorAll(".add-room").forEach((b) => {
-      b.onclick = () => {
-        const cont = floorList.querySelector('.rooms[data-floor="' + b.dataset.floor + '"]');
-        const tmp = document.createElement("div");
-        tmp.innerHTML = roomRowHtml("bedroom_regular", 1);
-        const row = tmp.firstElementChild;
-        cont.appendChild(row);
-        row.querySelector(".rm-room").onclick = () => row.remove();
-      };
-    });
-    floorList.querySelectorAll(".rm-room").forEach((b) => {
-      b.onclick = () => b.closest(".room-row").remove();
+  function wireFloors() {
+    floorList.querySelectorAll(".add-bed").forEach((b) => {
+      b.onclick = () => b.closest(".floor-panel").querySelector(".bedrooms").appendChild(bedRow("regular", false));
     });
     floorList.querySelectorAll(".floor-use").forEach((sel) => {
       sel.onchange = () => {
-        const cont = floorList.querySelector('.rooms[data-floor="' + sel.dataset.floor + '"]');
-        const btn = floorList.querySelector('.add-room[data-floor="' + sel.dataset.floor + '"]');
-        const noRooms = sel.value !== "residential";
-        cont.style.display = noRooms ? "none" : "";
-        if (btn) btn.style.display = noRooms ? "none" : "";
+        const bodyEl = sel.closest(".floor-panel").querySelector(".floor-body");
+        bodyEl.style.display = sel.value === "residential" ? "" : "none";
       };
     });
   }
 
-  // ── Collect floors → per-floor FloorRoomBrief shapes ──
+  // ── NBC setback hint ──
+  async function refreshSetbackHint() {
+    const fd = new FormData(form);
+    const payload = {
+      city: fd.get("city"),
+      plot_width_m: Number(fd.get("width_ft")) / FT,
+      plot_depth_m: Number(fd.get("depth_ft")) / FT,
+      plot_facing: fd.get("facing"),
+      plot_type: fd.get("plot_type"),
+      road_width_m: Number(fd.get("road_ft")) / FT,
+    };
+    try {
+      const r = await fetch("/api/setback/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const d = await r.json();
+      if (!r.ok || !d.ok) { nbcHint.classList.add("hidden"); return; }
+      nbcHintText.textContent = "Front " + d.front_ft + " ft, Rear " + d.rear_ft + " ft, Left " + d.side_left_ft + " ft, Right " + d.side_right_ft + " ft (per " + d.source_authority + ").";
+      nbcHint.classList.remove("hidden");
+      // Pre-fill the user's setback fields with the legal minimum.
+      form.sb_front.value = d.front_ft; form.sb_rear.value = d.rear_ft;
+      form.sb_left.value = d.side_left_ft; form.sb_right.value = d.side_right_ft;
+    } catch (_) { nbcHint.classList.add("hidden"); }
+  }
+
+  // ── Collect + map ──
+  function plotPayload() {
+    const fd = new FormData(form);
+    return {
+      width_ft: Number(fd.get("width_ft")), depth_ft: Number(fd.get("depth_ft")),
+      facing: fd.get("facing"), city: fd.get("city"),
+      road_width_ft: Number(fd.get("road_ft")), plot_type: fd.get("plot_type"),
+    };
+  }
+
   function collectFloors() {
     const floors = [];
     floorList.querySelectorAll(".floor-panel").forEach((panel) => {
       const idx = Number(panel.dataset.floor);
       const use = panel.querySelector(".floor-use").value;
-      const rows = [];
-      panel.querySelectorAll(".room-row").forEach((row) => {
-        rows.push({
-          type: row.querySelector(".room-type").value,
-          count: Number(row.querySelector(".room-count").value) || 0,
-        });
+      const beds = [];
+      panel.querySelectorAll(".bed-row").forEach((row) => {
+        beds.push({ type: row.querySelector(".bed-type").value, ensuite: row.querySelector(".bed-ensuite").checked });
       });
-      floors.push({ idx: idx, use: use, rows: rows });
+      const commonBath = Number(panel.querySelector(".common-bath").value) || 0;
+      const other = {};
+      panel.querySelectorAll(".other-room").forEach((c) => { other[c.dataset.key] = c.checked; });
+      floors.push({ idx, use, beds, commonBath, other });
     });
     return floors;
   }
 
   function floorToBrief(floor) {
-    let bedrooms = 0, bathrooms = 0, hasKitchen = false, hasLiving = false,
-      hasPooja = false, hasUtility = false, hasMaster = false;
-    const other = [];
-    floor.rows.forEach((r) => {
-      const c = Math.max(0, r.count);
-      switch (r.type) {
-        case "bedroom_master": bedrooms += c; if (c > 0) hasMaster = true; break;
-        case "bedroom_regular": bedrooms += c; break;
-        case "bathroom_attached":
-        case "bathroom_common": bathrooms += c; break;
-        case "kitchen": if (c > 0) hasKitchen = true; break;
-        case "living": if (c > 0) hasLiving = true; break;
-        case "pooja": if (c > 0) hasPooja = true; break;
-        case "utility": if (c > 0) hasUtility = true; break;
-        default:
-          for (let k = 0; k < c; k += 1) other.push(r.type);
-      }
-    });
+    const bedrooms = floor.beds.length;
+    const ensuite = floor.beds.filter((b) => b.ensuite).length;
+    const hasMaster = floor.beds.some((b) => b.type === "master");
+    const o = floor.other || {};
+    const otherRooms = [];
+    ["dining", "study", "store", "balcony"].forEach((k) => { if (o[k]) otherRooms.push(k); });
     return {
       bedroom_count: bedrooms,
-      bathroom_count: bathrooms,
-      has_kitchen: hasKitchen,
-      has_living: hasLiving,
-      has_pooja: hasPooja,
-      has_utility: hasUtility,
-      has_master_bedroom: hasMaster,
-      other_rooms: other,
+      bathroom_count: ensuite + floor.commonBath,
+      has_kitchen: !!o.kitchen, has_living: !!o.living,
+      has_pooja: !!o.pooja, has_utility: !!o.utility,
+      has_master_bedroom: hasMaster, other_rooms: otherRooms,
       floor_label: floor.idx === 0 ? "ground" : "floor" + floor.idx,
-    };
-  }
-
-  function plotPayload() {
-    const fd = new FormData(form);
-    return {
-      width_ft: Number(fd.get("width_ft")),
-      depth_ft: Number(fd.get("depth_ft")),
-      facing: fd.get("facing"),
-      city: fd.get("city"),
-      road_width_ft: Number(fd.get("road_ft")),
-      plot_type: fd.get("plot_type"),
     };
   }
 
   // ── Generate ──
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    genBtn.disabled = true;
-    genBtn.textContent = "Generating…";
-    statusText.textContent = "running the engine…";
-
+    genBtn.disabled = true; genBtn.textContent = "Generating…"; statusText.textContent = "running the engine…";
     const plot = plotPayload();
     const vastu = new FormData(form).get("vastu") || "OFF";
     const floors = collectFloors();
-
-    // Run residential floors through the pipeline (parallel).
     const runs = floors.map(async (floor) => {
-      if (floor.use !== "residential" || floor.rows.length === 0) {
-        return { floor: floor, kind: floor.use, preview: null, body: null };
-      }
+      if (floor.use !== "residential") return { floor, kind: floor.use };
       const brief = floorToBrief(floor);
       try {
-        const resp = await fetch("/api/orchestrate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plot: plot, brief: brief, include_payloads: true, config: { vastu_tier: vastu } }),
-        });
+        const resp = await fetch("/api/orchestrate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ plot, brief, include_payloads: true, config: { vastu_tier: vastu } }) });
         const text = await resp.text();
         const body = text ? JSON.parse(text) : {};
-        if (!resp.ok || body.ok === false) {
-          return { floor: floor, kind: "error", errors: body.errors || ["rejected"], body: body };
-        }
-        return { floor: floor, kind: "residential", preview: body.layout_preview, body: body };
-      } catch (err) {
-        return { floor: floor, kind: "fetch_error", errors: [String(err)] };
-      }
+        if (!resp.ok || body.ok === false) return { floor, kind: "error", errors: body.errors || ["rejected"], body };
+        return { floor, kind: "residential", preview: body.layout_preview, body };
+      } catch (err) { return { floor, kind: "fetch_error", errors: [String(err)] }; }
     });
-
     let results;
-    try {
-      results = await Promise.all(runs);
-    } catch (err) {
-      genBtn.disabled = false; genBtn.textContent = "Generate my design";
-      statusText.textContent = "";
+    try { results = await Promise.all(runs); }
+    catch (err) {
+      genBtn.disabled = false; genBtn.textContent = "Generate my design"; statusText.textContent = "";
       result.classList.remove("hidden");
-      result.innerHTML = errorCard(
-        "Couldn't reach the engine. If this is the first run in a while the free " +
-        "server may be waking up — wait ~30s and try again.",
-      );
+      result.innerHTML = errorCard("Couldn't reach the engine. The free server may be waking up — wait ~30s and retry.");
       return;
     }
-
-    genBtn.disabled = false; genBtn.textContent = "Generate my design";
-    statusText.textContent = "";
+    genBtn.disabled = false; genBtn.textContent = "Generate my design"; statusText.textContent = "";
     render(plot, results);
   });
 
-  // ── Render results ──
   function render(plot, results) {
     result.classList.remove("hidden");
     result.innerHTML = "";
-
-    // Cost (from the first residential run's C7).
     const firstRes = results.find((r) => r.kind === "residential" && r.body);
     result.appendChild(costCard(firstRes ? firstRes.body : null));
-
-    // One card per floor.
-    results.forEach((r) => {
-      result.appendChild(floorCard(plot, r));
-    });
-
-    // Technical phases (collapsible) from the first residential run.
-    if (firstRes && firstRes.body) {
-      result.appendChild(techCard(firstRes.body.phases || []));
-    }
+    results.forEach((r) => result.appendChild(floorCard(r)));
+    if (firstRes && firstRes.body) result.appendChild(techCard(firstRes.body.phases || []));
     result.scrollIntoView({ behavior: "smooth" });
   }
 
-  function floorCard(plot, r) {
+  function floorCard(r) {
     const card = document.createElement("section");
     card.className = "bg-white rounded-xl shadow-sm border border-slate-200 p-6";
     const label = r.floor.idx === 0 ? "Ground floor" : "Floor " + r.floor.idx;
-
     if (r.kind === "stilt_parking" || r.kind === "terrace") {
-      card.innerHTML =
-        '<h2 class="text-lg font-semibold mb-1">' + label + "</h2>" +
-        '<p class="text-sm text-slate-500">' +
-        (r.kind === "stilt_parking" ? "Stilt parking — no rooms on this floor." : "Terrace — no rooms on this floor.") +
-        "</p>";
+      card.innerHTML = '<h2 class="text-lg font-semibold mb-1">' + label + "</h2><p class=\"text-sm text-slate-500\">" +
+        (r.kind === "stilt_parking" ? "Stilt parking — no rooms." : "Terrace — no rooms.") + "</p>";
       return card;
     }
     if (r.kind === "error" || r.kind === "fetch_error") {
-      card.innerHTML =
-        '<h2 class="text-lg font-semibold mb-1">' + label + "</h2>" +
-        '<p class="text-sm text-red-700">Couldn\'t generate: ' + escapeHtml((r.errors || []).join("; ")) + "</p>";
+      card.innerHTML = '<h2 class="text-lg font-semibold mb-1">' + label + "</h2><p class=\"text-sm text-red-700\">Couldn't generate: " + escapeHtml((r.errors || []).join("; ")) + "</p>";
       return card;
     }
-
     const lp = r.preview;
     if (!lp || !(lp.rooms || []).length) {
-      card.innerHTML =
-        '<h2 class="text-lg font-semibold mb-1">' + label + "</h2>" +
-        '<div class="text-sm text-amber-700">' + explainNoPlan(r.body ? r.body.phases : []) + "</div>";
+      card.innerHTML = '<h2 class="text-lg font-semibold mb-1">' + label + '</h2><div class="text-sm text-amber-700">' + explainNoPlan(r.body ? r.body.phases : []) + "</div>";
       return card;
     }
-
-    // Compact-pack the engine-sized rooms for a clean view.
-    const packed = packRooms(lp.rooms, (lp.envelope || {}).width_m || 10);
-    const fillPct = lp.envelope && lp.envelope.width_m && lp.envelope.depth_m
-      ? Math.round((100 * sumArea(lp.rooms)) / (lp.envelope.width_m * lp.envelope.depth_m))
-      : null;
-
+    const env = lp.envelope || {};
     card.innerHTML =
       '<div class="flex items-baseline justify-between mb-1">' +
       '<h2 class="text-lg font-semibold">' + label + "</h2>" +
-      '<span class="text-xs text-slate-500">' + lp.rooms.length + " rooms · " +
-      ((lp.envelope || {}).width_m || "?") + "m × " + ((lp.envelope || {}).depth_m || "?") + "m plot</span>" +
-      "</div>" +
-      '<div class="plan-svg mb-3">' + renderSvg(packed) + "</div>" +
+      '<span class="text-xs text-slate-500">' + lp.rooms.length + " rooms · " + (env.width_m || "?") + "m × " + (env.depth_m || "?") + "m</span></div>" +
+      '<div class="plan-svg mb-3">' + renderPlan(lp) + "</div>" +
       '<div class="mb-2">' + roomLegend(lp.rooms) + "</div>" +
-      '<p class="text-xs text-slate-400 italic">Room sizes are engine-computed (NBC minimums). ' +
-      "Positions are packed for a clean view — the engine's spatial layout with doors, " +
-      "corridors and wall-sharing is the next stage." +
-      (fillPct !== null ? " (Rooms use ~" + fillPct + "% of the buildable area.)" : "") +
-      "</p>";
+      '<p class="text-xs text-slate-400 italic">Illustrative layout — rooms are sized by the engine (NBC minimums, shown in the legend) and arranged to fill the plot. Exact wall positions, corridors and door swings come in the next engine stage.</p>';
     return card;
   }
 
-  function sumArea(rooms) {
-    return rooms.reduce((s, r) => s + (r.width_m || 0) * (r.depth_m || 0), 0);
-  }
+  // ── Space-filling floor plan (recursive slicing) ──
+  function renderPlan(lp) {
+    const env = lp.envelope || {};
+    const W = env.width_m || 10, H = env.depth_m || 10;
+    // Build rooms with engine area; slice-tile the WxH envelope.
+    const rooms = lp.rooms.map((r) => ({ category: r.category, area: Math.max(0.1, (r.width_m || 1) * (r.depth_m || 1)) }));
+    const tiled = sliceLayout(rooms, 0, 0, W, H);
 
-  // Shelf-pack rooms left-to-right, wrapping rows, within a target width.
-  // Guarantees no overlap; produces a tidy grid-like arrangement.
-  function packRooms(rooms, envW) {
-    const gap = 0.15; // 15cm visual gap between rooms
-    const sorted = rooms.slice().sort((a, b) =>
-      (b.depth_m || 0) - (a.depth_m || 0) || (b.width_m || 0) - (a.width_m || 0),
-    );
-    const placed = [];
-    let x = 0, y = 0, rowDepth = 0, maxW = 0;
-    sorted.forEach((r) => {
-      const w = r.width_m || 0, d = r.depth_m || 0;
-      if (x > 0 && x + w > envW + 0.001) {
-        x = 0; y += rowDepth + gap; rowDepth = 0;
-      }
-      placed.push({ category: r.category, x_m: x, y_m: y, width_m: w, depth_m: d });
-      x += w + gap;
-      rowDepth = Math.max(rowDepth, d);
-      maxW = Math.max(maxW, x - gap);
-    });
-    const totalH = y + rowDepth;
-    return { rooms: placed, W: Math.max(envW, maxW), H: totalH };
-  }
-
-  function renderSvg(packed) {
-    const rooms = packed.rooms;
-    if (!rooms.length) return "";
-    const W = packed.W || 1, H = packed.H || 1;
-    const pad = 24, tW = 760;
-    const tH = Math.max(220, Math.round((tW * H) / W));
+    const pad = 26, tW = 760;
+    const tH = Math.max(240, Math.round((tW * H) / W));
     const scale = Math.min((tW - 2 * pad) / W, (tH - 2 * pad) / H);
     const px = (x) => pad + x * scale;
-    const py = (y) => pad + y * scale; // top-down; packing already top-origin
+    const py = (y) => pad + y * scale;
 
     const out = [
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + tW + " " + tH + '" preserveAspectRatio="xMidYMid meet">',
-      '<rect width="100%" height="100%" fill="#fafafa"/>',
+      '<rect width="100%" height="100%" fill="#f8fafc"/>',
     ];
-    rooms.forEach((r) => {
-      const x = px(r.x_m), y = py(r.y_m), w = r.width_m * scale, h = r.depth_m * scale;
-      out.push('<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h +
-        '" fill="' + colorFor(r.category) + '" stroke="#475569" stroke-width="1.2" rx="2"/>');
-      const cx = x + w / 2, cy = y + h / 2;
-      out.push('<text x="' + cx + '" y="' + (cy - 2) + '" font-size="11" font-weight="600" fill="#1e293b" text-anchor="middle">' + escapeHtml(pretty(r.category)) + "</text>");
-      out.push('<text x="' + cx + '" y="' + (cy + 11) + '" font-size="9" fill="#64748b" text-anchor="middle">' + r.width_m.toFixed(1) + "×" + r.depth_m.toFixed(1) + "m</text>");
+    // Rooms
+    tiled.forEach((t) => {
+      out.push('<rect x="' + px(t.x) + '" y="' + py(t.y) + '" width="' + t.w * scale + '" height="' + t.h * scale +
+        '" fill="' + colorFor(t.category) + '" stroke="#334155" stroke-width="2"/>');
+      const cx = px(t.x) + (t.w * scale) / 2, cy = py(t.y) + (t.h * scale) / 2;
+      out.push('<text x="' + cx + '" y="' + (cy - 2) + '" font-size="11" font-weight="600" fill="#1e293b" text-anchor="middle">' + escapeHtml(pretty(t.category)) + "</text>");
+      out.push('<text x="' + cx + '" y="' + (cy + 11) + '" font-size="9" fill="#475569" text-anchor="middle">' + t.w.toFixed(1) + "×" + t.h.toFixed(1) + "m</text>");
     });
+    // Internal doors: white gaps on shared edges between adjacent rooms.
+    const DW = 0.85; // door width m
+    for (let i = 0; i < tiled.length; i += 1) {
+      for (let j = i + 1; j < tiled.length; j += 1) {
+        const a = tiled[i], b = tiled[j];
+        // vertical shared edge
+        if (Math.abs((a.x + a.w) - b.x) < 0.02 || Math.abs((b.x + b.w) - a.x) < 0.02) {
+          const ex = Math.abs((a.x + a.w) - b.x) < 0.02 ? a.x + a.w : b.x;
+          const lo = Math.max(a.y, b.y), hi = Math.min(a.y + a.h, b.y + b.h);
+          if (hi - lo >= DW + 0.1) {
+            const mid = (lo + hi) / 2;
+            out.push('<rect x="' + (px(ex) - 2) + '" y="' + py(mid - DW / 2) + '" width="4" height="' + DW * scale + '" fill="#f8fafc"/>');
+          }
+        }
+        // horizontal shared edge
+        if (Math.abs((a.y + a.h) - b.y) < 0.02 || Math.abs((b.y + b.h) - a.y) < 0.02) {
+          const ey = Math.abs((a.y + a.h) - b.y) < 0.02 ? a.y + a.h : b.y;
+          const lo = Math.max(a.x, b.x), hi = Math.min(a.x + a.w, b.x + b.w);
+          if (hi - lo >= DW + 0.1) {
+            const mid = (lo + hi) / 2;
+            out.push('<rect x="' + px(mid - DW / 2) + '" y="' + (py(ey) - 2) + '" width="' + DW * scale + '" height="4" fill="#f8fafc"/>');
+          }
+        }
+      }
+    }
+    // Outer wall (thick)
+    out.push('<rect x="' + px(0) + '" y="' + py(0) + '" width="' + W * scale + '" height="' + H * scale + '" fill="none" stroke="#0f172a" stroke-width="4"/>');
+    // North arrow
+    out.push('<g transform="translate(' + (tW - 24) + ',24)"><line x1="0" y1="8" x2="0" y2="-8" stroke="#334155" stroke-width="1.5"/><path d="M0,-10 L-3,-4 L3,-4 Z" fill="#334155"/><text x="0" y="20" font-size="9" fill="#334155" text-anchor="middle">N</text></g>');
     out.push("</svg>");
     return out.join("");
   }
 
+  // Recursive slicing: tile [x,y,w,h] with rooms proportional to area.
+  function sliceLayout(rooms, x, y, w, h) {
+    if (rooms.length === 0) return [];
+    if (rooms.length === 1) return [{ category: rooms[0].category, x, y, w, h }];
+    const sorted = rooms.slice().sort((a, b) => b.area - a.area);
+    const total = sorted.reduce((s, r) => s + r.area, 0);
+    let acc = 0, splitIdx = 0;
+    for (let i = 0; i < sorted.length; i += 1) { acc += sorted[i].area; if (acc >= total / 2) { splitIdx = i + 1; break; } }
+    splitIdx = Math.max(1, Math.min(sorted.length - 1, splitIdx));
+    const gA = sorted.slice(0, splitIdx), gB = sorted.slice(splitIdx);
+    const aA = gA.reduce((s, r) => s + r.area, 0);
+    if (w >= h) {
+      const wA = w * (aA / total);
+      return sliceLayout(gA, x, y, wA, h).concat(sliceLayout(gB, x + wA, y, w - wA, h));
+    }
+    const hA = h * (aA / total);
+    return sliceLayout(gA, x, y, w, hA).concat(sliceLayout(gB, x, y + hA, w, h - hA));
+  }
+
   function roomLegend(rooms) {
     return rooms.slice().sort((a, b) => (a.category || "").localeCompare(b.category || ""))
-      .map((r) =>
-        '<span class="room-pill"><span class="room-swatch" style="background:' + colorFor(r.category) + '"></span>' +
-        escapeHtml(pretty(r.category)) + ' <span class="text-slate-400">' +
-        (r.width_m || 0).toFixed(1) + "×" + (r.depth_m || 0).toFixed(1) + "m</span></span>",
-      ).join("");
+      .map((r) => '<span class="room-pill"><span class="room-swatch" style="background:' + colorFor(r.category) + '"></span>' +
+        escapeHtml(pretty(r.category)) + ' <span class="text-slate-400">' + (r.width_m || 0).toFixed(1) + "×" + (r.depth_m || 0).toFixed(1) + "m</span></span>").join("");
   }
 
   function explainNoPlan(phases) {
@@ -425,14 +379,10 @@
     const v = cost ? (cost.exact_value !== undefined ? cost.exact_value : cost.found_value) : undefined;
     if (v !== undefined) {
       const lk = (n) => "₹" + (n / 100000).toFixed(1) + "L";
-      const found = c07.payload.foundation || {};
-      html += '<p class="text-2xl font-semibold">' + lk(v) + "</p>" +
-        '<p class="text-xs text-slate-500">Structural cost (foundation, frame, slab, walls)' +
-        (found.type ? " · foundation: " + escapeHtml(String(found.type)) : "") + "</p>" +
-        '<p class="text-xs text-slate-400 mt-2">Structural only — finishes, MEP, contractor margin extra. Directional, not a quote.</p>';
-    } else {
-      html += '<p class="text-slate-400 text-sm">Cost estimate unavailable for this input.</p>';
-    }
+      const f = c07.payload.foundation || {};
+      html += '<p class="text-2xl font-semibold">' + lk(v) + "</p><p class=\"text-xs text-slate-500\">Structural cost (foundation, frame, slab, walls)" +
+        (f.type ? " · foundation: " + escapeHtml(String(f.type)) : "") + "</p><p class=\"text-xs text-slate-400 mt-2\">Structural only — finishes, MEP, contractor margin extra. Directional, not a quote.</p>";
+    } else { html += '<p class="text-slate-400 text-sm">Cost estimate unavailable for this input.</p>'; }
     card.innerHTML = html;
     return card;
   }
@@ -440,9 +390,7 @@
   function techCard(phases) {
     const card = document.createElement("section");
     card.className = "bg-white rounded-xl shadow-sm border border-slate-200 p-6";
-    card.innerHTML =
-      '<button type="button" id="tech-toggle" class="text-sm font-medium text-slate-600 hover:text-slate-900">▸ Engine phases (technical)</button>' +
-      '<div id="tech-body" class="hidden mt-4 grid grid-cols-2 md:grid-cols-3 gap-2"></div>';
+    card.innerHTML = '<button type="button" id="tech-toggle" class="text-sm font-medium text-slate-600 hover:text-slate-900">▸ Engine phases (technical)</button><div id="tech-body" class="hidden mt-4 grid grid-cols-2 md:grid-cols-3 gap-2"></div>';
     const body = card.querySelector("#tech-body");
     phases.forEach((p) => {
       const chip = document.createElement("div");
@@ -450,24 +398,17 @@
       chip.innerHTML = "<span>" + escapeHtml(p.phase_id) + '</span><span class="chip-badge chip-' + (p.status || "skipped") + '">' + escapeHtml(p.status || "?") + "</span>";
       body.appendChild(chip);
     });
-    card.querySelector("#tech-toggle").onclick = (e) => {
-      body.classList.toggle("hidden");
-      e.target.textContent = (body.classList.contains("hidden") ? "▸" : "▾") + " Engine phases (technical)";
-    };
+    card.querySelector("#tech-toggle").onclick = (e) => { body.classList.toggle("hidden"); e.target.textContent = (body.classList.contains("hidden") ? "▸" : "▾") + " Engine phases (technical)"; };
     return card;
   }
 
-  function errorCard(msg) {
-    return '<section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">' +
-      '<p class="text-red-700 font-medium">' + escapeHtml(msg) + "</p></section>";
-  }
+  function errorCard(msg) { return '<section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6"><p class="text-red-700 font-medium">' + escapeHtml(msg) + "</p></section>"; }
 
   function escapeHtml(s) {
     if (s === null || s === undefined) return "";
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  // ── Init ──
   rebuildFloors();
   showStep(1);
 })();

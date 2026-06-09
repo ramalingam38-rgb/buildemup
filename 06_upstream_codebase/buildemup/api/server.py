@@ -333,6 +333,15 @@ class BriefCaptureHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        # S60: the old fixture-based debug page confused users who had it
+        # bookmarked / auto-completed. Redirect it to the product page.
+        # (The pipeline is still inspectable via POST /api/orchestrate.)
+        if path == "/orchestrator_run.html":
+            self.send_response(302)
+            self.send_header("Location", "/design.html")
+            self.end_headers()
+            return
+
         # API: vastu partial items
         if path == "/api/vastu/partial-items":
             status, body = handle_vastu_partial_items()

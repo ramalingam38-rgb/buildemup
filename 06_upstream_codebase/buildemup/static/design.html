@@ -5,130 +5,93 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BuildEase — Design Your Home</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="design.css?v=s60-2">
+  <link rel="stylesheet" href="design.css?v=s60-3">
 </head>
 <body class="bg-slate-50 text-slate-900">
 
   <header class="bg-white border-b border-slate-200">
-    <div class="max-w-5xl mx-auto px-6 py-5 flex items-baseline justify-between">
-      <div>
-        <h1 class="text-2xl font-bold tracking-tight">BuildEase</h1>
-        <p class="text-sm text-slate-500">Enter your plot &amp; floors. See your home.</p>
-      </div>
-      <a href="/orchestrator_run.html" class="text-xs text-slate-400 hover:text-slate-600 underline">advanced view</a>
+    <div class="max-w-5xl mx-auto px-6 py-5">
+      <h1 class="text-2xl font-bold tracking-tight">BuildEase</h1>
+      <p class="text-sm text-slate-500">Enter your plot &amp; floors. See your home.</p>
     </div>
   </header>
 
   <main class="max-w-5xl mx-auto px-6 py-8">
 
-    <!-- Step indicator -->
     <ol class="flex items-center justify-between mb-8 text-sm">
-      <li class="step-ind flex items-center" data-step="1">
-        <span class="step-dot">1</span><span class="ml-2 step-lbl">Plot</span>
-      </li>
+      <li class="step-ind flex items-center" data-step="1"><span class="step-dot">1</span><span class="ml-2 step-lbl">Plot</span></li>
       <li class="flex-1 h-px bg-slate-300 mx-3"></li>
-      <li class="step-ind flex items-center" data-step="2">
-        <span class="step-dot">2</span><span class="ml-2 step-lbl">Floors &amp; rooms</span>
-      </li>
+      <li class="step-ind flex items-center" data-step="2"><span class="step-dot">2</span><span class="ml-2 step-lbl">Floors &amp; rooms</span></li>
       <li class="flex-1 h-px bg-slate-300 mx-3"></li>
-      <li class="step-ind flex items-center" data-step="3">
-        <span class="step-dot">3</span><span class="ml-2 step-lbl">Budget</span>
-      </li>
+      <li class="step-ind flex items-center" data-step="3"><span class="step-dot">3</span><span class="ml-2 step-lbl">Setbacks &amp; budget</span></li>
     </ol>
 
     <form id="design-form" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
 
-      <!-- ─────────── STEP 1: PLOT ─────────── -->
+      <!-- STEP 1: PLOT -->
       <section class="step-panel" data-step="1">
         <h2 class="text-lg font-semibold mb-1">Your plot</h2>
         <p class="text-sm text-slate-500 mb-6">All sizes in feet.</p>
         <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Width (ft)</span>
-            <input type="number" name="width_ft" value="40" min="15" max="200" step="1" required
-              class="fld">
-          </label>
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Depth (ft)</span>
-            <input type="number" name="depth_ft" value="60" min="15" max="200" step="1" required
-              class="fld">
-          </label>
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Road width (ft)</span>
-            <input type="number" name="road_ft" value="30" min="5" max="100" step="1" required
-              class="fld">
-          </label>
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Facing</span>
-            <select name="facing" class="fld">
-              <option value="N">North</option>
-              <option value="E" selected>East</option>
-              <option value="S">South</option>
-              <option value="W">West</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">City</span>
-            <select name="city" class="fld">
-              <option value="bangalore" selected>Bangalore</option>
-              <option value="chennai">Chennai</option>
-              <option value="hyderabad">Hyderabad</option>
-              <option value="mumbai">Mumbai</option>
-              <option value="pune">Pune</option>
-              <option value="delhi">Delhi</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Plot type</span>
-            <select name="plot_type" class="fld">
-              <option value="detached" selected>Detached</option>
-              <option value="semi_detached">Semi-detached</option>
-              <option value="continuous">Row house / continuous</option>
-            </select>
-          </label>
+          <label class="block"><span class="text-sm font-medium text-slate-700">Width (ft)</span>
+            <input type="number" name="width_ft" value="40" min="15" max="200" step="1" required class="fld"></label>
+          <label class="block"><span class="text-sm font-medium text-slate-700">Depth (ft)</span>
+            <input type="number" name="depth_ft" value="60" min="15" max="200" step="1" required class="fld"></label>
+          <label class="block"><span class="text-sm font-medium text-slate-700">Road width (ft)</span>
+            <input type="number" name="road_ft" value="30" min="5" max="100" step="1" required class="fld"></label>
+          <label class="block"><span class="text-sm font-medium text-slate-700">Facing</span>
+            <select name="facing" class="fld"><option value="N">North</option><option value="E" selected>East</option><option value="S">South</option><option value="W">West</option></select></label>
+          <label class="block"><span class="text-sm font-medium text-slate-700">City</span>
+            <select name="city" class="fld"><option value="bangalore" selected>Bangalore</option><option value="chennai">Chennai</option><option value="hyderabad">Hyderabad</option><option value="mumbai">Mumbai</option><option value="pune">Pune</option><option value="delhi">Delhi</option></select></label>
+          <label class="block"><span class="text-sm font-medium text-slate-700">Plot type</span>
+            <select name="plot_type" class="fld"><option value="detached" selected>Detached</option><option value="semi_detached">Semi-detached</option><option value="continuous">Row house / continuous</option></select></label>
         </div>
       </section>
 
-      <!-- ─────────── STEP 2: FLOORS ─────────── -->
+      <!-- STEP 2: FLOORS & ROOMS -->
       <section class="step-panel hidden" data-step="2">
         <h2 class="text-lg font-semibold mb-1">Floors &amp; rooms</h2>
-        <p class="text-sm text-slate-500 mb-4">Pick how many floors, then choose what goes on each.</p>
-        <label class="block mb-5 max-w-xs">
-          <span class="text-sm font-medium text-slate-700">How many floors?</span>
+        <p class="text-sm text-slate-500 mb-4">Choose how many floors, then what goes on each.</p>
+        <label class="block mb-5 max-w-xs"><span class="text-sm font-medium text-slate-700">How many floors?</span>
           <select name="floor_count" id="floor-count" class="fld">
-            <option value="1">Ground only (1)</option>
-            <option value="2" selected>G+1 (2)</option>
-            <option value="3">G+2 (3)</option>
-            <option value="4">G+3 (4)</option>
-          </select>
-        </label>
+            <option value="1">Ground only (1)</option><option value="2" selected>G+1 (2)</option><option value="3">G+2 (3)</option><option value="4">G+3 (4)</option>
+          </select></label>
         <div id="floor-list" class="space-y-5"></div>
       </section>
 
-      <!-- ─────────── STEP 3: BUDGET ─────────── -->
+      <!-- STEP 3: SETBACKS & BUDGET -->
       <section class="step-panel hidden" data-step="3">
-        <h2 class="text-lg font-semibold mb-1">Budget &amp; preferences</h2>
-        <p class="text-sm text-slate-500 mb-6">Optional — used for the cost comparison.</p>
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Budget min (₹ lakhs)</span>
-            <input type="number" name="budget_min" value="40" min="1" step="1" class="fld">
-          </label>
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Budget max (₹ lakhs)</span>
-            <input type="number" name="budget_max" value="60" min="1" step="1" class="fld">
-          </label>
-          <label class="block">
-            <span class="text-sm font-medium text-slate-700">Vastu guidance</span>
-            <select name="vastu" class="fld">
-              <option value="OFF" selected>Off</option>
-              <option value="PARTIAL">Partial (7 items)</option>
-            </select>
-          </label>
+        <h2 class="text-lg font-semibold mb-1">Setbacks &amp; budget</h2>
+        <p class="text-sm text-slate-500 mb-4">Setbacks are the open gaps the law requires around your building.</p>
+
+        <div id="nbc-hint" class="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-900 hidden">
+          <strong>What the law requires for your plot:</strong> <span id="nbc-hint-text">—</span>
+        </div>
+
+        <h3 class="text-sm font-semibold text-slate-700 mb-1">Your setbacks (ft)</h3>
+        <p class="text-xs text-slate-500 mb-3">We pre-fill the legal minimum. Change any value — we'll flag if it's below code, but still build the design.</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <label class="block"><span class="text-sm font-medium text-slate-700">Front</span>
+            <input type="number" name="sb_front" value="5" min="0" max="50" step="0.5" class="fld"></label>
+          <label class="block"><span class="text-sm font-medium text-slate-700">Rear</span>
+            <input type="number" name="sb_rear" value="5" min="0" max="50" step="0.5" class="fld"></label>
+          <label class="block"><span class="text-sm font-medium text-slate-700">Left</span>
+            <input type="number" name="sb_left" value="5" min="0" max="50" step="0.5" class="fld"></label>
+          <label class="block"><span class="text-sm font-medium text-slate-700">Right</span>
+            <input type="number" name="sb_right" value="5" min="0" max="50" step="0.5" class="fld"></label>
+        </div>
+
+        <h3 class="text-sm font-semibold text-slate-700 mb-3">Budget &amp; preferences</h3>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <label class="block"><span class="text-sm font-medium text-slate-700">Budget min (₹ lakhs)</span>
+            <input type="number" name="budget_min" value="40" min="1" step="1" class="fld"></label>
+          <label class="block"><span class="text-sm font-medium text-slate-700">Budget max (₹ lakhs)</span>
+            <input type="number" name="budget_max" value="60" min="1" step="1" class="fld"></label>
+          <label class="block"><span class="text-sm font-medium text-slate-700">Vastu guidance</span>
+            <select name="vastu" class="fld"><option value="OFF" selected>Off</option><option value="PARTIAL">Partial (7 items)</option></select></label>
         </div>
       </section>
 
-      <!-- Nav -->
       <div class="flex items-center justify-between pt-6 mt-6 border-t border-slate-200">
         <button type="button" id="prev-btn" class="hidden px-5 py-2 rounded-lg border border-slate-300 text-sm font-medium hover:bg-slate-50">Back</button>
         <div class="flex items-center gap-3 ml-auto">
@@ -139,16 +102,15 @@
       </div>
     </form>
 
-    <!-- ─────────── RESULTS ─────────── -->
     <div id="result" class="hidden mt-8 space-y-6"></div>
-
   </main>
 
   <footer class="max-w-5xl mx-auto px-6 py-8 text-xs text-slate-400 text-center">
-    BuildEase — early preview. Room sizes are engine-generated; floor-plan arrangement is an
-    illustrative preview, not a final architectural drawing. PENDING ENGINEER VALIDATION.
+    BuildEase — early preview. Room sizes &amp; cost are engine-computed; the floor-plan layout
+    is an illustrative arrangement (doors, corridors &amp; exact wall positions are the next
+    engine stage). PENDING ENGINEER VALIDATION.
   </footer>
 
-  <script src="design.js?v=s60-2"></script>
+  <script src="design.js?v=s60-3"></script>
 </body>
 </html>
