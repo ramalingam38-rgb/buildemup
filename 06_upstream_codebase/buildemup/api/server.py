@@ -326,10 +326,10 @@ class BriefCaptureHandler(BaseHTTPRequestHandler):
         path = parsed.path
         qs = parse_qs(parsed.query)
 
-        # Root → redirect to form
+        # Root → redirect to the design page (S60 product landing).
         if path == "/" or path == "":
             self.send_response(302)
-            self.send_header("Location", "/brief_form.html")
+            self.send_header("Location", "/design.html")
             self.end_headers()
             return
 
@@ -411,6 +411,8 @@ class BriefCaptureHandler(BaseHTTPRequestHandler):
             "/orchestrator_run.html", "/orchestrator_run.js",
             "/orchestrator_run.css",
             "/quote_compare.html", "/quote_compare.js",
+            # S60 polished "design your home" product page
+            "/design.html", "/design.js", "/design.css",
         ):
             self._serve_static(path)
             return

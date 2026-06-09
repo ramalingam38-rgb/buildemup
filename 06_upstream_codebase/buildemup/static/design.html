@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BuildEase — Design Your Home</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="design.css?v=s60-1">
+</head>
+<body class="bg-slate-50 text-slate-900">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-5xl mx-auto px-6 py-5 flex items-baseline justify-between">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">BuildEase</h1>
+        <p class="text-sm text-slate-500">Enter your plot. See your home, instantly.</p>
+      </div>
+      <a href="/orchestrator_run.html" class="text-xs text-slate-400 hover:text-slate-600 underline">
+        advanced view
+      </a>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-8">
+
+    <!-- ───────────── INPUT FORM ───────────── -->
+    <form id="design-form" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 md:p-8">
+      <h2 class="text-lg font-semibold mb-1">Tell us about your plot</h2>
+      <p class="text-sm text-slate-500 mb-6">All sizes in feet. We'll lay out the rooms and show you the plan.</p>
+
+      <!-- Plot -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Plot width (ft)</span>
+          <input type="number" name="width_ft" value="40" min="15" max="200" step="1" required
+            class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Plot depth (ft)</span>
+          <input type="number" name="depth_ft" value="60" min="15" max="200" step="1" required
+            class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Facing</span>
+          <select name="facing"
+            class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="N">North</option>
+            <option value="E" selected>East</option>
+            <option value="S">South</option>
+            <option value="W">West</option>
+          </select>
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">City</span>
+          <select name="city"
+            class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="bangalore" selected>Bangalore</option>
+            <option value="chennai">Chennai</option>
+            <option value="hyderabad">Hyderabad</option>
+            <option value="mumbai">Mumbai</option>
+            <option value="pune">Pune</option>
+            <option value="delhi">Delhi</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- Rooms -->
+      <h3 class="text-sm font-semibold text-slate-700 mb-3">What you want inside</h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Bedrooms</span>
+          <input type="number" name="bedroom_count" value="3" min="1" max="6" step="1" required
+            class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Bathrooms</span>
+          <input type="number" name="bathroom_count" value="2" min="1" max="6" step="1" required
+            class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </label>
+      </div>
+      <div class="flex flex-wrap gap-4 mb-6">
+        <label class="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="has_kitchen" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Kitchen
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="has_living" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Living room
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="has_pooja" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Pooja room
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="has_utility" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Utility
+        </label>
+      </div>
+
+      <!-- Budget (optional, display only) -->
+      <h3 class="text-sm font-semibold text-slate-700 mb-3">Budget <span class="font-normal text-slate-400">(optional — for the cost comparison)</span></h3>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Min (₹ lakhs)</span>
+          <input type="number" name="budget_min" value="40" min="1" step="1"
+            class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </label>
+        <label class="block">
+          <span class="text-sm font-medium text-slate-700">Max (₹ lakhs)</span>
+          <input type="number" name="budget_max" value="60" min="1" step="1"
+            class="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </label>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button type="submit" id="generate-btn"
+          class="px-6 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50">
+          Generate my design
+        </button>
+        <span id="status-text" class="text-sm text-slate-400"></span>
+      </div>
+      <p class="text-xs text-slate-400 mt-3">
+        Tip: a 3-bedroom home needs roughly a 30×40 ft plot or larger. Tight plots may not fit every room —
+        we'll tell you honestly if so.
+      </p>
+    </form>
+
+    <!-- ───────────── RESULT ───────────── -->
+    <div id="result" class="hidden mt-8 space-y-6">
+
+      <!-- Floor plan -->
+      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div class="flex items-baseline justify-between mb-1">
+          <h2 class="text-lg font-semibold">Your floor plan</h2>
+          <span id="plan-meta" class="text-xs text-slate-500"></span>
+        </div>
+        <div id="plan-status" class="text-sm text-slate-500 mb-3"></div>
+        <div id="plan-svg" class="w-full overflow-x-auto"></div>
+        <p id="plan-note" class="text-xs text-slate-400 italic mt-3"></p>
+      </section>
+
+      <!-- Room list + cost -->
+      <div class="grid md:grid-cols-2 gap-6">
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h2 class="text-lg font-semibold mb-3">Rooms placed</h2>
+          <div id="room-list" class="text-sm"></div>
+        </section>
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h2 class="text-lg font-semibold mb-3">Cost estimate</h2>
+          <div id="cost-summary" class="text-sm text-slate-600"></div>
+        </section>
+      </div>
+
+      <!-- Technical details (collapsible) -->
+      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <button type="button" id="tech-toggle" class="text-sm font-medium text-slate-600 hover:text-slate-900">
+          ▸ Technical details (engine phases)
+        </button>
+        <div id="tech-body" class="hidden mt-4">
+          <div id="phase-chips" class="grid grid-cols-2 md:grid-cols-3 gap-2"></div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <footer class="max-w-5xl mx-auto px-6 py-8 text-xs text-slate-400 text-center">
+    BuildEase — early preview. Room layouts are engine-generated planning aids, not final
+    architectural drawings. Output is PENDING ENGINEER VALIDATION.
+  </footer>
+
+  <script src="design.js?v=s60-1"></script>
+</body>
+</html>
