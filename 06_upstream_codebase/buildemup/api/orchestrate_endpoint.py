@@ -219,6 +219,26 @@ def handle_orchestrate(body: bytes) -> Tuple[int, Dict[str, Any]]:
         _LOG.exception("layout_preview construction failed")
         layout_preview = None
 
+    # S60 smart layout — adjacency-aware arrangement (bedroom+bath paired,
+    # public rooms at the entrance, corridor spine). Built from the room
+    # program; best-effort, never breaks the response.
+    smart_layout = None
+    try:
+        from buildemup.orchestration.smart_layout import (
+            build_smart_layout_from_preview,
+        )
+        facing_str = "N"
+        try:
+            facing_attr = getattr(getattr(plot, "facing", None), "value", None)
+            if facing_attr:
+                facing_str = str(facing_attr)
+        except Exception:  # noqa: BLE001
+            pass
+        smart_layout = build_smart_layout_from_preview(layout_preview, facing_str)
+    except Exception:  # noqa: BLE001
+        _LOG.exception("smart_layout construction failed")
+        smart_layout = None
+
     response = {
         "ok": result.overall_status != PhaseStatus.ERROR,
         "overall_status": result.overall_status.value,
@@ -234,6 +254,7 @@ def handle_orchestrate(body: bytes) -> Tuple[int, Dict[str, Any]]:
             "halt_on_first_failure": config.halt_on_first_failure,
         },
         "layout_preview": layout_preview,
+        "smart_layout": smart_layout,
         "phases": [
             _serialize_phase(p, include_payloads, max_collection_items)
             for p in result.phases

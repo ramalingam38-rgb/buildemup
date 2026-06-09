@@ -259,17 +259,75 @@
       return card;
     }
     const env = lp.envelope || {};
+    const smart = r.body && r.body.smart_layout;
+    const planSvg = smart ? renderSmartPlan(smart) : renderPlan(lp);
     card.innerHTML =
       '<div class="flex items-baseline justify-between mb-1">' +
       '<h2 class="text-lg font-semibold">' + label + "</h2>" +
       '<span class="text-xs text-slate-500">' + lp.rooms.length + " rooms · " + (env.width_m || "?") + "m × " + (env.depth_m || "?") + "m</span></div>" +
-      '<div class="plan-svg mb-3">' + renderPlan(lp) + "</div>" +
+      '<div class="plan-svg mb-3">' + planSvg + "</div>" +
       '<div class="mb-2">' + roomLegend(lp.rooms) + "</div>" +
-      '<p class="text-xs text-slate-400 italic">Illustrative layout — rooms are sized by the engine (NBC minimums, shown in the legend) and arranged to fill the plot. Exact wall positions, corridors and door swings come in the next engine stage.</p>';
+      '<p class="text-xs text-slate-400 italic">Smart layout — public rooms at the entrance, each bedroom paired with its bathroom, connected by a corridor. Room sizes are engine-computed (NBC, shown in legend); the arrangement is rule-based (illustrative) until the C12 adjacency engine ships.</p>';
     return card;
   }
 
-  // ── Space-filling floor plan (recursive slicing) ──
+  // ── Smart layout renderer (adjacency-aware: corridor + paired baths) ──
+  function renderSmartPlan(sl) {
+    const env = sl.envelope || {};
+    const W = env.width_m || 10, H = env.depth_m || 10;
+    const pad = 28, tW = 760;
+    const tH = Math.max(260, Math.round((tW * H) / W));
+    const scale = Math.min((tW - 2 * pad) / W, (tH - 2 * pad) / H);
+    const px = (x) => pad + x * scale;
+    const py = (y) => tH - pad - y * scale; // y=0 (front/entrance) at bottom
+
+    const out = [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + tW + " " + tH + '" preserveAspectRatio="xMidYMid meet">',
+      '<rect width="100%" height="100%" fill="#f8fafc"/>',
+    ];
+
+    // Corridor (drawn under rooms, light fill).
+    (sl.corridor || []).forEach((c) => {
+      out.push('<rect x="' + px(c.x_m) + '" y="' + py(c.y_m + c.depth_m) + '" width="' + c.width_m * scale +
+        '" height="' + c.depth_m * scale + '" fill="#eef2f7" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="3 3"/>');
+      out.push('<text x="' + (px(c.x_m + c.width_m / 2)) + '" y="' + (py(c.y_m + c.depth_m / 2) + 3) +
+        '" font-size="9" fill="#94a3b8" text-anchor="middle">corridor</text>');
+    });
+
+    // Rooms.
+    (sl.rooms || []).forEach((r) => {
+      const x = px(r.x_m), y = py(r.y_m + r.depth_m), w = r.width_m * scale, h = r.depth_m * scale;
+      out.push('<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h +
+        '" fill="' + colorFor(r.category) + '" stroke="#334155" stroke-width="2"/>');
+      const cx = x + w / 2, cy = y + h / 2;
+      out.push('<text x="' + cx + '" y="' + (cy - 2) + '" font-size="11" font-weight="600" fill="#1e293b" text-anchor="middle">' + escapeHtml(pretty(r.category)) + "</text>");
+      out.push('<text x="' + cx + '" y="' + (cy + 11) + '" font-size="9" fill="#475569" text-anchor="middle">' + r.width_m.toFixed(1) + "×" + r.depth_m.toFixed(1) + "m</text>");
+    });
+
+    // Doors — small white gaps on horizontal edges at door centres.
+    const DW = 0.85 * scale;
+    (sl.doors || []).forEach((d) => {
+      out.push('<rect x="' + (px(d.x_m) - DW / 2) + '" y="' + (py(d.y_m) - 2) + '" width="' + DW + '" height="4" fill="#f8fafc"/>');
+    });
+
+    // Outer wall (thick).
+    out.push('<rect x="' + px(0) + '" y="' + py(H) + '" width="' + W * scale + '" height="' + H * scale + '" fill="none" stroke="#0f172a" stroke-width="4"/>');
+
+    // Entrance marker on the front (bottom) edge.
+    if (sl.entrance) {
+      const ex = px(sl.entrance.x_m), ey = py(0);
+      out.push('<rect x="' + (ex - (1.0 * scale) / 2) + '" y="' + (ey - 3) + '" width="' + 1.0 * scale + '" height="6" fill="#fff" stroke="#16a34a" stroke-width="2"/>');
+      out.push('<text x="' + ex + '" y="' + (ey + 16) + '" font-size="10" font-weight="600" fill="#16a34a" text-anchor="middle">ENTRANCE</text>');
+    }
+
+    // Front label + north arrow.
+    out.push('<text x="' + (tW / 2) + '" y="' + (tH - 4) + '" font-size="9" fill="#64748b" text-anchor="middle">FRONT (' + escapeHtml(sl.facing || "") + "-facing)</text>");
+    out.push('<g transform="translate(' + (tW - 24) + ',24)"><line x1="0" y1="8" x2="0" y2="-8" stroke="#334155" stroke-width="1.5"/><path d="M0,-10 L-3,-4 L3,-4 Z" fill="#334155"/><text x="0" y="20" font-size="9" fill="#334155" text-anchor="middle">N</text></g>');
+    out.push("</svg>");
+    return out.join("");
+  }
+
+  // ── Space-filling floor plan (recursive slicing) — fallback ──
   function renderPlan(lp) {
     const env = lp.envelope || {};
     const W = env.width_m || 10, H = env.depth_m || 10;
